@@ -97,16 +97,23 @@
 
 ## Traceability
 
-Populated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (to be filled by roadmapper) | | Pending |
+| AUTH-01..07 | Phase 1 | Pending |
+| CHK-01 | Phase 1 | Pending |
+| SHELL-01..05 | Phase 2 | Pending |
+| FILE-01, FILE-02 | Phase 2 | Pending |
+| CHK-02..08 | Phase 3 | Pending |
+| FAC-01..06 | Phase 4 | Pending |
+| SITE-01..09 | Phase 5 | Pending |
+| ADMIN-01..06 | Phase 6 | Pending |
+| AI-01..06 | Phase 7 | Pending |
+| SHELL-06 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 48 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 48 ⚠️
+- v1 requirements: 50 total
+- Mapped to phases: 50
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-18*
