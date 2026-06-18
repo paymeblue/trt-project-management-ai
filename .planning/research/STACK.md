@@ -6,6 +6,17 @@
 
 ---
 
+> ## ⚠️ VERIFIED PACKAGE FACTS (2026-06-18, via `npm view` — these OVERRIDE any conflicting package names/versions anywhere below)
+>
+> External verification was blocked during the research run, so the package conclusions further down are STALE guesses. The orchestrator verified the following live; trust these:
+>
+> - **`@neondatabase/auth` IS the correct auth package — install it.** It exists at **`0.4.2-beta`**. It is NOT `@stackframe/stack`. BETA: pin the exact version (`"@neondatabase/auth": "0.4.2-beta"`, not `^`); verify the session / JWT role-claim API from the package's own docs before writing `lib/dal.ts`.
+> - **`@anthropic-ai/claude-agent-sdk` IS a real, separate package — use it for Dave Aredo.** It exists at **`0.3.181`**, distinct from `@anthropic-ai/sdk` (`0.105.0`). The "Claude Agent SDK" is a real package, not just the base SDK with streaming.
+> - **`@neondatabase/serverless` is `1.1.0`** (not `^0.10`). **`drizzle-orm` is `0.45.2`** (not `^0.44`).
+> - Any text below recommending `@stackframe/stack`, claiming `@neondatabase/auth` does not exist, or saying the Agent SDK "maps to `@anthropic-ai/sdk`" is stale pre-verification analysis — disregard it.
+
+---
+
 ## CRITICAL: Next 16 Breaking Changes vs 14/15
 
 The following are verified changes from the bundled `node_modules/next/dist/docs/` for Next.js 16.2.9. Do not apply Next 14/15 patterns.
