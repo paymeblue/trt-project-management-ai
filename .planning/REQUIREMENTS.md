@@ -73,12 +73,13 @@
 
 ### Dave Aredo (AI Assistant)
 
-- [ ] **AI-01**: User can chat with Dave Aredo via a server-side streaming endpoint (text-only)
+- [ ] **AI-01**: User can chat with Dave Aredo via a server-side streaming endpoint (text-only), using `@anthropic-ai/sdk` configured by env (`ANTHROPIC_BASE_URL`/`ANTHROPIC_API_KEY`/`LLM_MODEL_NAME`) so it runs against local Ollama in dev and Anthropic Claude in prod
 - [ ] **AI-02**: Assistant responses are grounded in the Processes & Flow Charts content
 - [ ] **AI-03**: Assistant context is scoped to the caller's role/permissions (no cross-role data leakage)
-- [ ] **AI-04**: Per-user chat history is persisted
+- [ ] **AI-04**: Per-user chat history is persisted across multiple chat sessions (user can revisit prior sessions)
 - [ ] **AI-05**: PM usage is rate-limited server-side via a configurable daily cap; Super Admin is unlimited
 - [ ] **AI-06**: User-submitted content cannot override the system prompt (prompt-injection resistant)
+- [ ] **AI-07**: Clicking the floating AI button expands the chat to fullscreen with a GSAP animation; the textarea composer, streaming responses, session list, and history all work smoothly
 
 ### Processes Diagram Editor (React Flow + Mermaid)
 
@@ -131,11 +132,11 @@
 | ADMIN-01..06 | Phase 6 | Pending |
 | PROC-01..05 | Phase 7 | Pending |
 | CHAT-01..04, SHELL-07 | Phase 8 | Pending |
-| AI-01..06, SHELL-06 | Phase 9 | Pending |
+| AI-01..07, SHELL-06 | Phase 9 | Pending |
 
 **Coverage:**
-- v1 requirements: 62 total
-- Mapped to phases: 62
+- v1 requirements: 63 total
+- Mapped to phases: 63
 - Unmapped: 0 ✓
 
 ---

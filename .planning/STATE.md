@@ -39,7 +39,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - Super Admin is read-only on operational data
 - Template-driven checklist schema (definition → template items → responses) — pending PDFs become data, not code
 - Next 16: use `proxy.ts` (not `middleware.ts`); `await` params/cookies/headers
-- `@neondatabase/auth` is 0.4.2-beta — pin exact version; verify session/claims API before writing `lib/dal.ts`
+- AUTH PIVOT (2026-06-19): DROPPED Neon Auth/`@neondatabase/auth` → using NextAuth/Auth.js v5 (`next-auth@5.0.0-beta.31`, installed) with Credentials provider + JWT + `role` claim + `@auth/drizzle-adapter` + `bcryptjs`. Real exports verified from node_modules. Phase 1 auth plans (01-02, 01-04) must be re-planned around NextAuth.
+- AI PIVOT (2026-06-19): Dave Aredo uses base `@anthropic-ai/sdk` env-configured (Ollama dev ↔ Claude prod via ANTHROPIC_BASE_URL/LLM_MODEL_NAME, already in .env.local) + GSAP fullscreen. Dropped Claude Agent SDK.
 - SCOPE CHANGE (2026-06-19): added Resend email, a collaborative Processes diagram editor (React Flow `@xyflow/react` 12.11.0 + Mermaid 11.15.0), and real-time dashboard chat
 - Supabase Realtime (`@supabase/supabase-js` 2.108.2) is TRANSPORT ONLY — Neon stays single source of truth; no app data in Supabase
 - Collaborative diagram editing = shared, last-write-wins per element for v1 (not CRDT)

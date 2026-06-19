@@ -101,9 +101,9 @@ A PM on the floor or on-site can complete a structured checklist (with photo evi
 
 - **Tech stack**: Next.js 16.2.9 + React 19.2.4, App Router, Tailwind v4, TypeScript — already scaffolded. Next 16 has breaking changes vs. older versions; consult `node_modules/next/dist/docs/` before writing route/server code (per repo AGENTS.md).
 - **Database**: Postgres on Neon + Drizzle ORM. Connection string in `.env.local` as `DATABASE_URL` (gitignored).
-- **Auth**: Neon Auth (`@neondatabase/auth`) — role claims for `factory_pm`, `site_pm`, `super_admin`, gating both routes and nav.
+- **Auth**: NextAuth / Auth.js v5 (`next-auth@5.0.0-beta.31`) — Credentials provider, JWT session strategy, custom `role` claim (`factory_pm`, `site_pm`, `super_admin`) via jwt/session callbacks; `@auth/drizzle-adapter` + `bcryptjs` password hashing; gate routes/nav. (Neon Auth dropped.)
 - **File storage**: S3-compatible bucket for checklist photos & ID cards.
-- **AI**: Claude Agent SDK (`@anthropic-ai/claude-agent-sdk` 0.3.181), server-side endpoint, context injection scoped to caller's role/permissions.
+- **AI**: Base `@anthropic-ai/sdk` (0.105.0), env-configurable to swap local Ollama (dev) ↔ Anthropic Claude (prod) via `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_KEY` / `LLM_MODEL_NAME`. Server-side endpoint, context scoped to caller's role. Fullscreen chat expand animated with GSAP (`gsap` 3.15.0). (Claude Agent SDK dropped in favor of env-swap simplicity.)
 - **Email**: Resend (`resend` 6.14.0) for transactional email (verification, password reset, notifications).
 - **Real-time**: Supabase Realtime (`@supabase/supabase-js` 2.108.2) used purely as a broadcast/presence transport for chat and collaborative diagram editing. Neon remains the single source of truth; Supabase does not store app data.
 - **Diagram editor**: React Flow (`@xyflow/react` 12.11.0) node canvas + Mermaid (`mermaid` 11.15.0) for text→flowchart rendering. Diagram state persisted as JSON in Neon with autosave.
@@ -115,7 +115,8 @@ A PM on the floor or on-site can complete a structured checklist (with photo evi
 |----------|-----------|---------|
 | Self-serve signup with role picker (Factory/Site PM); Super Admin seeded separately | User override of original "admin creates all logins" — PMs shouldn't wait on admin | — Pending |
 | Super Admin is read-only on operational data | Reconciles spec ambiguity; admin governs content + users, not project entries | — Pending |
-| Neon Auth for auth/roles | User-specified (`@neondatabase/auth`) | — Pending |
+| ~~Neon Auth for auth/roles~~ → NextAuth/Auth.js v5 (JWT + roles) | Neon Auth beta API unverifiable + project not MCP-accessible; user chose NextAuth ("very good") for basic JWT+roles | ✓ Switched 2026-06-19 |
+| Dave Aredo on base `@anthropic-ai/sdk` with env-swap (Ollama dev / Claude prod) + GSAP fullscreen | User wants local Ollama dev → Claude prod via `ANTHROPIC_BASE_URL`; simpler than Agent SDK | — Pending |
 | Multistep wizard pattern for all checklists | Stated UX requirement; avoids long forms on mobile | — Pending |
 | Rate-limit mechanism configurable, no hardcoded finals | Pricing/quota not finalized (~$20/mo, ~20 msg/day are placeholders) | — Pending |
 | Treat as greenfield despite CNA scaffold | Only Create-Next-App boilerplate exists; nothing to map | — Pending |

@@ -6,14 +6,14 @@
 
 ---
 
-> ## ⚠️ VERIFIED PACKAGE FACTS (2026-06-18, via `npm view` — these OVERRIDE any conflicting package names/versions anywhere below)
+> ## ⚠️ AUTHORITATIVE STACK FACTS (updated 2026-06-19 — these OVERRIDE all package/auth conclusions anywhere below)
 >
-> External verification was blocked during the research run, so the package conclusions further down are STALE guesses. The orchestrator verified the following live; trust these:
+> The auth and AI approaches CHANGED after this research was written. Everything below about Neon Auth / Stack Auth / the Claude Agent SDK is SUPERSEDED. Trust these (verified against installed `node_modules`):
 >
-> - **`@neondatabase/auth` IS the correct auth package — install it.** It exists at **`0.4.2-beta`**. It is NOT `@stackframe/stack`. BETA: pin the exact version (`"@neondatabase/auth": "0.4.2-beta"`, not `^`); verify the session / JWT role-claim API from the package's own docs before writing `lib/dal.ts`.
-> - **`@anthropic-ai/claude-agent-sdk` IS a real, separate package — use it for Dave Aredo.** It exists at **`0.3.181`**, distinct from `@anthropic-ai/sdk` (`0.105.0`). The "Claude Agent SDK" is a real package, not just the base SDK with streaming.
-> - **`@neondatabase/serverless` is `1.1.0`** (not `^0.10`). **`drizzle-orm` is `0.45.2`** (not `^0.44`).
-> - Any text below recommending `@stackframe/stack`, claiming `@neondatabase/auth` does not exist, or saying the Agent SDK "maps to `@anthropic-ai/sdk`" is stale pre-verification analysis — disregard it.
+> - **AUTH = NextAuth / Auth.js v5 (`next-auth@5.0.0-beta.31`, installed).** JWT session strategy + Credentials provider; custom `role` claim via jwt/session callbacks; `@auth/drizzle-adapter@1.11.2`; `bcryptjs@3.0.3` for password hashing. Real exports confirmed: `next-auth`, `next-auth/providers/credentials`, `next-auth/jwt`, `next-auth/adapters`. **Neon Auth / `@neondatabase/auth` is DROPPED** (beta, unverifiable, MCP-inaccessible project).
+> - **AI (Dave Aredo) = base `@anthropic-ai/sdk` (`0.105.0`)**, env-configurable to swap Ollama (dev) ↔ Anthropic Claude (prod): `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`, `LLM_MODEL_NAME`. NOT `@anthropic-ai/claude-agent-sdk`. Fullscreen chat animation via `gsap@3.15.0`.
+> - **`@neondatabase/serverless` `1.1.0`** + **`drizzle-orm` `0.45.2`** (`drizzle-orm/neon-http`); `resend@6.14.0` for email.
+> - Disregard any text below recommending `@stackframe/stack`, `@neondatabase/auth`, or the Claude Agent SDK.
 
 ---
 

@@ -22,14 +22,15 @@ A digital platform that replaces the paper checklists TRT Arredo currently uses 
 <!-- GSD:stack-start source:research/STACK.md -->
 ## Technology Stack
 
-> ## ⚠️ VERIFIED PACKAGE FACTS (2026-06-18, via `npm view` — these OVERRIDE any conflicting package names/versions below)
+> ## ⚠️ AUTHORITATIVE STACK FACTS (updated 2026-06-19 — these OVERRIDE the generated stack section below)
 >
-> The stack section below was generated from research written before live npm verification, so its package conclusions are stale. Trust these instead:
+> Decisions changed after the stack section below was generated. Trust these:
 >
-> - **`@neondatabase/auth` IS the correct auth package — install it.** Exists at **`0.4.2-beta`**. NOT `@stackframe/stack`. BETA: pin exact version (`"@neondatabase/auth": "0.4.2-beta"`); verify session / JWT role-claim API from package docs before writing `lib/dal.ts`.
-> - **`@anthropic-ai/claude-agent-sdk` IS a real, separate package — use it for Dave Aredo.** Exists at **`0.3.181`**, distinct from `@anthropic-ai/sdk` (`0.105.0`).
-> - **`@neondatabase/serverless` is `1.1.0`** (not `^0.10`); **`drizzle-orm` is `0.45.2`** (not `^0.44`).
-> - Any text below recommending `@stackframe/stack`, saying `@neondatabase/auth` doesn't exist, or mapping the Agent SDK to `@anthropic-ai/sdk` is stale — disregard it.
+> - **AUTH = NextAuth / Auth.js v5 (`next-auth@5.0.0-beta.31`)** with JWT session strategy + a Credentials provider, custom `role` claim (`factory_pm | site_pm | super_admin`), `@auth/drizzle-adapter@1.11.2`, and `bcryptjs@3.0.3` for password hashing. **Neon Auth / `@neondatabase/auth` was DROPPED** (beta, MCP-inaccessible project, unverifiable API). Ignore any text recommending `@neondatabase/auth` or `@stackframe/stack`.
+> - **AI (Dave Aredo) = base `@anthropic-ai/sdk` (`0.105.0`)**, configured via env so it swaps between local **Ollama** (dev) and **Anthropic Claude** (prod): `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`, `LLM_MODEL_NAME`. Do NOT use `@anthropic-ai/claude-agent-sdk`. Fullscreen chat expand uses **GSAP** (`gsap@3.15.0`).
+> - **DB:** `@neondatabase/serverless` `1.1.0` + `drizzle-orm` `0.45.2` (`drizzle-orm/neon-http`), `drizzle-kit` for push.
+> - **Next 16:** `proxy.ts` (NOT `middleware.ts`); `await` `params`/`cookies()`/`headers()`. Auth.js v5 is App-Router-native; use `auth()` in server components / route-group layouts / DAL for authoritative checks, with a thin optimistic `proxy.ts`.
+> - **Email:** `resend@6.14.0`.
 
 ## CRITICAL: Next 16 Breaking Changes vs 14/15
 | What changed | Old (14/15) | New (16) | Source |
