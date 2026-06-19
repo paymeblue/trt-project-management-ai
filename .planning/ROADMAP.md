@@ -29,13 +29,15 @@ The build goes foundation-first: lock down auth, the role model, transactional e
   3. A logged-in user only sees nav/routes for their role and cannot reach another role's routes
   4. Every mutation is authorized server-side (session + ownership) via a Data Access Layer, not UI visibility
   5. The full schema exists and is pushed to Neon — template-driven checklists (definition → template items → responses) plus projects, attachments, processes, process_diagrams, conversations, messages, chat_messages, ai_usage — no hardcoded checklist line items
-**Plans**: 4 plans
+**Auth stack**: NextAuth/Auth.js v5 (`next-auth@5.0.0-beta.31`) — Credentials provider + JWT session + `role` claim, bcryptjs password hashing, verified against the Drizzle `users` table (Neon Auth dropped, 2026-06-19).
+**Plans**: 5 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Drizzle/Neon + Vitest setup, full schema (incl. chat/diagram/token tables), `drizzle-kit push`, env scaffolding (Wave 0)
-- [ ] 01-02-PLAN.md — `@neondatabase/auth` + `lib/dal.ts` four-layer RBAC, signup/signin/signout actions, `proxy.ts`, role route groups, Super Admin seed (Wave 1)
+- [ ] 01-01-PLAN.md — Drizzle/Neon + Vitest + Resend setup, full schema (NextAuth users shape + chat/diagram/token tables), `drizzle-kit push`, env scaffolding (Wave 0)
+- [ ] 01-02-PLAN.md — NextAuth v5 auth core: edge-safe auth.config.ts, auth.ts (Credentials + bcrypt), route handler, optimistic proxy.ts, authoritative lib/dal.ts, type augmentation, DAL tests (Wave 1)
 - [ ] 01-03-PLAN.md — Resend `sendEmail()` utility + verification/reset templates (Wave 1)
-- [ ] 01-04-PLAN.md — Wire email into signup verification + password-reset flows (Wave 2)
+- [ ] 01-04-PLAN.md — Email verification + password-reset flows: hashed single-use tokens, (auth) pages, new-password form that updates users.hashedPassword (Wave 2)
+- [ ] 01-05-PLAN.md — Auth wiring/RBAC: signup (whitelist + bcrypt + verify email)/signin/signout actions, super_admin seed, role route groups + dashboard stubs, auth action tests (Wave 3)
 
 ### Phase 2: App Shell, Profile, Content & S3 Uploads
 **Goal**: All roles share a working app shell with Profile, the Processes & Flow Charts entry point, and About TRT, and the presigned S3 upload pattern is proven end-to-end on the Profile ID card.
@@ -181,7 +183,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation — Auth, Roles, Email, Schema, DAL | 0/4 | Planned | - |
+| 1. Foundation — Auth, Roles, Email, Schema, DAL | 0/5 | Planned | - |
 | 2. App Shell, Profile, Content & S3 | 0/3 | Not started | - |
 | 3. Checklist Engine — Generic Wizard | 0/3 | Not started | - |
 | 4. Factory PM Flows | 0/2 | Not started | - |
