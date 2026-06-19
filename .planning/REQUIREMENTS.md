@@ -5,6 +5,11 @@
 
 ## v1 Requirements
 
+### Email (Resend)
+
+- [ ] **EMAIL-01**: Transactional email is sent via Resend, powering email verification (AUTH-02) and password reset (AUTH-03)
+- [ ] **EMAIL-02**: A reusable server-side email utility exists for future notifications (e.g., new-message alerts)
+
 ### Authentication & Roles
 
 - [ ] **AUTH-01**: User can self-serve sign up with email and password
@@ -20,9 +25,10 @@
 - [ ] **SHELL-01**: After login, user lands on a Home/Dashboard whose content differs by role
 - [ ] **SHELL-02**: User can view their Profile (Name, Position, ID Card image)
 - [ ] **SHELL-03**: Profile ID Card upload is date-stamped and editable only by Super Admin
-- [ ] **SHELL-04**: User can view Processes & Flow Charts (read-only for PMs)
+- [ ] **SHELL-04**: User can open the Processes & Flow Charts area from the nav (the collaborative diagram editor itself is built in the Processes Diagram Editor phase)
 - [ ] **SHELL-05**: User can view About TRT (read-only for PMs)
 - [ ] **SHELL-06**: A Dave Aredo floating button is present on every screen and opens a full-screen chat overlay
+- [ ] **SHELL-07**: The dashboard embeds the real-time chat interface (built in the Realtime Chat phase)
 
 ### Checklist Engine (shared)
 
@@ -62,7 +68,7 @@
 - [ ] **ADMIN-02**: Super Admin cannot edit operational project/checklist data
 - [ ] **ADMIN-03**: Super Admin can create/invite user accounts and assign role
 - [ ] **ADMIN-04**: Super Admin can edit About TRT content
-- [ ] **ADMIN-05**: Super Admin can edit Processes & Flow Charts content
+- [ ] **ADMIN-05**: Super Admin can curate/manage the official Processes & Flow Charts diagrams (all users can edit shared diagrams; admin governs the canonical set)
 - [ ] **ADMIN-06**: Super Admin can edit Email Formats content
 
 ### Dave Aredo (AI Assistant)
@@ -74,6 +80,21 @@
 - [ ] **AI-05**: PM usage is rate-limited server-side via a configurable daily cap; Super Admin is unlimited
 - [ ] **AI-06**: User-submitted content cannot override the system prompt (prompt-injection resistant)
 
+### Processes Diagram Editor (React Flow + Mermaid)
+
+- [ ] **PROC-01**: User can create and edit a flowchart on a node-based canvas (React Flow / `@xyflow/react`)
+- [ ] **PROC-02**: User can render a flowchart from Mermaid text
+- [ ] **PROC-03**: Diagram state autosaves to Neon (JSON); reopening after a refresh restores the latest state with no data loss
+- [ ] **PROC-04**: Multiple users can edit a shared diagram with live updates via Supabase Realtime (last-write-wins per element for v1)
+- [ ] **PROC-05**: User can list and reopen existing diagrams
+
+### Real-time Chat (Supabase Realtime + Neon)
+
+- [ ] **CHAT-01**: User can see available people / conversations and open a chat from the dashboard
+- [ ] **CHAT-02**: User can send and receive messages in real time (Supabase Realtime transport)
+- [ ] **CHAT-03**: Messages persist in Neon and reload on reconnect / refresh
+- [ ] **CHAT-04**: A simple chat interface is embedded in the dashboard
+
 ### File Storage
 
 - [ ] **FILE-01**: Photos/files upload directly to S3-compatible storage via presigned URLs (not proxied through the app)
@@ -81,18 +102,18 @@
 
 ## v2 Requirements
 
-### Collaboration
-
-- **COLLAB-01**: Super Admin can direct-message a specific team member
+(none currently — human-to-human chat, previously deferred, is now v1 via the CHAT requirements)
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
 | Native offline-first / PWA sync | Disproportionate engineering for an internal v1; web-first is acceptable |
-| Image upload into the Dave Aredo chat | Explicitly deferred; v1 chat is text-only |
+| Image upload into the Dave Aredo chat | Explicitly deferred; v1 AI chat is text-only |
 | Super Admin write access to operational data | Audit integrity — admin governs content + users, not entries |
 | General-purpose form-builder UI | Checklists are seeded from PDFs as data; no end-user builder needed for v1 |
+| Full CRDT/multiplayer diagram conflict resolution | v1 collaborative editing is last-write-wins per element with live broadcast; Yjs CRDT deferred |
+| Storing app data in Supabase | Supabase is transport-only (Realtime); Neon is the single source of truth |
 | Final AI pricing/quota values hardcoded | ~$20/mo and ~20 msg/day are placeholders pending a pricing decision; cap is configurable |
 
 ## Traceability
@@ -101,18 +122,20 @@
 |-------------|-------|--------|
 | AUTH-01..07 | Phase 1 | Pending |
 | CHK-01 | Phase 1 | Pending |
+| EMAIL-01, EMAIL-02 | Phase 1 | Pending |
 | SHELL-01..05 | Phase 2 | Pending |
 | FILE-01, FILE-02 | Phase 2 | Pending |
 | CHK-02..08 | Phase 3 | Pending |
 | FAC-01..06 | Phase 4 | Pending |
 | SITE-01..09 | Phase 5 | Pending |
 | ADMIN-01..06 | Phase 6 | Pending |
-| AI-01..06 | Phase 7 | Pending |
-| SHELL-06 | Phase 7 | Pending |
+| PROC-01..05 | Phase 7 | Pending |
+| CHAT-01..04, SHELL-07 | Phase 8 | Pending |
+| AI-01..06, SHELL-06 | Phase 9 | Pending |
 
 **Coverage:**
-- v1 requirements: 50 total
-- Mapped to phases: 50
+- v1 requirements: 62 total
+- Mapped to phases: 62
 - Unmapped: 0 ✓
 
 ---
