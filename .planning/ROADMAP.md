@@ -33,7 +33,7 @@ The build goes foundation-first: lock down auth, the role model, transactional e
 **Plans**: 5 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Drizzle/Neon + Vitest + Resend setup, full schema (NextAuth users shape + chat/diagram/token tables), `drizzle-kit push`, env scaffolding (Wave 0)
+- [x] 01-01-PLAN.md — Drizzle/Neon + Vitest + Resend setup, full schema (NextAuth users shape + chat/diagram/token tables), `drizzle-kit push`, env scaffolding (Wave 0) [COMPLETE 2026-06-19: 17 tables pushed, Vitest 3 pass/9 todo, lint+tsc clean]
 - [ ] 01-02-PLAN.md — NextAuth v5 auth core: edge-safe auth.config.ts, auth.ts (Credentials + bcrypt), route handler, optimistic proxy.ts, authoritative lib/dal.ts, type augmentation, DAL tests (Wave 1)
 - [ ] 01-03-PLAN.md — Resend `sendEmail()` utility + verification/reset templates (Wave 1)
 - [ ] 01-04-PLAN.md — Email verification + password-reset flows: hashed single-use tokens, (auth) pages, new-password form that updates users.hashedPassword (Wave 2)
