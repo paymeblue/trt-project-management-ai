@@ -197,3 +197,14 @@ export const passwordResetTokens = pgTable('password_reset_tokens', {
   usedAt:    timestamp('used_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
+
+// ── Issue Log (Site PM) ───────────────────────────────────────────────────
+export const issues = pgTable('issues', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  projectId:   uuid('project_id').references(() => projects.id),
+  title:       text('title').notNull(),
+  description: text('description'),
+  status:      text('status').default('open').notNull(), // 'open' | 'closed'
+  createdBy:   uuid('created_by').notNull().references(() => users.id),
+  createdAt:   timestamp('created_at').defaultNow().notNull(),
+})
