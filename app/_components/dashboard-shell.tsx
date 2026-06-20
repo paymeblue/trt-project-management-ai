@@ -1,99 +1,95 @@
-import type { ReactNode } from 'react'
-import SignOutButton from './sign-out-button'
-import DaveAredo from './dave-aredo'
+import Link from 'next/link'
 
 export type Tile = {
   title: string
   description: string
   href?: string
   status?: 'ready' | 'soon'
+  icon?: string
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  factory_pm: 'Factory PM',
-  site_pm: 'Site PM',
-  super_admin: 'Super Admin',
+function iconFor(title: string): string {
+  const t = title.toLowerCase()
+  if (t.includes('product readiness')) return 'inventory_2'
+  if (t.includes('project')) return 'factory'
+  if (t.includes('issue')) return 'assignment_late'
+  if (t.includes('process')) return 'account_tree'
+  if (t.includes('profile')) return 'person'
+  if (t.includes('about')) return 'info'
+  if (t.includes('email')) return 'mail'
+  if (t.includes('user')) return 'group'
+  if (t.includes('content')) return 'edit_note'
+  if (t.includes('overview')) return 'monitoring'
+  if (
+    t.includes('checklist') ||
+    t.includes('confirmation') ||
+    t.includes('verification') ||
+    t.includes('sorting') ||
+    t.includes('change request') ||
+    t.includes('close out') ||
+    t.includes('readiness')
+  )
+    return 'fact_check'
+  return 'widgets'
 }
 
 function TileCard({ tile }: { tile: Tile }) {
   const soon = tile.status !== 'ready'
-  const inner = (
-    <div
-      className={`group flex h-full flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition ${
-        tile.href ? 'hover:border-blue-400 hover:shadow-md' : ''
-      }`}
-    >
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <h3 className="text-base font-semibold text-gray-900">{tile.title}</h3>
-        {soon && (
-          <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+  const icon = tile.icon ?? iconFor(tile.title)
+  const body = (
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest p-md transition-shadow hover:shadow-[0_2px_8px_rgba(11,28,48,0.08)]">
+      <div className="absolute left-0 top-0 h-1 w-full bg-primary-container opacity-80" />
+      <div className="mb-3 mt-2 flex items-start justify-between">
+        <span className="material-symbols-outlined text-primary">{icon}</span>
+        {soon ? (
+          <span className="rounded-full bg-surface-container-high px-2 py-0.5 text-label-sm font-label-sm uppercase text-on-surface-variant">
             Soon
+          </span>
+        ) : (
+          <span className="material-symbols-outlined text-on-surface-variant transition-transform group-hover:translate-x-1">
+            arrow_forward
           </span>
         )}
       </div>
-      <p className="text-sm text-gray-500">{tile.description}</p>
+      <h3 className="mb-1 text-title-md font-title-md text-on-surface">{tile.title}</h3>
+      <p className="text-body-md font-body-md text-on-surface-variant">{tile.description}</p>
     </div>
   )
   return tile.href ? (
-    <a href={tile.href} className="block h-full">
-      {inner}
-    </a>
+    <Link href={tile.href} className="block h-full">
+      {body}
+    </Link>
   ) : (
-    inner
+    body
   )
 }
 
-/**
- * Shared role home screen: header with user + sign-out, a grid of navigation
- * tiles, and the floating Dave Aredo button placeholder.
- */
 export default function DashboardShell({
   userName,
   role,
   tiles,
-  children,
 }: {
   userName: string
   role: string
   tiles: Tile[]
-  children?: ReactNode
 }) {
+  const label =
+    role === 'factory_pm' ? 'Factory PM' : role === 'site_pm' ? 'Site PM' : 'Super Admin'
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-10 border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <span className="text-lg font-bold text-gray-900">TRT&nbsp;PM</span>
-            <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
-              {ROLE_LABELS[role] ?? role}
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="hidden text-sm text-gray-600 sm:inline">{userName}</span>
-            <SignOutButton />
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl px-6 py-8">
-        <h1 className="mb-1 text-2xl font-bold text-gray-900">
+    <div>
+      <div className="mb-lg">
+        <h2 className="text-headline-lg font-headline-lg text-on-surface">
           Welcome, {userName.split(' ')[0] || 'there'}
-        </h1>
-        <p className="mb-8 text-sm text-gray-500">
-          {ROLE_LABELS[role] ?? role} home — pick where you want to go.
+        </h2>
+        <p className="mt-1 text-body-lg font-body-lg text-on-surface-variant">
+          {label} workspace — choose where to go.
         </p>
-
-        {children}
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tiles.map((t) => (
-            <TileCard key={t.title} tile={t} />
-          ))}
-        </div>
-      </main>
-
-      {/* Dave Aredo floating button → fullscreen GSAP chat */}
-      <DaveAredo />
+      </div>
+      <div className="grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-3">
+        {tiles.map((t) => (
+          <TileCard key={t.title} tile={t} />
+        ))}
+      </div>
     </div>
   )
 }
