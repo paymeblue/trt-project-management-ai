@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
+status: phase-1-complete
 stopped_at: "Phase 1 Plan 01 complete — DB schema pushed to Neon, Vitest configured. Next: Plan 02 (auth core)."
 last_updated: "2026-06-19T16:48:00.000Z"
 last_activity: 2026-06-19 -- Phase 1 Plan 01 executed (schema, DB push, Vitest stubs)
 progress:
   total_phases: 10
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
   completed_plans: 1
   percent: 5
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-06-18)
 
 ## Current Position
 
-Phase: 1 of 8 (Foundation — Auth, Roles, Schema, DAL)
+Phase: 1 of 10 — COMPLETE. Next: Phase 2 (App Shell, Profile, Content & S3)
 Plan: 1 of 5 in current phase — Plan 01 COMPLETE
 Status: Executing
 Last activity: 2026-06-19 -- Phase 1 Plan 01 executed (schema, DB push, Vitest stubs)
