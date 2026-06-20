@@ -6,7 +6,7 @@ The build goes foundation-first: lock down auth, the role model, transactional e
 
 ## Phases
 
-- [ ] **Phase 1: Foundation — Auth, Roles, Email, Schema, DAL** - Self-serve signup, role gating, Resend email, full template-driven schema, server-side authorization
+- [x] **Phase 1: Foundation — Auth, Roles, Email, Schema, DAL** - Self-serve signup, role gating, Resend email, full template-driven schema, server-side authorization
 - [ ] **Phase 2: App Shell, Profile, Content & S3 Uploads** - Role-based nav, shared pages, presigned upload pattern proven on Profile ID card
 - [ ] **Phase 3: Checklist Engine — Generic Wizard** - One multistep wizard reading template items, with photo attach, draft save, and list views
 - [ ] **Phase 4: Factory PM Flows** - Factory Floor Projects table, Delivery Project Checklist, Product Readiness uploads
@@ -37,7 +37,7 @@ Plans:
 - [x] 01-02-PLAN.md — NextAuth v5 auth core: edge-safe auth.config.ts, auth.ts (Credentials + bcrypt), route handler, optimistic proxy.ts, authoritative lib/dal.ts, type augmentation, DAL tests (Wave 1)
 - [x] 01-03-PLAN.md — Resend `sendEmail()` utility + verification/reset templates (Wave 1)
 - [x] 01-04-PLAN.md — Email verification + password-reset flows: hashed single-use tokens, (auth) pages, new-password form that updates users.hashedPassword (Wave 2)
-- [ ] 01-05-PLAN.md — Auth wiring/RBAC: signup (whitelist + bcrypt + verify email)/signin/signout actions, super_admin seed, role route groups + dashboard stubs, auth action tests (Wave 3)
+- [x] 01-05-PLAN.md — Auth wiring/RBAC: signup (whitelist + bcrypt + verify email)/signin/signout actions, super_admin seed, role route groups + dashboard stubs, auth action tests (Wave 3)
 
 ### Phase 2: App Shell, Profile, Content & S3 Uploads
 **Goal**: All roles share a working app shell with Profile, the Processes & Flow Charts entry point, and About TRT, and the presigned S3 upload pattern is proven end-to-end on the Profile ID card.
