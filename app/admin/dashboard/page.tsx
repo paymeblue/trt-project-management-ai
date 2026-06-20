@@ -8,7 +8,7 @@ const TILES: Tile[] = [
   { title: 'User Management', description: 'Create / invite accounts and assign roles.', status: 'soon' },
   { title: 'Content Management', description: 'Edit About TRT, Processes and Email Formats.', status: 'soon' },
   { title: 'Processes & Flow Charts', description: 'Curate the official process library.', status: 'soon' },
-  { title: 'About TRT', description: 'Company info, policies and management.', status: 'soon' },
+  { title: 'About TRT', description: 'Company info, policies and management (you can edit).', href: '/about', status: 'ready' },
 ]
 
 export default async function AdminDashboardPage() {
