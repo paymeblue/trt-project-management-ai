@@ -45,7 +45,7 @@ export default function SignUpForm() {
             required
             minLength={2}
             autoComplete="name"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             placeholder="Jane Doe"
           />
           {state.errors?.name && (
@@ -63,7 +63,7 @@ export default function SignUpForm() {
             type="email"
             required
             autoComplete="email"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             placeholder="you@example.com"
           />
           {state.errors?.email && (
@@ -80,7 +80,7 @@ export default function SignUpForm() {
             name="role"
             required
             defaultValue=""
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           >
             <option value="" disabled>
               Select your role…
@@ -107,7 +107,7 @@ export default function SignUpForm() {
             required
             minLength={8}
             autoComplete="new-password"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             placeholder="At least 8 characters"
           />
           {state.errors?.password && (
@@ -118,7 +118,7 @@ export default function SignUpForm() {
         <button
           type="submit"
           disabled={pending}
-          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+          className="w-full rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
         >
           {pending ? 'Creating account…' : 'Create account'}
         </button>
@@ -126,7 +126,7 @@ export default function SignUpForm() {
 
       <p className="mt-6 text-center text-sm text-gray-500">
         Already have an account?{' '}
-        <a href="/sign-in" className="font-medium text-blue-600 hover:underline">
+        <a href="/sign-in" className="font-medium text-primary hover:underline">
           Sign in
         </a>
       </p>

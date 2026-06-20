@@ -54,7 +54,7 @@ export default async function AdminOverviewPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
-      <a href="/admin/dashboard" className="text-sm text-blue-600 hover:underline">
+      <a href="/admin/dashboard" className="text-sm text-primary hover:underline">
         &larr; Dashboard
       </a>
       <h1 className="mb-2 mt-2 text-2xl font-bold text-gray-900">Platform Overview</h1>

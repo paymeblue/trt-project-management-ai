@@ -16,7 +16,7 @@ export default async function ProductReadinessPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
-      <a href="/factory-pm/dashboard" className="text-sm text-blue-600 hover:underline">
+      <a href="/factory-pm/dashboard" className="text-sm text-primary hover:underline">
         ← Dashboard
       </a>
       <h1 className="mb-2 mt-2 text-2xl font-bold text-gray-900">Product Readiness Checklist</h1>
@@ -34,7 +34,7 @@ export default async function ProductReadinessPage() {
             name="filename"
             required
             placeholder="e.g. Unit-A-spec.pdf"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
         </div>
         <div className="flex-1">
@@ -44,12 +44,12 @@ export default async function ProductReadinessPage() {
             type="url"
             required
             placeholder="https://…"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
         </div>
         <button
           type="submit"
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
         >
           Add file
         </button>
@@ -66,7 +66,7 @@ export default async function ProductReadinessPage() {
             key={f.id}
             className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
           >
-            <a href={f.s3Key} target="_blank" rel="noreferrer" className="font-medium text-blue-600 hover:underline">
+            <a href={f.s3Key} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">
               {f.filename}
             </a>
             <span className="text-xs text-gray-400">{new Date(f.createdAt).toLocaleDateString()}</span>

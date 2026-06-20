@@ -18,7 +18,7 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      <a href="/admin/dashboard" className="text-sm text-blue-600 hover:underline">
+      <a href="/admin/dashboard" className="text-sm text-primary hover:underline">
         ← Dashboard
       </a>
       <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">User Management</h1>
@@ -53,7 +53,7 @@ export default async function AdminUsersPage() {
                     </select>
                     <button
                       type="submit"
-                      className="rounded-md bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700"
+                      className="rounded-md bg-primary px-3 py-1 text-xs font-semibold text-white hover:bg-primary/90"
                     >
                       Update
                     </button>

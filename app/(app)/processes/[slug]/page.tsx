@@ -25,7 +25,7 @@ export default async function ProcessDetailPage({
   if (!proc) {
     return (
       <div className="mx-auto max-w-2xl px-6 py-8">
-        <Link href="/processes" className="text-sm text-blue-600 hover:underline">← Processes</Link>
+        <Link href="/processes" className="text-sm text-primary hover:underline">← Processes</Link>
         <p className="mt-6 text-gray-500">Process “{slug}” not found.</p>
       </div>
     )
@@ -35,7 +35,7 @@ export default async function ProcessDetailPage({
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
-      <Link href="/processes" className="text-sm text-blue-600 hover:underline">← Processes</Link>
+      <Link href="/processes" className="text-sm text-primary hover:underline">← Processes</Link>
       <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">{proc.title}</h1>
 
       {chart && (

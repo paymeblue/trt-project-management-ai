@@ -38,7 +38,7 @@ export default function SignInForm() {
             type="email"
             required
             autoComplete="email"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             placeholder="you@example.com"
           />
         </div>
@@ -48,7 +48,7 @@ export default function SignInForm() {
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
               Password
             </label>
-            <a href="/reset-password" className="text-xs font-medium text-blue-600 hover:underline">
+            <a href="/reset-password" className="text-xs font-medium text-primary hover:underline">
               Forgot password?
             </a>
           </div>
@@ -58,7 +58,7 @@ export default function SignInForm() {
             type="password"
             required
             autoComplete="current-password"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             placeholder="Your password"
           />
         </div>
@@ -66,7 +66,7 @@ export default function SignInForm() {
         <button
           type="submit"
           disabled={pending}
-          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+          className="w-full rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
         >
           {pending ? 'Signing in…' : 'Sign in'}
         </button>
@@ -74,7 +74,7 @@ export default function SignInForm() {
 
       <p className="mt-6 text-center text-sm text-gray-500">
         Don&apos;t have an account?{' '}
-        <a href="/sign-up" className="font-medium text-blue-600 hover:underline">
+        <a href="/sign-up" className="font-medium text-primary hover:underline">
           Create one
         </a>
       </p>

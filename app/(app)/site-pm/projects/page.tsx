@@ -16,7 +16,7 @@ export default async function SiteProjectsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
-      <a href="/site-pm/dashboard" className="text-sm text-blue-600 hover:underline">
+      <a href="/site-pm/dashboard" className="text-sm text-primary hover:underline">
         ← Dashboard
       </a>
       <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">Projects</h1>
@@ -33,7 +33,7 @@ export default async function SiteProjectsPage() {
             required
             minLength={2}
             placeholder="e.g. Victoria Island Residence"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
         </div>
         <div>
@@ -41,13 +41,13 @@ export default async function SiteProjectsPage() {
           <input
             name="location"
             placeholder="e.g. Lagos"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
         </div>
         <p className="text-xs text-gray-400">Project Manager: you (auto-filled)</p>
         <button
           type="submit"
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
         >
           Create project
         </button>

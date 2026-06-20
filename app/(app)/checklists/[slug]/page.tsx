@@ -33,7 +33,7 @@ export default async function ChecklistPage({
   if (!def) {
     return (
       <div className="mx-auto max-w-2xl px-6 py-8">
-        <a href={DASH[role]} className="text-sm text-blue-600 hover:underline">
+        <a href={DASH[role]} className="text-sm text-primary hover:underline">
           ← Dashboard
         </a>
         <p className="mt-6 text-gray-500">Checklist “{slug}” not found.</p>
@@ -60,7 +60,7 @@ export default async function ChecklistPage({
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">
-      <a href={DASH[role]} className="text-sm text-blue-600 hover:underline">
+      <a href={DASH[role]} className="text-sm text-primary hover:underline">
         ← Dashboard
       </a>
       <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">{def.name}</h1>
@@ -80,7 +80,7 @@ export default async function ChecklistPage({
             {item.itemType === 'text' ? (
               <input
                 name={`text_${item.id}`}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
                 placeholder="Your answer"
               />
             ) : (
@@ -98,7 +98,7 @@ export default async function ChecklistPage({
 
             <input
               name={`notes_${item.id}`}
-              className="mt-2 w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs focus:border-blue-500 focus:outline-none"
+              className="mt-2 w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               placeholder="Notes (optional)"
             />
           </fieldset>
@@ -110,7 +110,7 @@ export default async function ChecklistPage({
 
         <button
           type="submit"
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
         >
           Submit checklist
         </button>

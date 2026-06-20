@@ -24,7 +24,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-xl px-6 py-8">
-      <a href={DASH[role]} className="text-sm text-blue-600 hover:underline">
+      <a href={DASH[role]} className="text-sm text-primary hover:underline">
         ← Dashboard
       </a>
       <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">Profile</h1>
@@ -40,7 +40,7 @@ export default async function ProfilePage() {
             defaultValue={u?.name ?? ''}
             required
             minLength={2}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
         </div>
         <div>
@@ -49,7 +49,7 @@ export default async function ProfilePage() {
             name="position"
             defaultValue={u?.position ?? ''}
             placeholder="e.g. Senior Site Manager"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -75,7 +75,7 @@ export default async function ProfilePage() {
         </div>
         <button
           type="submit"
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
         >
           Save profile
         </button>

@@ -70,7 +70,7 @@ export default function DaveAredo() {
         type="button"
         onClick={openChat}
         aria-label="Open Dave Aredo assistant"
-        className="fixed bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-lg font-bold text-white shadow-lg hover:bg-blue-700"
+        className="fixed bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-lg font-bold text-white shadow-lg hover:bg-primary/90"
       >
         DA
       </button>
@@ -109,7 +109,7 @@ export default function DaveAredo() {
             <div
               className={`max-w-[75%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm ${
                 m.role === 'user'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-primary text-white'
                   : 'bg-gray-100 text-gray-800'
               }`}
             >
@@ -133,13 +133,13 @@ export default function DaveAredo() {
             }}
             rows={1}
             placeholder="Message Dave Aredo…"
-            className="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none"
+            className="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:outline-none"
           />
           <button
             type="button"
             onClick={send}
             disabled={loading}
-            className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+            className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
           >
             Send
           </button>
