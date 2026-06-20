@@ -36,7 +36,7 @@ export default function NewPasswordForm({ token }: Props) {
       {state.message ? (
         <p role="status" className="rounded bg-green-50 p-3 text-sm text-green-700">
           {state.message}{' '}
-          <a href="/login" className="font-medium underline">
+          <a href="/sign-in" className="font-medium underline">
             Sign in
           </a>
         </p>

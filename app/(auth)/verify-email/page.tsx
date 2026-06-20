@@ -33,7 +33,7 @@ export default async function VerifyEmailPage({ searchParams }: Props) {
         <h1 className="mb-2 text-xl font-semibold text-green-600">Email verified</h1>
         <p className="text-sm text-gray-600">
           Your email address has been confirmed. You can now{' '}
-          <a href="/login" className="text-blue-600 underline">
+          <a href="/sign-in" className="text-blue-600 underline">
             sign in
           </a>
           .
