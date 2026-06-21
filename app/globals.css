@@ -121,6 +121,70 @@
   --radius-xl: 0.75rem;
 }
 
+/* Dark theme — flip the semantic tokens so every surface/on-surface utility
+   re-themes automatically. Toggled by adding `.dark` on <html>. */
+.dark {
+  --color-on-primary-container: #ffd9c2;
+
+  --color-background: #14181f;
+  --color-on-background: #e6edf7;
+  --color-surface: #14181f;
+  --color-on-surface: #e6edf7;
+  --color-surface-variant: #2a313c;
+  --color-on-surface-variant: #b9c2cf;
+  --color-surface-bright: #2d343f;
+  --color-surface-dim: #0e1218;
+  --color-surface-container-lowest: #0e1218;
+  --color-surface-container-low: #1a1f27;
+  --color-surface-container: #1f242d;
+  --color-surface-container-high: #262c36;
+  --color-surface-container-highest: #2d343f;
+
+  --color-outline: #8c98a8;
+  --color-outline-variant: #3a4250;
+  --color-inverse-surface: #e6edf7;
+  --color-inverse-on-surface: #14181f;
+
+  color-scheme: dark;
+}
+
+/* Many pages/forms use hard-coded white/gray Tailwind utilities. Remap them to
+   dark surfaces when `.dark` is active so cards, forms and badges aren't white.
+   (`.dark .bg-white` out-specifies the single-class `.bg-white`.) */
+.dark .bg-white { background-color: var(--color-surface-container-lowest) !important; }
+.dark .bg-gray-50 { background-color: var(--color-surface-container-low) !important; }
+.dark .bg-gray-100 { background-color: var(--color-surface-container-high) !important; }
+.dark .bg-gray-200 { background-color: var(--color-surface-container-highest) !important; }
+
+.dark .text-gray-900 { color: var(--color-on-surface) !important; }
+.dark .text-gray-800 { color: var(--color-on-surface) !important; }
+.dark .text-gray-700 { color: var(--color-on-surface-variant) !important; }
+.dark .text-gray-600 { color: var(--color-on-surface-variant) !important; }
+.dark .text-gray-500 { color: var(--color-on-surface-variant) !important; }
+.dark .text-gray-400 { color: color-mix(in srgb, var(--color-on-surface-variant) 70%, transparent) !important; }
+
+.dark .border-gray-100 { border-color: var(--color-outline-variant) !important; }
+.dark .border-gray-200 { border-color: var(--color-outline-variant) !important; }
+.dark .border-gray-300 { border-color: var(--color-outline-variant) !important; }
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--color-outline-variant) !important; }
+
+/* Tinted status surfaces — darken backgrounds, lighten their text for contrast. */
+.dark .bg-green-50 { background-color: #14321f !important; }
+.dark .bg-green-100 { background-color: #1b4429 !important; }
+.dark .text-green-600,
+.dark .text-green-700 { color: #6ee7a8 !important; }
+.dark .border-green-200 { border-color: #2f6b46 !important; }
+.dark .bg-red-50 { background-color: #3a1414 !important; }
+.dark .bg-red-100 { background-color: #4a1a1a !important; }
+.dark .text-red-700 { color: #ff9b9b !important; }
+.dark .bg-blue-50 { background-color: #142a3a !important; }
+.dark .text-blue-700 { color: #8fc4ff !important; }
+.dark .bg-amber-50 { background-color: #3a2c14 !important; }
+.dark .bg-amber-100 { background-color: #4a3a1a !important; }
+
+/* The signature pad must stay light so the dark pen is visible. */
+.dark .signature-pad { background-color: #ffffff !important; }
+
 body {
   background: var(--color-background);
   color: var(--color-on-surface);

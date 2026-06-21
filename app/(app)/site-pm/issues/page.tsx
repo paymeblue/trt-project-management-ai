@@ -47,44 +47,57 @@ export default async function IssueLogPage() {
         </button>
       </form>
 
-      <div className="space-y-2">
-        {rows.length === 0 && (
-          <p className="rounded-lg border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-400">
-            No issues logged.
-          </p>
-        )}
-        {rows.map((i) => {
-          const open = i.status === 'open'
-          return (
-            <div
-              key={i.id}
-              className="flex items-start justify-between gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
-            >
-              <div>
-                <p className="font-medium text-gray-900">{i.title}</p>
-                {i.description && <p className="text-sm text-gray-500">{i.description}</p>}
-                <p className="mt-1 text-xs text-gray-400">
-                  {new Date(i.createdAt).toLocaleDateString()}
-                </p>
-              </div>
-              <form action={toggleIssueAction}>
-                <input type="hidden" name="id" value={i.id} />
-                <button
-                  type="submit"
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    open
-                      ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                      : 'bg-green-100 text-green-700 hover:bg-green-200'
-                  }`}
-                  title="Click to toggle"
-                >
-                  {open ? 'Open' : 'Closed'}
-                </button>
-              </form>
-            </div>
-          )
-        })}
-      </div>
+      {/* Spreadsheet-style grid */}
+      {rows.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-400">
+          No issues logged.
+        </p>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+          <table className="w-full min-w-[640px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className="w-10 px-3 py-2 text-right">#</th>
+                <th className="px-3 py-2">Issue</th>
+                <th className="px-3 py-2">Description</th>
+                <th className="w-28 px-3 py-2">Logged</th>
+                <th className="w-24 px-3 py-2 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((i, idx) => {
+                const open = i.status === 'open'
+                return (
+                  <tr key={i.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                    <td className="px-3 py-2 text-right text-xs text-gray-400">{idx + 1}</td>
+                    <td className="px-3 py-2 font-medium text-gray-900">{i.title}</td>
+                    <td className="px-3 py-2 text-gray-500">{i.description || '—'}</td>
+                    <td className="px-3 py-2 text-xs text-gray-400">
+                      {new Date(i.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <form action={toggleIssueAction}>
+                        <input type="hidden" name="id" value={i.id} />
+                        <button
+                          type="submit"
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                            open
+                              ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                          }`}
+                          title="Click to toggle open/closed"
+                        >
+                          {open ? 'Open' : 'Closed'}
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

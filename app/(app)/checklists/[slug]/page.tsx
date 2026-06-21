@@ -65,6 +65,9 @@ export default async function ChecklistPage({
       </a>
       <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">{def.name}</h1>
 
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        Create new
+      </h2>
       <ChecklistWizard
         definitionId={def.id}
         slug={def.slug}
@@ -81,19 +84,25 @@ export default async function ChecklistPage({
         )}
       />
 
-      <h2 className="mb-3 mt-8 text-sm font-semibold text-gray-900">Your submissions</h2>
+      <h2 className="mb-3 mt-10 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        View submissions
+      </h2>
       <div className="space-y-2">
         {past.length === 0 && <p className="text-sm text-gray-400">None yet.</p>}
         {past.map((c) => (
-          <div
+          <a
             key={c.id}
-            className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm"
+            href={`/checklists/${def.slug}/${c.id}`}
+            className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm transition hover:border-primary hover:shadow-md"
           >
-            <span className="capitalize text-gray-700">{c.status}</span>
+            <span className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-base text-primary">description</span>
+              <span className="capitalize text-gray-700">{c.status}</span>
+            </span>
             <span className="text-xs text-gray-400">
               {c.submittedAt ? new Date(c.submittedAt).toLocaleString() : '—'}
             </span>
-          </div>
+          </a>
         ))}
       </div>
     </div>
