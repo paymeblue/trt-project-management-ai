@@ -2,8 +2,8 @@ import { and, desc, eq, isNull } from 'drizzle-orm'
 import { db } from '@/db'
 import { attachments, readinessForms } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
-import { addProductFileAction } from '@/actions/product-readiness'
 import ReadinessForm from '@/app/_components/readiness-form'
+import ProductPdfUpload from '@/app/_components/product-pdf-upload'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,38 +74,9 @@ export default async function ProductReadinessPage() {
 
       {/* Reference documents (name + link) */}
       <h2 className="mb-3 mt-10 text-sm font-semibold uppercase tracking-wide text-gray-500">
-        Reference documents
+        Reference documents (PDF)
       </h2>
-      <form
-        action={addProductFileAction}
-        className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
-      >
-        <div className="min-w-[160px] flex-1">
-          <label className="mb-1 block text-xs font-medium text-gray-600">File name</label>
-          <input
-            name="filename"
-            required
-            placeholder="e.g. Unit-A-spec.pdf"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-          />
-        </div>
-        <div className="min-w-[160px] flex-1">
-          <label className="mb-1 block text-xs font-medium text-gray-600">Link (URL)</label>
-          <input
-            name="url"
-            type="url"
-            required
-            placeholder="https://…"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-          />
-        </div>
-        <button
-          type="submit"
-          className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
-        >
-          Add file
-        </button>
-      </form>
+      <ProductPdfUpload />
 
       <div className="space-y-2">
         {files.length === 0 && (

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { gsap } from 'gsap'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import PaulAvatar from '@/app/_components/paul-avatar'
 
 type Msg = { role: 'user' | 'assistant'; content: string }
 type Session = { id: string; title: string; updatedAt: string }
@@ -255,9 +256,9 @@ export default function PaulArredo() {
         type="button"
         onClick={openChat}
         aria-label="Open Paul Arredo assistant"
-        className="fixed bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-lg font-bold text-white shadow-lg hover:bg-primary/90"
+        className="fixed bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition hover:scale-105"
       >
-        PA
+        <PaulAvatar className="h-14 w-14" />
       </button>
     )
   }
@@ -319,9 +320,7 @@ export default function PaulArredo() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
-              PA
-            </div>
+            <PaulAvatar className="h-9 w-9" />
             <div>
               <p className="text-lg font-bold text-gray-900">Paul Arredo</p>
               <p className="text-xs text-gray-400">PMI-certified project-management assistant</p>

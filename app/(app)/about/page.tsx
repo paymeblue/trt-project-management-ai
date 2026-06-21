@@ -12,6 +12,27 @@ const DASH: Record<string, string> = {
   super_admin: '/admin/dashboard',
 }
 
+const ROLES: { name: string; icon: string; blurb: string }[] = [
+  {
+    name: 'Factory PM',
+    icon: 'factory',
+    blurb:
+      'Runs the manufacturing floor. Completes the Delivery Project Checklist, tracks Product Readiness, and submits the Materials / Accessories Readiness Form (upload a signed scan or sign a digital version). Manages factory-floor projects and their Delivered / Not-Delivered status.',
+  },
+  {
+    name: 'Site PM',
+    icon: 'apartment',
+    blurb:
+      'Runs the installation site. Handles Confirmation / Verification, the full Project Production Checklist (Kitchen, Closet, Vanity, TV units), Delivery Site Readiness, Sorting, Change Requests and Close-Out, and keeps the Issue Log.',
+  },
+  {
+    name: 'Super Admin',
+    icon: 'admin_panel_settings',
+    blurb:
+      'Oversees everything (largely read-only). Manages users and static content (About TRT, Email Formats), authors process flow charts, and monitors activity across both roles. Created from the CLI only.',
+  },
+]
+
 export default async function AboutPage() {
   const { role } = await verifySession()
   const [about] = await db
@@ -61,6 +82,22 @@ export default async function AboutPage() {
           )}
         </div>
       )}
+
+      {/* Roles on the platform */}
+      <h2 className="mb-3 mt-10 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        Roles on the platform
+      </h2>
+      <div className="space-y-3">
+        {ROLES.map((r) => (
+          <div key={r.name} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-1 flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">{r.icon}</span>
+              <h3 className="text-base font-semibold text-gray-900">{r.name}</h3>
+            </div>
+            <p className="text-sm leading-relaxed text-gray-600">{r.blurb}</p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
