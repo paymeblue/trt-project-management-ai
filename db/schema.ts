@@ -242,3 +242,23 @@ export const issues = pgTable('issues', {
   createdBy:   uuid('created_by').notNull().references(() => users.id),
   createdAt:   timestamp('created_at').defaultNow().notNull(),
 })
+
+// ── Materials / Accessories Readiness Form (Factory PM) ───────────────────
+// Either an uploaded photo of the signed paper form, or a digital version
+// with a captured signature. Images & signature stored as data URLs.
+export const readinessForms = pgTable('readiness_forms', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  createdBy:      uuid('created_by').notNull().references(() => users.id),
+  mode:           text('mode').notNull(),              // 'digital' | 'upload'
+  project:        text('project'),
+  unit:           text('unit'),
+  materialControl: text('material_control'),           // Material / Quality control
+  accessories:    text('accessories'),
+  upholstery:     text('upholstery'),
+  confirmedBy:    text('confirmed_by'),                // name in "I, ___ confirm…"
+  signedDate:     text('signed_date'),
+  signatureData:  text('signature_data'),              // data URL (digital signature)
+  uploadData:     text('upload_data'),                 // data URL (uploaded scan/photo)
+  uploadName:     text('upload_name'),
+  createdAt:      timestamp('created_at').defaultNow().notNull(),
+})
