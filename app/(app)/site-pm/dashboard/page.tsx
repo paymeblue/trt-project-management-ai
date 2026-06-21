@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic'
 const TILES: Tile[] = [
   { title: 'New Project', description: 'Start a new site project (name, location, you as PM) and view previous ones.', href: '/site-pm/projects', status: 'ready' },
   { title: 'Confirmation / Verification', description: 'Verify on-site reality against the architect’s design.', href: '/checklists/confirmation', status: 'ready' },
+  { title: 'Project Production Checklist', description: 'Full production QA across kitchen, closet, vanity & TV units.', href: '/checklists/production', status: 'ready' },
   { title: 'Delivery Site Readiness', description: 'Out-of-state processes / planning checklist.', href: '/checklists/delivery_site_readiness', status: 'ready' },
   { title: 'Issue Log', description: 'Log and track site issues.', href: '/site-pm/issues', status: 'ready' },
   { title: 'Sorting Checklist', description: 'Run the sorting checklist.', href: '/checklists/sorting', status: 'ready' },

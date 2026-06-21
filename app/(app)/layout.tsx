@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import SidebarNav from '@/app/_components/sidebar-nav'
 import SignOutButton from '@/app/_components/sign-out-button'
-import DaveAredo from '@/app/_components/dave-aredo'
+import PaulArredo from '@/app/_components/paul-arredo'
 
 const ROLE_LABELS: Record<string, string> = {
   factory_pm: 'Factory PM',
@@ -61,13 +61,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           </span>
         </header>
 
-        <main className="w-full flex-1 px-margin-mobile py-lg md:px-margin-desktop">
+        <main className="w-full flex-1 px-margin-mobile py-6 md:px-margin-desktop">
           <div className="mx-auto w-full max-w-6xl">{children}</div>
         </main>
       </div>
 
-      {/* Dave Aredo floating assistant */}
-      <DaveAredo />
+      {/* Paul Arredo floating assistant */}
+      <PaulArredo />
     </div>
   )
 }

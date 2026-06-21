@@ -60,6 +60,7 @@ export const checklistTemplateItems = pgTable('checklist_template_items', {
   id:              uuid('id').primaryKey().defaultRandom(),
   definitionId:    uuid('definition_id').notNull().references(() => checklistDefinitions.id),
   step:            integer('step').notNull().default(1),
+  sectionTitle:    text('section_title'), // e.g. "Kitchen · Boxes" — groups a step
   sortOrder:       integer('sort_order').notNull().default(0),
   label:           text('label').notNull(),
   itemType:        itemTypeEnum('item_type').default('radio').notNull(),
@@ -107,21 +108,54 @@ export const attachments = pgTable('attachments', {
 })
 
 // ── Processes & Flow Charts ───────────────────────────────────────────────
+// Minimal React Flow shape we persist. Kept loose on purpose — React Flow owns
+// the full Node/Edge types; we only need them to round-trip through jsonb.
+export type ProcessFlowNode = {
+  id: string
+  position: { x: number; y: number }
+  data: { label: string }
+  type?: string
+}
+export type ProcessFlowEdge = {
+  id: string
+  source: string
+  target: string
+  label?: string
+}
+export type ProcessDiagram = {
+  nodes: ProcessFlowNode[]
+  edges: ProcessFlowEdge[]
+}
+
 export const processes = pgTable('processes', {
   id:        uuid('id').primaryKey().defaultRandom(),
   title:     text('title').notNull(),
   slug:      text('slug').notNull().unique(),
   body:      text('body').notNull(),
+  // React Flow diagram: { nodes: Node[], edges: Edge[] }. Null = no visual diagram yet.
+  diagram:   jsonb('diagram').$type<ProcessDiagram | null>(),
   tags:      text('tags').array(),
   createdBy: uuid('created_by').notNull().references(() => users.id),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+// ── Chat Sessions (AI — Dave Aredo conversations) ─────────────────────────
+export const chatSessions = pgTable('chat_sessions', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  userId:    uuid('user_id').notNull().references(() => users.id),
+  title:     text('title').notNull().default('New chat'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 // ── Chat Messages (AI — Dave Aredo history) ───────────────────────────────
 export const chatMessages = pgTable('chat_messages', {
   id:        uuid('id').primaryKey().defaultRandom(),
   userId:    uuid('user_id').notNull().references(() => users.id),
+  // Which conversation this message belongs to (nullable only for legacy rows
+  // created before sessions existed; backfilled to a per-user session).
+  sessionId: uuid('session_id').references(() => chatSessions.id, { onDelete: 'cascade' }),
   role:      chatRoleEnum('role').notNull(),
   content:   text('content').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),

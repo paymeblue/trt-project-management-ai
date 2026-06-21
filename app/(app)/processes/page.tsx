@@ -61,16 +61,17 @@ export default async function ProcessesPage() {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Body</label>
+          <label className="mb-1 block text-xs font-medium text-gray-600">Description</label>
           <textarea
             name="body"
             required
-            rows={8}
+            rows={6}
             placeholder="Describe the process here…"
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
           <p className="mt-1 text-xs text-gray-400">
-            Tip: include a fenced <code className="rounded bg-gray-100 px-1">```mermaid</code> code block in the body to render a flow chart.
+            After creating, open the process to draw its flow chart visually — drag steps and
+            connect them, then Save.
           </p>
         </div>
 

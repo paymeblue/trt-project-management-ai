@@ -6,7 +6,7 @@ import {
   checklists,
 } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
-import { submitChecklistAction } from '@/actions/checklists'
+import ChecklistWizard, { type WizardItem } from '@/app/_components/checklist-wizard'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,7 +50,7 @@ export default async function ChecklistPage({
         eq(checklistTemplateItems.isActive, true),
       ),
     )
-    .orderBy(asc(checklistTemplateItems.sortOrder))
+    .orderBy(asc(checklistTemplateItems.step), asc(checklistTemplateItems.sortOrder))
 
   const past = await db
     .select()
@@ -59,62 +59,27 @@ export default async function ChecklistPage({
     .orderBy(desc(checklists.createdAt))
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-8">
+    <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
       <a href={DASH[role]} className="text-sm text-primary hover:underline">
         ← Dashboard
       </a>
       <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">{def.name}</h1>
 
-      <form
-        action={submitChecklistAction}
-        className="space-y-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-      >
-        <input type="hidden" name="definitionId" value={def.id} />
-        <input type="hidden" name="slug" value={def.slug} />
-
-        {items.map((item) => (
-          <fieldset key={item.id} className="border-b border-gray-100 pb-4 last:border-0">
-            <legend className="mb-2 text-sm font-medium text-gray-900">{item.label}</legend>
-            {item.helpText && <p className="mb-2 text-xs text-gray-400">{item.helpText}</p>}
-
-            {item.itemType === 'text' ? (
-              <input
-                name={`text_${item.id}`}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                placeholder="Your answer"
-              />
-            ) : (
-              <div className="flex flex-wrap gap-4">
-                {(['yes', 'no', ...(item.responseOptions === 'yes_no_na' ? ['na'] : [])] as const).map(
-                  (opt) => (
-                    <label key={opt} className="flex items-center gap-2 text-sm text-gray-700">
-                      <input type="radio" name={`item_${item.id}`} value={opt} />
-                      {opt === 'na' ? 'N/A' : opt === 'yes' ? 'Yes' : 'No'}
-                    </label>
-                  ),
-                )}
-              </div>
-            )}
-
-            <input
-              name={`notes_${item.id}`}
-              className="mt-2 w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
-              placeholder="Notes (optional)"
-            />
-          </fieldset>
-        ))}
-
-        {items.length === 0 && (
-          <p className="text-sm text-gray-400">No items configured yet for this checklist.</p>
+      <ChecklistWizard
+        definitionId={def.id}
+        slug={def.slug}
+        items={items.map(
+          (i): WizardItem => ({
+            id: i.id,
+            label: i.label,
+            helpText: i.helpText,
+            itemType: i.itemType,
+            responseOptions: i.responseOptions,
+            step: i.step,
+            sectionTitle: i.sectionTitle,
+          }),
         )}
-
-        <button
-          type="submit"
-          className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
-        >
-          Submit checklist
-        </button>
-      </form>
+      />
 
       <h2 className="mb-3 mt-8 text-sm font-semibold text-gray-900">Your submissions</h2>
       <div className="space-y-2">

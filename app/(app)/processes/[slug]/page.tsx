@@ -3,6 +3,8 @@ import { db } from '@/db'
 import { processes } from '@/db/schema'
 import Link from 'next/link'
 import Mermaid from '@/app/_components/mermaid'
+import ProcessFlowEditor from '@/app/_components/process-flow-editor'
+import { verifySession } from '@/lib/dal'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +22,7 @@ export default async function ProcessDetailPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
+  await verifySession()
   const [proc] = await db.select().from(processes).where(eq(processes.slug, slug)).limit(1)
 
   if (!proc) {
@@ -32,13 +35,20 @@ export default async function ProcessDetailPage({
   }
 
   const { chart, rest } = splitMermaid(proc.body)
+  const hasDiagram = !!proc.diagram && proc.diagram.nodes.length > 0
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
+    <div className="mx-auto max-w-5xl px-6 py-8">
       <Link href="/processes" className="text-sm text-primary hover:underline">← Processes</Link>
       <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">{proc.title}</h1>
 
-      {chart && (
+      {/* Visual flow chart — any PM can draw and save. */}
+      <section className="mb-6">
+        <ProcessFlowEditor slug={proc.slug} initial={proc.diagram ?? null} />
+      </section>
+
+      {/* Legacy mermaid block (older processes authored before the visual editor) */}
+      {!hasDiagram && chart && (
         <div className="mb-6 overflow-x-auto rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <Mermaid chart={chart} />
         </div>

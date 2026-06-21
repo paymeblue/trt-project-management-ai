@@ -9,10 +9,14 @@
  * Optionally: ADMIN_NAME (defaults to 'Super Admin')
  */
 
+import { config } from 'dotenv'
 import bcrypt from 'bcryptjs'
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import * as schema from './schema'
+
+// Load DATABASE_URL (and any ADMIN_* placed there) from .env.local
+config({ path: '.env.local' })
 
 // Build a standalone db client (avoids the server-only guard on @/db)
 const sql = neon(process.env.DATABASE_URL!)

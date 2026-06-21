@@ -37,7 +37,7 @@ function TileCard({ tile }: { tile: Tile }) {
   const soon = tile.status !== 'ready'
   const icon = tile.icon ?? iconFor(tile.title)
   const body = (
-    <div className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest p-md transition-shadow hover:shadow-[0_2px_8px_rgba(11,28,48,0.08)]">
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest p-4 transition-shadow hover:shadow-[0_2px_8px_rgba(11,28,48,0.08)]">
       <div className="absolute left-0 top-0 h-1 w-full bg-primary-container opacity-80" />
       <div className="mb-3 mt-2 flex items-start justify-between">
         <span className="material-symbols-outlined text-primary">{icon}</span>
@@ -77,7 +77,7 @@ export default function DashboardShell({
     role === 'factory_pm' ? 'Factory PM' : role === 'site_pm' ? 'Site PM' : 'Super Admin'
   return (
     <div>
-      <div className="mb-lg">
+      <div className="mb-6">
         <h2 className="text-headline-lg font-headline-lg text-on-surface">
           Welcome, {userName.split(' ')[0] || 'there'}
         </h2>
@@ -85,7 +85,7 @@ export default function DashboardShell({
           {label} workspace — choose where to go.
         </p>
       </div>
-      <div className="grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {tiles.map((t) => (
           <TileCard key={t.title} tile={t} />
         ))}

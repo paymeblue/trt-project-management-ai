@@ -1,0 +1,197 @@
+'use client'
+
+import { useActionState, useMemo, useState } from 'react'
+import {
+  submitChecklistAction,
+  type ChecklistAnswer,
+  type SubmitChecklistState,
+} from '@/actions/checklists'
+
+export type WizardItem = {
+  id: string
+  label: string
+  helpText: string | null
+  itemType: 'radio' | 'text' | 'file'
+  responseOptions: 'yes_no' | 'yes_no_na' | null
+  step: number
+  sectionTitle: string | null
+}
+
+type Group = { step: number; title: string | null; items: WizardItem[] }
+
+const INITIAL: SubmitChecklistState = { status: 'idle' }
+
+export default function ChecklistWizard({
+  definitionId,
+  slug,
+  items,
+}: {
+  definitionId: string
+  slug: string
+  items: WizardItem[]
+}) {
+  const [stepIdx, setStepIdx] = useState(0)
+  const [answers, setAnswers] = useState<Record<string, ChecklistAnswer>>({})
+  const [state, dispatch, pending] = useActionState(submitChecklistAction, INITIAL)
+
+  // Group items by their `step`, preserving order. If everything is on one step,
+  // fall back to one item per page so small checklists still feel like a wizard.
+  const groups = useMemo<Group[]>(() => {
+    const byStep = new Map<number, Group>()
+    for (const it of items) {
+      const g = byStep.get(it.step)
+      if (g) g.items.push(it)
+      else byStep.set(it.step, { step: it.step, title: it.sectionTitle, items: [it] })
+    }
+    const list = [...byStep.values()].sort((a, b) => a.step - b.step)
+    if (list.length <= 1 && items.length > 1) {
+      return items.map((it) => ({ step: it.step, title: it.sectionTitle, items: [it] }))
+    }
+    return list
+  }, [items])
+
+  const total = groups.length
+  const isLast = stepIdx === total - 1
+  const group = groups[stepIdx]
+
+  const progress = useMemo(
+    () => (total === 0 ? 0 : Math.round(((stepIdx + 1) / total) * 100)),
+    [stepIdx, total],
+  )
+
+  if (total === 0) {
+    return <p className="text-sm text-gray-400">No items configured yet for this checklist.</p>
+  }
+
+  if (state.status === 'success') {
+    return (
+      <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center shadow-sm">
+        <span className="material-symbols-outlined text-4xl text-green-600">check_circle</span>
+        <p className="mt-2 text-base font-semibold text-gray-900">Checklist submitted</p>
+        <p className="mt-1 text-sm text-gray-500">
+          Your responses were recorded. See “Your submissions” below.
+        </p>
+      </div>
+    )
+  }
+
+  function setAnswer(id: string, patch: Partial<ChecklistAnswer>) {
+    setAnswers((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }))
+  }
+
+  function optsFor(item: WizardItem): Array<'yes' | 'no' | 'na'> {
+    return item.responseOptions === 'yes_no_na' ? ['yes', 'no', 'na'] : ['yes', 'no']
+  }
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+      {/* Progress */}
+      <div className="mb-5">
+        <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
+          <span>
+            Step {stepIdx + 1} of {total}
+          </span>
+          <span>{progress}%</span>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+
+      {group.title && (
+        <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-primary">{group.title}</h2>
+      )}
+
+      <div className="space-y-6">
+        {group.items.map((item) => {
+          const current = answers[item.id] ?? {}
+          return (
+            <fieldset key={item.id} className="border-b border-gray-100 pb-4 last:border-0">
+              <legend className="text-sm font-medium text-gray-900">{item.label}</legend>
+              {item.helpText && <p className="mt-1 text-xs text-gray-400">{item.helpText}</p>}
+
+              <div className="mt-3">
+                {item.itemType === 'text' ? (
+                  <input
+                    value={current.textValue ?? ''}
+                    onChange={(e) => setAnswer(item.id, { textValue: e.target.value })}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    placeholder="Your answer"
+                  />
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {optsFor(item).map((opt) => {
+                      const active = current.value === opt
+                      return (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => setAnswer(item.id, { value: opt })}
+                          className={`rounded-full border px-4 py-1.5 text-sm transition ${
+                            active
+                              ? 'border-primary bg-primary text-white'
+                              : 'border-gray-300 text-gray-700 hover:border-primary'
+                          }`}
+                        >
+                          {opt === 'na' ? 'N/A' : opt === 'yes' ? 'Yes' : 'No'}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                <input
+                  value={current.notes ?? ''}
+                  onChange={(e) => setAnswer(item.id, { notes: e.target.value })}
+                  className="mt-3 w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
+                  placeholder="Notes (optional)"
+                />
+              </div>
+            </fieldset>
+          )
+        })}
+      </div>
+
+      {state.status === 'error' && (
+        <p className="mt-4 text-sm text-error">{state.message ?? 'Something went wrong.'}</p>
+      )}
+
+      {/* Navigation */}
+      <div className="mt-6 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setStepIdx((s) => Math.max(0, s - 1))}
+          disabled={stepIdx === 0 || pending}
+          className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+        >
+          Back
+        </button>
+
+        {isLast ? (
+          <button
+            type="button"
+            onClick={() => dispatch({ definitionId, slug, answers })}
+            disabled={pending}
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
+          >
+            {pending && (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+            )}
+            {pending ? 'Submitting…' : 'Submit checklist'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setStepIdx((s) => Math.min(total - 1, s + 1))}
+            className="rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90"
+          >
+            Next
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}

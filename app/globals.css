@@ -108,15 +108,11 @@
   --text-label-sm--letter-spacing: 0.05em;
   --text-label-sm--font-weight: 500;
 
-  /* Named spacing (so p-md, gap-lg, px-margin-desktop work) */
-  --spacing-base: 4px;
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
+  /* Named spacing — only non-colliding keys. Do NOT define xs/sm/md/lg/xl/2xl
+     here: those names collide with Tailwind v4's --container-* scale and would
+     hijack max-w-md / max-w-2xl etc. (shrinking containers to a few px). Use the
+     numeric spacing scale (p-4, gap-6, py-6) for those instead. */
   --spacing-gutter: 16px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  --spacing-2xl: 48px;
   --spacing-margin-mobile: 16px;
   --spacing-margin-desktop: 32px;
 
