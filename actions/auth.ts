@@ -57,9 +57,16 @@ export async function signUpAction(
 
   const hashed = await bcrypt.hash(password, 10)
 
+  // Optional profile fields
+  const bioRaw = String(formData.get('bio') ?? '').trim()
+  const bio = bioRaw ? bioRaw.slice(0, 500) : null
+  const avatarRaw = String(formData.get('avatarData') ?? '')
+  const avatarData =
+    avatarRaw.startsWith('data:image/') && avatarRaw.length < 3_000_000 ? avatarRaw : null
+
   const [row] = await db
     .insert(users)
-    .values({ email, name, role, hashedPassword: hashed })
+    .values({ email, name, role, hashedPassword: hashed, bio, avatarData })
     .returning({ id: users.id })
 
   // Send verification email — do NOT fail signup on send error

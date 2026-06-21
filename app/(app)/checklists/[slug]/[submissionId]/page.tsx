@@ -8,6 +8,7 @@ import {
   checklists,
 } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
+import ShareButton from '@/app/_components/share-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -73,10 +74,15 @@ export default async function SubmissionViewPage({
       <Link href={`/checklists/${slug}`} className="text-sm text-primary hover:underline">
         ← {def.name}
       </Link>
-      <h1 className="mb-1 mt-2 text-2xl font-bold text-gray-900">{def.name} — submission</h1>
-      <p className="mb-6 text-xs text-gray-400">
-        {submission.submittedAt ? new Date(submission.submittedAt).toLocaleString() : 'Draft'}
-      </p>
+      <div className="mb-6 mt-2 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{def.name} — submission</h1>
+          <p className="text-xs text-gray-400">
+            {submission.submittedAt ? new Date(submission.submittedAt).toLocaleString() : 'Draft'}
+          </p>
+        </div>
+        <ShareButton />
+      </div>
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         {rows.map((r, i) => (

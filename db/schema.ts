@@ -28,6 +28,8 @@ export const users = pgTable('users', {
   role:           roleEnum('role').notNull(),          // 'factory_pm' | 'site_pm' | 'super_admin'
   emailVerified:  timestamp('email_verified'),         // null until verified
   position:       text('position'),
+  bio:            text('bio'),                          // optional self-description
+  avatarData:     text('avatar_data'),                  // profile image as base64 data URL
   imageKey:       text('image_key'),                   // S3 key for ID card (Phase 2)
   createdAt:      timestamp('created_at').defaultNow().notNull(),
   updatedAt:      timestamp('updated_at').defaultNow().notNull(),
@@ -108,23 +110,11 @@ export const attachments = pgTable('attachments', {
 })
 
 // ── Processes & Flow Charts ───────────────────────────────────────────────
-// Minimal React Flow shape we persist. Kept loose on purpose — React Flow owns
-// the full Node/Edge types; we only need them to round-trip through jsonb.
-export type ProcessFlowNode = {
-  id: string
-  position: { x: number; y: number }
-  data: { label: string }
-  type?: string
-}
-export type ProcessFlowEdge = {
-  id: string
-  source: string
-  target: string
-  label?: string
-}
-export type ProcessDiagram = {
-  nodes: ProcessFlowNode[]
-  edges: ProcessFlowEdge[]
+// We persist an Excalidraw scene (elements + optional files) as jsonb. Kept
+// loose on purpose — Excalidraw owns the full element types.
+export type ProcessScene = {
+  elements: unknown[]
+  files?: unknown
 }
 
 export const processes = pgTable('processes', {
@@ -132,8 +122,8 @@ export const processes = pgTable('processes', {
   title:     text('title').notNull(),
   slug:      text('slug').notNull().unique(),
   body:      text('body').notNull(),
-  // React Flow diagram: { nodes: Node[], edges: Edge[] }. Null = no visual diagram yet.
-  diagram:   jsonb('diagram').$type<ProcessDiagram | null>(),
+  // Excalidraw scene: { elements, files }. Null = no diagram drawn yet.
+  diagram:   jsonb('diagram').$type<ProcessScene | null>(),
   tags:      text('tags').array(),
   createdBy: uuid('created_by').notNull().references(() => users.id),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -201,6 +191,7 @@ export const conversationParticipants = pgTable('conversation_participants', {
   id:             uuid('id').primaryKey().defaultRandom(),
   conversationId: uuid('conversation_id').notNull().references(() => conversations.id, { onDelete: 'cascade' }),
   userId:         uuid('user_id').notNull().references(() => users.id),
+  lastReadAt:     timestamp('last_read_at'),   // for unread counts
   createdAt:      timestamp('created_at').defaultNow().notNull(),
 })
 
@@ -209,7 +200,10 @@ export const messages = pgTable('messages', {
   id:             uuid('id').primaryKey().defaultRandom(),
   conversationId: uuid('conversation_id').notNull().references(() => conversations.id, { onDelete: 'cascade' }),
   senderId:       uuid('sender_id').notNull().references(() => users.id),
-  body:           text('body').notNull(),
+  body:           text('body').notNull().default(''),
+  attachmentData: text('attachment_data'),     // base64 data URL (image/file)
+  attachmentName: text('attachment_name'),
+  attachmentType: text('attachment_type'),     // MIME type
   createdAt:      timestamp('created_at').defaultNow().notNull(),
 })
 

@@ -2,7 +2,7 @@ import { desc } from 'drizzle-orm'
 import { db } from '@/db'
 import { processes } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
-import { createProcessAction } from '@/actions/processes'
+import ProcessExcalidraw from '@/app/_components/process-excalidraw'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,89 +16,64 @@ export default async function ProcessesPage() {
   const { role } = await verifySession()
 
   const rows = await db
-    .select()
+    .select({
+      id: processes.id,
+      title: processes.title,
+      slug: processes.slug,
+      diagram: processes.diagram,
+      updatedAt: processes.updatedAt,
+    })
     .from(processes)
-    .orderBy(desc(processes.createdAt))
+    .orderBy(desc(processes.updatedAt))
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
       <a href={DASH[role]} className="text-sm text-primary hover:underline">
         &larr; Dashboard
       </a>
-      <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">Processes &amp; Flow Charts</h1>
+      <h1 className="mb-1 mt-2 text-2xl font-bold text-gray-900">Processes &amp; Flow Charts</h1>
+      <p className="mb-6 text-sm text-gray-500">
+        Draw a flow chart below, then hit <span className="font-medium">Save as new</span> and name
+        it. Saved processes appear as cards.
+      </p>
 
-      {/* New process form */}
-      <form
-        action={createProcessAction}
-        className="mb-10 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-      >
-        <h2 className="text-base font-semibold text-gray-800">New Process</h2>
+      {/* Draw first; name on save */}
+      <ProcessExcalidraw initial={null} height={520} />
 
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Title</label>
-          <input
-            name="title"
-            required
-            minLength={2}
-            placeholder="e.g. Order Fulfillment"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-          />
+      {/* Saved processes */}
+      <h2 className="mb-3 mt-10 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        Saved processes
+      </h2>
+      {rows.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-400">
+          No processes yet — draw one above and save it.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {rows.map((p) => {
+            const count =
+              p.diagram && Array.isArray(p.diagram.elements) ? p.diagram.elements.length : 0
+            return (
+              <a
+                key={p.id}
+                href={`/processes/${p.slug}`}
+                className="group flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-primary hover:shadow-md"
+              >
+                <div className="mb-3 flex h-24 items-center justify-center rounded-lg bg-gradient-to-br from-primary/5 to-primary/10">
+                  <span className="material-symbols-outlined text-3xl text-primary/70">
+                    account_tree
+                  </span>
+                </div>
+                <p className="font-semibold text-gray-900 group-hover:text-primary">{p.title}</p>
+                <p className="mt-0.5 text-xs text-gray-400">
+                  {count > 0 ? `${count} element${count === 1 ? '' : 's'}` : 'Empty'} ·{' '}
+                  {new Date(p.updatedAt).toLocaleDateString()}
+                </p>
+              </a>
+            )
+          })}
         </div>
-
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">
-            Slug <span className="text-gray-400">(URL-friendly, unique)</span>
-          </label>
-          <input
-            name="slug"
-            required
-            minLength={2}
-            placeholder="e.g. order-fulfillment"
-            pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-            title="Lowercase letters, numbers and hyphens only"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Description</label>
-          <textarea
-            name="body"
-            required
-            rows={6}
-            placeholder="Describe the process here…"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-          />
-          <p className="mt-1 text-xs text-gray-400">
-            After creating, open the process to draw its flow chart visually — drag steps and
-            connect them, then Save.
-          </p>
-        </div>
-
-        <button
-          type="submit"
-          className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
-        >
-          Add process
-        </button>
-      </form>
-
-      {/* Process list */}
-      <div className="space-y-3">
-        {rows.length === 0 && (
-          <p className="text-sm text-gray-400">No processes yet — add one above.</p>
-        )}
-        {rows.map((p) => (
-          <a
-            key={p.id}
-            href={`/processes/${p.slug}`}
-            className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm hover:border-primary hover:shadow-md transition"
-          >
-            <span className="font-medium text-gray-900">{p.title}</span>
-            <span className="text-primary">&rarr;</span>
-          </a>
-        ))}
-      </div>
+      )}
     </div>
   )
 }

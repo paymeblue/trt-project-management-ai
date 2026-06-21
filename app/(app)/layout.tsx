@@ -6,6 +6,7 @@ import SignOutButton from '@/app/_components/sign-out-button'
 import PaulArredo from '@/app/_components/paul-arredo'
 import ThemeToggle from '@/app/_components/theme-toggle'
 import MobileSidebar from '@/app/_components/mobile-sidebar'
+import ChatDrawer from '@/app/_components/chat-drawer'
 
 const ROLE_LABELS: Record<string, string> = {
   factory_pm: 'Factory PM',
@@ -65,8 +66,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <h1 className="text-headline-md font-headline-md font-extrabold text-primary">TRT Arredo</h1>
           </div>
           <div className="flex items-center gap-2">
+            <ChatDrawer />
             <ThemeToggle />
-            <span className="rounded-full border border-outline-variant bg-surface-container-low px-3 py-1.5 text-label-md font-label-md text-on-surface-variant">
+            <span className="hidden rounded-full border border-outline-variant bg-surface-container-low px-3 py-1.5 text-label-md font-label-md text-on-surface-variant sm:inline">
               {ROLE_LABELS[role] ?? role}
             </span>
           </div>

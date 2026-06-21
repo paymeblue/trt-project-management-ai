@@ -3,6 +3,7 @@ import { db } from '@/db'
 import { staticContent } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { updateAboutAction } from '@/actions/content'
+import TrtFlowDiagram from '@/app/_components/trt-flow-diagram'
 
 export const dynamic = 'force-dynamic'
 
@@ -82,6 +83,12 @@ export default async function AboutPage() {
           )}
         </div>
       )}
+
+      {/* How work flows: Factory → Site, with Super Admin oversight */}
+      <h2 className="mb-3 mt-10 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        How it works — factory to site
+      </h2>
+      <TrtFlowDiagram />
 
       {/* Roles on the platform */}
       <h2 className="mb-3 mt-10 text-sm font-semibold uppercase tracking-wide text-gray-500">

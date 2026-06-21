@@ -29,6 +29,23 @@ export default async function ProfilePage() {
       </a>
       <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">Profile</h1>
 
+      <div className="mb-6 flex items-center gap-4">
+        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-50">
+          {u?.avatarData ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={u.avatarData} alt={u?.name ?? 'Avatar'} className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-2xl font-bold text-primary">
+              {(u?.name ?? 'U').slice(0, 1).toUpperCase()}
+            </span>
+          )}
+        </div>
+        <div>
+          <p className="text-lg font-bold text-gray-900">{u?.name}</p>
+          <p className="text-sm text-gray-500">{ROLE_LABELS[role] ?? role}</p>
+        </div>
+      </div>
+
       <form
         action={updateProfileAction}
         className="space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
@@ -70,8 +87,16 @@ export default async function ProfilePage() {
             />
           </div>
         </div>
-        <div className="rounded-md bg-gray-50 p-3 text-xs text-gray-500">
-          ID Card upload arrives with file storage (S3). Editable by Super Admin only.
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Bio</label>
+          <textarea
+            name="bio"
+            defaultValue={u?.bio ?? ''}
+            rows={3}
+            maxLength={500}
+            placeholder="A line about you and your work."
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+          />
         </div>
         <button
           type="submit"

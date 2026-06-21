@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import { signUpAction } from '@/actions/auth'
 import type { SignupState } from '@/actions/auth'
 
@@ -21,6 +21,15 @@ export default function SignUpForm() {
     signUpAction,
     initialState,
   )
+  const [avatar, setAvatar] = useState('')
+
+  function onAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !file.type.startsWith('image/') || file.size > 2_500_000) return
+    const reader = new FileReader()
+    reader.onload = () => setAvatar(typeof reader.result === 'string' ? reader.result : '')
+    reader.readAsDataURL(file)
+  }
 
   return (
     <div>
@@ -34,6 +43,31 @@ export default function SignUpForm() {
       )}
 
       <form action={formAction} className="space-y-4">
+        <input type="hidden" name="avatarData" value={avatar} />
+
+        {/* Profile image (optional) */}
+        <div className="flex items-center gap-4">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-300 bg-gray-50">
+            {avatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatar} alt="Avatar preview" className="h-full w-full object-cover" />
+            ) : (
+              <span className="material-symbols-outlined text-gray-400">person</span>
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Profile image <span className="text-gray-400">(optional)</span>
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={onAvatar}
+              className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary"
+            />
+          </div>
+        </div>
+
         <div>
           <label htmlFor="name" className="mb-1 block text-sm font-medium text-gray-700">
             Full name
@@ -113,6 +147,20 @@ export default function SignUpForm() {
           {state.errors?.password && (
             <p className="mt-1 text-xs text-red-600">{state.errors.password[0]}</p>
           )}
+        </div>
+
+        <div>
+          <label htmlFor="bio" className="mb-1 block text-sm font-medium text-gray-700">
+            Bio <span className="text-gray-400">(optional)</span>
+          </label>
+          <textarea
+            id="bio"
+            name="bio"
+            rows={2}
+            maxLength={500}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder="A line about you and your work."
+          />
         </div>
 
         <button
