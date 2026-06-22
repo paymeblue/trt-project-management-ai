@@ -1,6 +1,9 @@
 import type { NextAuthConfig } from "next-auth"
 
 export const authConfig = {
+  // Auth.js auto-trusts the host only on Vercel; Netlify (and other hosts) need
+  // this explicitly or auth throws a server-configuration error in production.
+  trustHost: true,
   pages: { signIn: "/sign-in" },
   session: { strategy: "jwt" },
   callbacks: {
