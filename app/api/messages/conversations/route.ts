@@ -17,7 +17,7 @@ export async function GET() {
   const result = []
   for (const c of mine) {
     const [other] = await db
-      .select({ id: users.id, name: users.name, role: users.role })
+      .select({ id: users.id, name: users.name, role: users.role, email: users.email })
       .from(conversationParticipants)
       .innerJoin(users, eq(conversationParticipants.userId, users.id))
       .where(

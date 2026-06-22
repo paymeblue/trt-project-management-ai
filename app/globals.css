@@ -140,6 +140,11 @@
   --color-surface-container-high: #262c36;
   --color-surface-container-highest: #2d343f;
 
+  /* Active nav / chips use secondary-container — give it dark values so it
+     isn't a bright lavender bar in dark mode. */
+  --color-secondary-container: #2f3543;
+  --color-on-secondary-container: #d7dcea;
+
   --color-outline: #8c98a8;
   --color-outline-variant: #3a4250;
   --color-inverse-surface: #e6edf7;
@@ -155,6 +160,14 @@
 .dark .bg-gray-50 { background-color: var(--color-surface-container-low) !important; }
 .dark .bg-gray-100 { background-color: var(--color-surface-container-high) !important; }
 .dark .bg-gray-200 { background-color: var(--color-surface-container-highest) !important; }
+
+/* Hover variants are SEPARATE classes (`hover\:bg-gray-100`), so the rules above
+   don't catch them — without these, hovers fall back to bright light grays. */
+.dark .hover\:bg-gray-50:hover { background-color: var(--color-surface-container) !important; }
+.dark .hover\:bg-gray-100:hover { background-color: var(--color-surface-container-high) !important; }
+.dark .hover\:bg-gray-200:hover { background-color: var(--color-surface-container-highest) !important; }
+.dark .hover\:bg-red-50:hover { background-color: #3a1414 !important; }
+.dark .hover\:bg-red-700:hover { background-color: #b91c1c !important; }
 
 .dark .text-gray-900 { color: var(--color-on-surface) !important; }
 .dark .text-gray-800 { color: var(--color-on-surface) !important; }

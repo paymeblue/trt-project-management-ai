@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Drawer } from 'vaul'
 
-type ChatUser = { id: string; name: string; role: string }
+type ChatUser = { id: string; name: string; role: string; email?: string }
 type Conversation = {
   conversationId: string
   other: ChatUser
@@ -80,25 +81,22 @@ export default function ChatDrawer() {
     }
   }, [open])
 
-  const loadMessages = useCallback(
-    async (convId: string) => {
-      try {
-        const r = await fetch(`/api/messages?conversationId=${convId}`)
-        if (!r.ok) return
-        const d: { messages: Msg[]; meId: string } = await r.json()
-        setMeId(d.meId)
-        const latest = d.messages[d.messages.length - 1]
-        if (latest && latest.id !== lastMsgId.current) {
-          if (lastMsgId.current && latest.senderId !== d.meId) playPing()
-          lastMsgId.current = latest.id
-        }
-        setMessages(d.messages)
-      } catch {
-        /* ignore */
+  const loadMessages = useCallback(async (convId: string) => {
+    try {
+      const r = await fetch(`/api/messages?conversationId=${convId}`)
+      if (!r.ok) return
+      const d: { messages: Msg[]; meId: string } = await r.json()
+      setMeId(d.meId)
+      const latest = d.messages[d.messages.length - 1]
+      if (latest && latest.id !== lastMsgId.current) {
+        if (lastMsgId.current && latest.senderId !== d.meId) playPing()
+        lastMsgId.current = latest.id
       }
-    },
-    [],
-  )
+      setMessages(d.messages)
+    } catch {
+      /* ignore */
+    }
+  }, [])
 
   // Poll conversations/unread badge every 6s (also when closed).
   useEffect(() => {
@@ -126,13 +124,28 @@ export default function ChatDrawer() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
   }, [messages])
 
-  function openDrawer() {
-    setOpen(true)
-    fetch('/api/messages/users')
-      .then((r) => r.json())
-      .then((d: { users: ChatUser[] }) => setUsers(d.users ?? []))
-      .catch(() => {})
-    loadConversations()
+  // Allow opening the chat from anywhere (e.g. a dashboard "Messages" tile).
+  useEffect(() => {
+    const handler = () => setOpen(true)
+    window.addEventListener('trt:open-chat', handler)
+    return () => window.removeEventListener('trt:open-chat', handler)
+  }, [])
+
+  // Whenever the drawer opens (via trigger or event), load users + conversations.
+  useEffect(() => {
+    if (!open) return
+    const t = setTimeout(() => {
+      fetch('/api/messages/users')
+        .then((r) => r.json())
+        .then((d: { users: ChatUser[] }) => setUsers(d.users ?? []))
+        .catch(() => {})
+      loadConversations()
+    }, 0)
+    return () => clearTimeout(t)
+  }, [open, loadConversations])
+
+  function onOpenChange(o: boolean) {
+    setOpen(o)
   }
 
   async function startChat(u: ChatUser) {
@@ -205,31 +218,29 @@ export default function ChatDrawer() {
   }
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={open ? () => setOpen(false) : openDrawer}
-        aria-label="Open messages"
-        className="relative flex h-9 w-9 items-center justify-center rounded-full border border-outline-variant text-on-surface-variant transition hover:bg-surface-container-high"
-      >
-        <span className="material-symbols-outlined text-[20px]">chat</span>
-        {totalUnread > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-error px-1 text-[10px] font-bold text-white">
-            {totalUnread > 9 ? '9+' : totalUnread}
-          </span>
-        )}
-      </button>
+    <Drawer.Root direction="right" open={open} onOpenChange={onOpenChange}>
+      <Drawer.Trigger asChild>
+        <button
+          type="button"
+          aria-label="Open messages"
+          className="relative flex h-9 w-9 items-center justify-center rounded-full border border-outline-variant text-on-surface-variant transition hover:bg-surface-container-high"
+        >
+          <span className="material-symbols-outlined text-[20px]">chat</span>
+          {totalUnread > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-error px-1 text-[10px] font-bold text-white">
+              {totalUnread > 9 ? '9+' : totalUnread}
+            </span>
+          )}
+        </button>
+      </Drawer.Trigger>
 
-      {open && (
-        <div className="fixed inset-0 z-50">
-          <button
-            type="button"
-            aria-label="Close messages"
-            onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-black/30"
-          />
-          {/* Right-side drawer */}
-          <div className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
+      <Drawer.Portal>
+        <Drawer.Overlay className="fixed inset-0 z-40 bg-black/40" />
+        <Drawer.Content
+          className="fixed inset-y-0 right-0 z-50 flex w-full outline-none sm:w-1/2"
+          style={{ ['--initial-transform' as string]: '100%' }}
+        >
+          <div className="flex h-full w-full flex-col bg-white">
             <header className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
               <div className="flex items-center gap-2">
                 {activeOther ? (
@@ -239,33 +250,38 @@ export default function ChatDrawer() {
                       setActiveConvId(null)
                       setActiveOther(null)
                     }}
-                    className="flex items-center gap-1 text-sm text-primary hover:underline"
+                    className="flex items-center text-primary hover:underline"
+                    aria-label="Back to conversations"
                   >
-                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                    <span className="material-symbols-outlined text-[20px]">arrow_back</span>
                   </button>
                 ) : (
                   <span className="material-symbols-outlined text-primary">forum</span>
                 )}
                 <div>
-                  <p className="text-base font-bold text-gray-900">
+                  <Drawer.Title className="text-base font-bold text-gray-900">
                     {activeOther ? activeOther.name : 'Messages'}
-                  </p>
+                  </Drawer.Title>
                   {activeOther && (
-                    <p className="text-xs text-gray-400">{ROLE_LABEL[activeOther.role] ?? activeOther.role}</p>
+                    <p className="text-xs text-gray-400">
+                      {ROLE_LABEL[activeOther.role] ?? activeOther.role}
+                      {activeOther.email ? ` · ${activeOther.email}` : ''}
+                    </p>
                   )}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                Close
-              </button>
+              <Drawer.Close asChild>
+                <button
+                  type="button"
+                  className="rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  Close
+                </button>
+              </Drawer.Close>
             </header>
+            <Drawer.Description className="sr-only">Direct messages between team members.</Drawer.Description>
 
             {!activeConvId ? (
-              // Conversation list + new chat
               <div className="flex-1 overflow-y-auto">
                 <div className="relative border-b border-gray-100 p-3">
                   <button
@@ -286,11 +302,14 @@ export default function ChatDrawer() {
                           onClick={() => startChat(u)}
                           className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
                         >
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                             {u.name.slice(0, 1).toUpperCase()}
                           </span>
-                          <span className="flex-1 truncate text-gray-900">{u.name}</span>
-                          <span className="text-xs text-gray-400">{ROLE_LABEL[u.role] ?? u.role}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-gray-900">{u.name}</span>
+                            <span className="block truncate text-xs text-gray-400">{u.email}</span>
+                          </span>
+                          <span className="shrink-0 text-xs text-gray-400">{ROLE_LABEL[u.role] ?? u.role}</span>
                         </button>
                       ))}
                     </div>
@@ -326,7 +345,6 @@ export default function ChatDrawer() {
                 ))}
               </div>
             ) : (
-              // Active thread
               <>
                 <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
                   {messages.length === 0 && (
@@ -406,8 +424,8 @@ export default function ChatDrawer() {
               </>
             )}
           </div>
-        </div>
-      )}
-    </>
+        </Drawer.Content>
+      </Drawer.Portal>
+    </Drawer.Root>
   )
 }

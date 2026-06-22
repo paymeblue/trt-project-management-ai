@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import OpenChatButton from '@/app/_components/open-chat-button'
 
 export type Tile = {
   title: string
@@ -77,13 +78,16 @@ export default function DashboardShell({
     role === 'factory_pm' ? 'Factory PM' : role === 'site_pm' ? 'Site PM' : 'Super Admin'
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-headline-lg font-headline-lg text-on-surface">
-          Welcome, {userName.split(' ')[0] || 'there'}
-        </h2>
-        <p className="mt-1 text-body-lg font-body-lg text-on-surface-variant">
-          {label} workspace — choose where to go.
-        </p>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-headline-lg font-headline-lg text-on-surface">
+            Welcome, {userName.split(' ')[0] || 'there'}
+          </h2>
+          <p className="mt-1 text-body-lg font-body-lg text-on-surface-variant">
+            {label} workspace — choose where to go.
+          </p>
+        </div>
+        <OpenChatButton />
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {tiles.map((t) => (

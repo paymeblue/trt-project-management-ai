@@ -7,7 +7,7 @@ import { verifySession } from '@/lib/dal'
 export async function GET() {
   const { userId } = await verifySession()
   const rows = await db
-    .select({ id: users.id, name: users.name, role: users.role })
+    .select({ id: users.id, name: users.name, role: users.role, email: users.email })
     .from(users)
     .where(ne(users.id, userId))
     .orderBy(asc(users.name))
