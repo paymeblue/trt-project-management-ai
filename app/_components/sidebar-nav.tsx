@@ -19,6 +19,7 @@ const NAV: Record<string, Item[]> = {
     { href: '/site-pm/dashboard', icon: 'dashboard', label: 'Dashboard' },
     { href: '/site-pm/projects', icon: 'factory', label: 'Projects' },
     { href: '/checklists/confirmation', icon: 'fact_check', label: 'Confirmation' },
+    { href: '/checklists/production', icon: 'inventory_2', label: 'Production' },
     { href: '/site-pm/issues', icon: 'assignment_late', label: 'Issue Log' },
     { href: '/email-formats', icon: 'mail', label: 'Email Formats' },
     { href: '/processes', icon: 'account_tree', label: 'Processes' },

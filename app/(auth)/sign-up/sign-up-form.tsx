@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react'
 import { signUpAction } from '@/actions/auth'
 import type { SignupState } from '@/actions/auth'
+import { downscaleImage } from '@/lib/downscale-image'
 
 const initialState: SignupState = {}
 
@@ -23,12 +24,14 @@ export default function SignUpForm() {
   )
   const [avatar, setAvatar] = useState('')
 
-  function onAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onAvatar(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !file.type.startsWith('image/') || file.size > 2_500_000) return
-    const reader = new FileReader()
-    reader.onload = () => setAvatar(typeof reader.result === 'string' ? reader.result : '')
-    reader.readAsDataURL(file)
+    if (!file || !file.type.startsWith('image/')) return
+    try {
+      setAvatar(await downscaleImage(file))
+    } catch {
+      /* ignore */
+    }
   }
 
   return (

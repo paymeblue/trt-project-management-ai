@@ -3,6 +3,7 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { updateProfileAction } from '@/actions/profile'
+import ProfileAvatarField from '@/app/_components/profile-avatar-field'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,27 +30,12 @@ export default async function ProfilePage() {
       </a>
       <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">Profile</h1>
 
-      <div className="mb-6 flex items-center gap-4">
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-50">
-          {u?.avatarData ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={u.avatarData} alt={u?.name ?? 'Avatar'} className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-2xl font-bold text-primary">
-              {(u?.name ?? 'U').slice(0, 1).toUpperCase()}
-            </span>
-          )}
-        </div>
-        <div>
-          <p className="text-lg font-bold text-gray-900">{u?.name}</p>
-          <p className="text-sm text-gray-500">{ROLE_LABELS[role] ?? role}</p>
-        </div>
-      </div>
-
       <form
         action={updateProfileAction}
         className="space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
       >
+        <ProfileAvatarField initial={u?.avatarData ?? null} name={u?.name ?? 'U'} />
+
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
           <input

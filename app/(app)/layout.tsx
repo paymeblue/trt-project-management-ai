@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
+import { eq } from 'drizzle-orm'
 import { auth } from '@/auth'
+import { db } from '@/db'
+import { users } from '@/db/schema'
 import SidebarNav from '@/app/_components/sidebar-nav'
 import SignOutButton from '@/app/_components/sign-out-button'
 import PaulArredo from '@/app/_components/paul-arredo'
@@ -28,13 +31,23 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       .join('')
       .toUpperCase() || 'U'
 
+  const [me] = session.user.id
+    ? await db.select({ avatarData: users.avatarData }).from(users).where(eq(users.id, session.user.id)).limit(1)
+    : []
+  const avatarData = me?.avatarData ?? null
+
   return (
     <div className="min-h-screen bg-background text-on-surface">
       {/* NavigationDrawer (fixed, out of flow) */}
       <aside className="fixed left-0 top-0 bottom-0 z-40 hidden w-72 flex-col overflow-y-auto border-r border-outline-variant bg-surface-container-low md:flex">
         <div className="flex h-16 shrink-0 items-center gap-3 border-b border-outline-variant px-6 md:h-20">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary-container text-title-md font-title-md font-bold text-on-primary-container">
-            {initials}
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary-container text-title-md font-title-md font-bold text-on-primary-container">
+            {avatarData ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarData} alt={name} className="h-full w-full object-cover" />
+            ) : (
+              initials
+            )}
           </div>
           <div className="min-w-0">
             <p className="truncate text-title-md font-title-md font-bold leading-tight text-primary">{name}</p>
@@ -61,6 +74,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               role={role}
               roleLabel={ROLE_LABELS[role] ?? role}
               initials={initials}
+              avatarData={avatarData}
             />
             <span className="material-symbols-outlined text-primary">architecture</span>
             <h1 className="text-headline-md font-headline-md font-extrabold text-primary">TRT Arredo</h1>

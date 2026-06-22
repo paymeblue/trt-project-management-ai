@@ -12,10 +12,14 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
   const position = String(formData.get('position') ?? '').trim() || null
   const bioRaw = String(formData.get('bio') ?? '').trim()
   const bio = bioRaw ? bioRaw.slice(0, 500) : null
+  // Avatar: a valid data:image keeps/sets it; empty string removes it.
+  const avatarRaw = String(formData.get('avatarData') ?? '')
+  const avatarData =
+    avatarRaw.startsWith('data:image/') && avatarRaw.length < 3_000_000 ? avatarRaw : null
   if (name.length < 2) return
   await db
     .update(users)
-    .set({ name, position, bio, updatedAt: new Date() })
+    .set({ name, position, bio, avatarData, updatedAt: new Date() })
     .where(eq(users.id, userId))
   revalidatePath('/profile')
 }

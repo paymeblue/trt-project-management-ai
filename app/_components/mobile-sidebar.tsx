@@ -9,11 +9,13 @@ export default function MobileSidebar({
   role,
   roleLabel,
   initials,
+  avatarData,
 }: {
   name: string
   role: string
   roleLabel: string
   initials: string
+  avatarData?: string | null
 }) {
   const [open, setOpen] = useState(false)
 
@@ -45,8 +47,13 @@ export default function MobileSidebar({
             className="relative z-10 flex h-full w-72 max-w-[80%] flex-col overflow-y-auto border-r border-outline-variant bg-surface-container-low"
           >
             <div className="flex items-center gap-3 border-b border-outline-variant p-6">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary-container text-title-md font-bold text-on-primary-container">
-                {initials}
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary-container text-title-md font-bold text-on-primary-container">
+                {avatarData ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarData} alt={name} className="h-full w-full object-cover" />
+                ) : (
+                  initials
+                )}
               </div>
               <div className="min-w-0">
                 <p className="truncate text-title-md font-bold text-primary">{name}</p>
