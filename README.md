@@ -1,3 +1,4 @@
+![Uploading Screenshot 2026-06-22 at 14.11.41.png…]()
 # TRT Arredo — Project Management Platform
 
 A digital platform that replaces the paper checklists TRT Arredo uses on the
