@@ -210,6 +210,28 @@ body {
   color: color-mix(in srgb, var(--color-on-surface-variant) 60%, transparent);
 }
 
+/* Auth showcase animations */
+@keyframes trt-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes trt-rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes trt-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes trt-blob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(20px, -18px) scale(1.08); }
+  66% { transform: translate(-16px, 14px) scale(0.95); }
+}
+.trt-float { animation: trt-float 6s ease-in-out infinite; }
+.trt-float-slow { animation: trt-float 8s ease-in-out infinite; }
+.trt-rise { animation: trt-rise 0.7s ease-out both; }
+.trt-blob { animation: trt-blob 16s ease-in-out infinite; }
+
 .material-symbols-outlined {
   font-family: "Material Symbols Outlined";
   font-weight: normal;

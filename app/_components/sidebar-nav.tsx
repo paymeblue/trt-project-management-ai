@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 
@@ -40,6 +41,36 @@ const NAV: Record<string, Item[]> = {
 export default function SidebarNav({ role }: { role: string }) {
   const pathname = usePathname()
   const items = NAV[role] ?? []
+
+  // Until the icon/text fonts finish loading, Material Symbols render as raw
+  // ligature text ("dashboard", "fact_check"…). Show a skeleton instead.
+  const [fontsReady, setFontsReady] = useState(false)
+  useEffect(() => {
+    let alive = true
+    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts
+    fonts?.ready.then(() => {
+      if (alive) setFontsReady(true)
+    })
+    // Fallback so we never get stuck on the skeleton (and covers no-FontFaceSet).
+    const t = setTimeout(() => alive && setFontsReady(true), fonts ? 2500 : 0)
+    return () => {
+      alive = false
+      clearTimeout(t)
+    }
+  }, [])
+
+  if (!fontsReady) {
+    return (
+      <nav className="flex-1 space-y-1 px-3 py-4" aria-hidden>
+        {items.map((it) => (
+          <div key={it.href} className="flex items-center gap-3 rounded-full px-4 py-3">
+            <span className="h-5 w-5 shrink-0 animate-pulse rounded bg-surface-container-high" />
+            <span className="h-3 w-24 animate-pulse rounded bg-surface-container-high" />
+          </div>
+        ))}
+      </nav>
+    )
+  }
 
   return (
     <nav className="flex-1 space-y-1 px-3 py-4">

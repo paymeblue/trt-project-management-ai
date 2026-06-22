@@ -3,6 +3,7 @@
 import { useActionState } from 'react'
 import { resetPasswordAction } from '@/actions/email-auth'
 import type { ResetPasswordState } from '@/actions/email-auth'
+import PasswordInput from '@/app/_components/password-input'
 
 interface Props {
   token: string
@@ -52,10 +53,9 @@ export default function NewPasswordForm({ token }: Props) {
             >
               New password
             </label>
-            <input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               minLength={8}
               required
               autoComplete="new-password"

@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { AuthError } from 'next-auth'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
@@ -82,12 +83,23 @@ export async function signUpAction(
 
 // ── signinAction ──────────────────────────────────────────────────────────────
 
+const SigninSchema = z.object({
+  email: z.email({ error: 'Please enter a valid email address.' }),
+  password: z.string().min(1, { error: 'Password is required.' }),
+})
+
 export async function signinAction(
   _prevState: SigninState,
   formData: FormData,
 ): Promise<SigninState> {
-  const email = String(formData.get('email') ?? '')
-  const password = String(formData.get('password') ?? '')
+  const parsed = SigninSchema.safeParse({
+    email: formData.get('email'),
+    password: formData.get('password'),
+  })
+  if (!parsed.success) {
+    return { message: parsed.error.issues[0]?.message ?? 'Invalid credentials.' }
+  }
+  const { email, password } = parsed.data
 
   try {
     await signIn('credentials', { email, password, redirectTo: '/dashboard' })
@@ -104,5 +116,22 @@ export async function signinAction(
 // ── signoutAction ─────────────────────────────────────────────────────────────
 
 export async function signoutAction(): Promise<void> {
-  await signOut({ redirectTo: '/sign-in' })
+  // Auth.js v5-beta can leave the session cookie behind, so a refresh re-auths
+  // the user. Clear it ourselves (all known names + secure prefixes) as well.
+  await signOut({ redirect: false })
+
+  const store = await cookies()
+  const names = [
+    'authjs.session-token',
+    '__Secure-authjs.session-token',
+    'next-auth.session-token',
+    '__Secure-next-auth.session-token',
+    'authjs.csrf-token',
+    '__Host-authjs.csrf-token',
+  ]
+  for (const name of names) {
+    if (store.get(name)) store.delete(name)
+  }
+
+  redirect('/sign-in')
 }

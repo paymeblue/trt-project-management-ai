@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react'
 import { signUpAction } from '@/actions/auth'
 import type { SignupState } from '@/actions/auth'
 import { downscaleImage } from '@/lib/downscale-image'
+import PasswordInput from '@/app/_components/password-input'
 
 const initialState: SignupState = {}
 
@@ -137,10 +138,9 @@ export default function SignUpForm() {
           <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-700">
             Password
           </label>
-          <input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             required
             minLength={8}
             autoComplete="new-password"
