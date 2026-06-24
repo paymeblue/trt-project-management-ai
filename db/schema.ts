@@ -93,6 +93,7 @@ export const checklists = pgTable('checklists', {
   createdBy:    uuid('created_by').notNull().references(() => users.id),
   status:       checklistStatusEnum('status').default('draft').notNull(),
   submittedAt:  timestamp('submitted_at'),
+  photoData:    text('photo_data').array(), // required-evidence photos (base64 data URLs)
   createdAt:    timestamp('created_at').defaultNow().notNull(),
   updatedAt:    timestamp('updated_at').defaultNow().notNull(),
 })
@@ -134,7 +135,9 @@ export const processes = pgTable('processes', {
   title:     text('title').notNull(),
   slug:      text('slug').notNull().unique(),
   body:      text('body').notNull(),
-  // Excalidraw scene: { elements, files }. Null = no diagram drawn yet.
+  // Uploaded process-flow image (base64 data URL). Admin-managed.
+  imageData: text('image_data'),
+  // Legacy Excalidraw scene: { elements, files }. Retained for old records.
   diagram:   jsonb('diagram').$type<ProcessScene | null>(),
   tags:      text('tags').array(),
   createdBy: uuid('created_by').notNull().references(() => users.id),
@@ -264,7 +267,8 @@ export const readinessForms = pgTable('readiness_forms', {
   confirmedBy:    text('confirmed_by'),                // name in "I, ___ confirm…"
   signedDate:     text('signed_date'),
   signatureData:  text('signature_data'),              // data URL (digital signature)
-  uploadData:     text('upload_data'),                 // data URL (uploaded scan/photo)
+  uploadData:     text('upload_data'),                 // legacy single scan/photo (data URL)
   uploadName:     text('upload_name'),
+  photoData:      text('photo_data').array(),          // required photos (2+), base64 data URLs
   createdAt:      timestamp('created_at').defaultNow().notNull(),
 })

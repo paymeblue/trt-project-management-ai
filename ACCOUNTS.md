@@ -50,15 +50,17 @@ until earlier ones complete):
 
 1. New Project — Operations
 2. Confirmation — Site PM
-3. Factory Floor Projects — Factory PM
-4. Materials / Accessories Readiness — Factory PM
-5. Delivery Readiness — Site PM
-6. Delivery Project Checklist — Factory PM
-7. Project Check Report — Factory PM
-8. Approval to Commence Installation — Operations
-9. Installation Readiness — Site PM
-10. Sorting — Site PM
-11. Close Out — Site PM
+3. Materials / Accessories Readiness — Factory PM (first Factory PM step)
+4. Delivery Readiness — Site PM
+5. Delivery Project Checklist — Factory PM (**requires 2 photos** to submit)
+6. Project Check Report — Factory PM
+7. Approval to Commence Installation — Operations
+8. Installation Readiness — Site PM
+9. Sorting — Site PM
+10. Close Out — Site PM
+
+Site PM may also raise an **optional Change Request** at any time (from the project
+modal) — it's recorded against the project but does not change the step order.
 
 Super Admin / Operations watch progress on **Projects Timeline** (green = delivered on
 time, red = past deadline).

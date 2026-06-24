@@ -3,14 +3,22 @@ import { redirect } from 'next/navigation';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { users } from '@/db/schema';
+import { users, projects } from '@/db/schema';
 import SidebarNav from '@/app/_components/sidebar-nav';
 import SignOutButton from '@/app/_components/sign-out-button';
 import PaulArredo from '@/app/_components/paul-arredo';
 import ThemeToggle from '@/app/_components/theme-toggle';
 import MobileSidebar from '@/app/_components/mobile-sidebar';
 import ChatDrawer from '@/app/_components/chat-drawer';
-import { isAdminRole, type UserRole } from '@/lib/workflow';
+import PendingStepGate, { type PendingItem } from '@/app/_components/pending-step-gate';
+import HeaderProjectSwitcher from '@/app/_components/header-project-switcher';
+import {
+  isAdminRole,
+  stepByN,
+  canRoleActOnStep,
+  isProjectComplete,
+  type UserRole,
+} from '@/lib/workflow';
 
 const ROLE_LABELS: Record<string, string> = {
   factory_pm: 'Factory PM',
@@ -47,6 +55,43 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const isAdmin = isAdminRole(role as UserRole);
   const roleLabel =
     (isAdmin && me?.position?.trim()) || ROLE_LABELS[role] || role;
+
+  // Active (in-progress) projects power the header switcher; the subset awaiting
+  // THIS user's action powers the forcing "action required" gate.
+  const projectRows = await db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      currentStep: projects.currentStep,
+      deliveryDate: projects.deliveryDate,
+    })
+    .from(projects);
+
+  const active = projectRows.filter((p) => !isProjectComplete(p.currentStep));
+  const activeProjects = active.map((p) => ({
+    id: p.id,
+    name: p.name,
+    stepN: p.currentStep,
+    deadline: p.deliveryDate ? p.deliveryDate.toISOString() : null,
+  }));
+
+  const pending: PendingItem[] = active
+    .filter((p) => {
+      const step = stepByN(p.currentStep);
+      return step ? canRoleActOnStep(step.role, role as UserRole) : false;
+    })
+    .map((p) => ({
+      projectId: p.id,
+      name: p.name,
+      stepN: p.currentStep,
+      deadline: p.deliveryDate ? p.deliveryDate.toISOString() : null,
+    }))
+    .sort((a, b) => {
+      if (a.deadline && b.deadline) return a.deadline.localeCompare(b.deadline);
+      if (a.deadline) return -1;
+      if (b.deadline) return 1;
+      return 0;
+    });
 
   return (
     <div className="min-h-screen bg-background text-on-surface">
@@ -102,6 +147,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <h1 className="text-headline-md font-headline-md font-extrabold text-primary">
               TRT Arredo
             </h1>
+            <HeaderProjectSwitcher projects={activeProjects} viewerRole={role as UserRole} />
           </div>
           <div className="flex items-center gap-2">
             <ChatDrawer />
@@ -119,6 +165,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
       {/* Paul Arredo floating assistant */}
       <PaulArredo />
+
+      {/* Forcing "action required" modal for steps on this user's desk */}
+      <PendingStepGate pending={pending} />
     </div>
   );
 }

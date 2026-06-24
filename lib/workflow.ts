@@ -35,15 +35,14 @@ export type WorkflowStep = {
 export const WORKFLOW_STEPS: WorkflowStep[] = [
   { n: 1, key: 'new_project', label: 'New Project', role: 'operations', kind: 'creation' },
   { n: 2, key: 'confirmation', label: 'Confirmation', role: 'site_pm', kind: 'checklist', slug: 'confirmation' },
-  { n: 3, key: 'factory_floor', label: 'Factory Floor Projects', role: 'factory_pm', kind: 'ack' },
-  { n: 4, key: 'materials_readiness', label: 'Materials / Accessories Readiness', role: 'factory_pm', kind: 'readiness' },
-  { n: 5, key: 'delivery_readiness', label: 'Delivery Readiness', role: 'site_pm', kind: 'checklist', slug: 'delivery_site_readiness' },
-  { n: 6, key: 'delivery_project', label: 'Delivery Project Checklist', role: 'factory_pm', kind: 'checklist', slug: 'delivery_project' },
-  { n: 7, key: 'project_check_report', label: 'Project Check Report', role: 'factory_pm', kind: 'checklist', slug: 'project_check_report' },
-  { n: 8, key: 'approval_installation', label: 'Approval to Commence Installation', role: 'operations', kind: 'checklist', slug: 'approval_to_commence_installation' },
-  { n: 9, key: 'installation_readiness', label: 'Installation Readiness', role: 'site_pm', kind: 'checklist', slug: 'installation_readiness' },
-  { n: 10, key: 'sorting', label: 'Sorting', role: 'site_pm', kind: 'checklist', slug: 'sorting' },
-  { n: 11, key: 'close_out', label: 'Close Out', role: 'site_pm', kind: 'checklist', slug: 'close_out' },
+  { n: 3, key: 'materials_readiness', label: 'Materials / Accessories Readiness', role: 'factory_pm', kind: 'readiness' },
+  { n: 4, key: 'delivery_readiness', label: 'Delivery Readiness', role: 'site_pm', kind: 'checklist', slug: 'delivery_site_readiness' },
+  { n: 5, key: 'delivery_project', label: 'Delivery Project Checklist', role: 'factory_pm', kind: 'checklist', slug: 'delivery_project' },
+  { n: 6, key: 'project_check_report', label: 'Project Check Report', role: 'factory_pm', kind: 'checklist', slug: 'project_check_report' },
+  { n: 7, key: 'approval_installation', label: 'Approval to Commence Installation', role: 'operations', kind: 'checklist', slug: 'approval_to_commence_installation' },
+  { n: 8, key: 'installation_readiness', label: 'Installation Readiness', role: 'site_pm', kind: 'checklist', slug: 'installation_readiness' },
+  { n: 9, key: 'sorting', label: 'Sorting', role: 'site_pm', kind: 'checklist', slug: 'sorting' },
+  { n: 10, key: 'close_out', label: 'Close Out', role: 'site_pm', kind: 'checklist', slug: 'close_out' },
 ]
 
 // New projects begin awaiting the first actionable step (Confirmation); step 1
@@ -74,6 +73,10 @@ export function canRoleActOnStep(stepRole: WorkflowRole, userRole: UserRole): bo
   if (stepRole === Roles.Operations) return isAdminRole(userRole)
   return stepRole === userRole
 }
+
+// Checklist slugs that require photo evidence before submit. (The 2-image
+// requirement lives on the Materials / Accessories Readiness Form, not here.)
+export const REQUIRED_PHOTOS: Record<string, number> = {}
 
 // Destination for an actionable step. `ack` steps are completed inline from the
 // modal (no destination).

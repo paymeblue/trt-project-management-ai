@@ -3,26 +3,18 @@
 import { revalidatePath } from 'next/cache'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { processes, type ProcessScene } from '@/db/schema'
-import { verifySession } from '@/lib/dal'
+import { processes } from '@/db/schema'
+import { verifySession, isAdminRole } from '@/lib/dal'
+
+export type ProcessActionResult = { ok: boolean; slug?: string; error?: string }
+
+const MAX_IMAGE = 3_000_000 // ~3MB data URL
 
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'process'
 }
 
-/** Create a new process from a drawing the user just made, naming it on save. */
-export async function createProcessWithSceneAction(
-  name: string,
-  scene: ProcessScene,
-): Promise<{ ok: boolean; slug?: string; error?: string }> {
-  const { userId } = await verifySession()
-  const title = (name ?? '').trim()
-  if (!title) return { ok: false, error: 'Please name the process.' }
-  if (!scene || !Array.isArray(scene.elements) || scene.elements.length === 0) {
-    return { ok: false, error: 'Draw something first.' }
-  }
-
-  // Unique slug
+async function uniqueSlug(title: string): Promise<string> {
   const base = slugify(title)
   let slug = base
   for (let n = 2; ; n++) {
@@ -34,67 +26,67 @@ export async function createProcessWithSceneAction(
     if (!exists) break
     slug = `${base}-${n}`
   }
+  return slug
+}
 
-  await db.insert(processes).values({ title, slug, body: '', diagram: scene, createdBy: userId })
+/** Admin-only: add a process flow from an uploaded image. */
+export async function createProcessImageAction(input: {
+  title: string
+  imageData: string
+}): Promise<ProcessActionResult> {
+  const { userId, role } = await verifySession()
+  if (!isAdminRole(role)) return { ok: false, error: 'Only administrators can add process flows.' }
+
+  const title = String(input?.title ?? '').trim()
+  if (title.length < 2) return { ok: false, error: 'Please name the process flow.' }
+
+  const imageData = String(input?.imageData ?? '')
+  if (!imageData.startsWith('data:image/')) return { ok: false, error: 'Please upload an image.' }
+  if (imageData.length > MAX_IMAGE) return { ok: false, error: 'Image is too large (max ~3MB).' }
+
+  const slug = await uniqueSlug(title)
+  await db.insert(processes).values({ title, slug, body: '', imageData, createdBy: userId })
   revalidatePath('/processes')
   return { ok: true, slug }
 }
 
-export async function createProcessAction(formData: FormData): Promise<void> {
-  const { userId } = await verifySession()
+/** Admin-only: rename and/or replace the image of a process flow. */
+export async function updateProcessImageAction(input: {
+  slug: string
+  title?: string
+  imageData?: string
+}): Promise<ProcessActionResult> {
+  const { role } = await verifySession()
+  if (!isAdminRole(role)) return { ok: false, error: 'Only administrators can update process flows.' }
 
-  const title = String(formData.get('title') ?? '').trim()
-  const slug = String(formData.get('slug') ?? '').trim()
-  const body = String(formData.get('body') ?? '').trim()
+  const slug = String(input?.slug ?? '').trim()
+  if (!slug) return { ok: false, error: 'Missing process.' }
 
-  if (!title || !slug || !body) return
+  const set: Record<string, unknown> = { updatedAt: new Date() }
+  const title = String(input?.title ?? '').trim()
+  if (title) set.title = title
+  if (input?.imageData) {
+    const img = String(input.imageData)
+    if (!img.startsWith('data:image/')) return { ok: false, error: 'Invalid image.' }
+    if (img.length > MAX_IMAGE) return { ok: false, error: 'Image is too large (max ~3MB).' }
+    set.imageData = img
+  }
 
-  await db.insert(processes).values({
-    title,
-    slug,
-    body,
-    createdBy: userId,
-  })
-
+  await db.update(processes).set(set).where(eq(processes.slug, slug))
   revalidatePath('/processes')
-}
-
-export async function updateProcessAction(formData: FormData): Promise<void> {
-  await verifySession()
-
-  const slug = String(formData.get('slug') ?? '').trim()
-  const body = String(formData.get('body') ?? '').trim()
-
-  if (!slug || !body) return
-
-  await db
-    .update(processes)
-    .set({ body, updatedAt: new Date() })
-    .where(eq(processes.slug, slug))
-
   revalidatePath(`/processes/${slug}`)
-  revalidatePath('/processes')
+  return { ok: true, slug }
 }
 
-/** Persist an Excalidraw scene for a process. Any authenticated PM (matches
- *  process creation, which is open to all roles). Stored in the `diagram` jsonb. */
-export async function saveProcessSceneAction(
-  slug: string,
-  scene: { elements: unknown[]; files?: unknown },
-): Promise<{ ok: boolean; error?: string }> {
-  await verifySession()
+/** Admin-only: delete a process flow. */
+export async function deleteProcessAction(slug: string): Promise<ProcessActionResult> {
+  const { role } = await verifySession()
+  if (!isAdminRole(role)) return { ok: false, error: 'Only administrators can delete process flows.' }
 
   const clean = String(slug).trim()
   if (!clean) return { ok: false, error: 'Missing process.' }
-  if (!scene || !Array.isArray(scene.elements)) {
-    return { ok: false, error: 'Invalid drawing.' }
-  }
 
-  await db
-    .update(processes)
-    .set({ diagram: scene, updatedAt: new Date() })
-    .where(eq(processes.slug, clean))
-
-  revalidatePath(`/processes/${clean}`)
+  await db.delete(processes).where(eq(processes.slug, clean))
+  revalidatePath('/processes')
   return { ok: true }
 }

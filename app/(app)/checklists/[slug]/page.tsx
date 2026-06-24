@@ -8,7 +8,7 @@ import {
 } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import ChecklistWizard, { type WizardItem } from '@/app/_components/checklist-wizard'
-import { stepByN, canRoleActOnStep, type UserRole } from '@/lib/workflow'
+import { REQUIRED_PHOTOS, stepByN, canRoleActOnStep, type UserRole } from '@/lib/workflow'
 
 export const dynamic = 'force-dynamic'
 
@@ -144,6 +144,7 @@ export default async function ChecklistPage({
         projectId={workflowProjectId}
         expectedStepN={workflowStepN}
         returnTo={returnTo}
+        requirePhotos={REQUIRED_PHOTOS[def.slug] ?? 0}
         items={items.map(
           (i): WizardItem => ({
             id: i.id,

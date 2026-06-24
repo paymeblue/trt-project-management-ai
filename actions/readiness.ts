@@ -16,12 +16,14 @@ export type ReadinessInput = {
   confirmedBy?: string
   signedDate?: string
   signatureData?: string
-  uploadData?: string
-  uploadName?: string
+  // Required photo evidence (2+) — base64 data URLs.
+  photos?: string[] | null
   // Set when launched from a project workflow step.
   projectId?: string | null
   expectedStepN?: number | null
 }
+
+const REQUIRED_PHOTOS = 2
 
 export type ReadinessState = {
   status: 'idle' | 'success' | 'error'
@@ -40,13 +42,16 @@ export async function submitReadinessAction(
 
   const mode = input?.mode === 'upload' ? 'upload' : 'digital'
 
-  if (mode === 'upload') {
-    if (!input.uploadData) return { status: 'error', message: 'Please choose a file to upload.' }
-    if (input.uploadData.length > MAX_DATA_URL)
-      return { status: 'error', message: 'That file is too large (max ~4MB image).' }
-  } else {
-    if (!input.project?.trim())
-      return { status: 'error', message: 'Project is required.' }
+  // Both modes require 2 photos — the step cannot complete without them.
+  const photos = (Array.isArray(input?.photos) ? input.photos : []).filter(
+    (p) => typeof p === 'string' && p.startsWith('data:image/'),
+  )
+  if (photos.length < REQUIRED_PHOTOS)
+    return { status: 'error', message: `Please attach ${REQUIRED_PHOTOS} photos before submitting.` }
+  if (photos.some((p) => p.length > MAX_DATA_URL))
+    return { status: 'error', message: 'One of the photos is too large. Please retake it.' }
+
+  if (mode === 'digital') {
     if (!input.confirmedBy?.trim())
       return { status: 'error', message: 'Please enter your name in the confirmation statement.' }
     if (!input.signatureData)
@@ -67,8 +72,7 @@ export async function submitReadinessAction(
       confirmedBy: input.confirmedBy?.trim() || null,
       signedDate: input.signedDate?.trim() || null,
       signatureData: mode === 'digital' ? input.signatureData ?? null : null,
-      uploadData: mode === 'upload' ? input.uploadData ?? null : null,
-      uploadName: mode === 'upload' ? input.uploadName ?? null : null,
+      photoData: photos,
     })
   } catch {
     return { status: 'error', message: 'Could not save the form. Please try again.' }

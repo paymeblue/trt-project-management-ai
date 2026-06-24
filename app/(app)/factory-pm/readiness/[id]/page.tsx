@@ -92,6 +92,25 @@ export default async function ReadinessDetailPage({
             />
           </div>
         )}
+
+        {form.photoData && form.photoData.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">
+              Photos ({form.photoData.length})
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {form.photoData.map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={src}
+                  alt={`Photo ${i + 1}`}
+                  className="h-32 w-32 rounded-md border border-gray-200 object-cover"
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

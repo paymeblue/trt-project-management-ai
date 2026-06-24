@@ -6,6 +6,7 @@ import { db } from '@/db'
 import { checklistTemplateItems, checklists, checklistResponses } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { advanceProjectStep } from '@/actions/workflow'
+import { REQUIRED_PHOTOS } from '@/lib/workflow'
 
 type ResponseValue = 'yes' | 'no' | 'na'
 
@@ -15,6 +16,8 @@ export type ChecklistAnswer = {
   notes?: string | null
 }
 
+const MAX_PHOTO_DATA = 1_500_000 // ~1.5MB per downscaled data URL
+
 export type SubmitChecklistInput = {
   definitionId: string
   slug: string
@@ -23,6 +26,8 @@ export type SubmitChecklistInput = {
   // project and auto-advances it on success.
   projectId?: string | null
   expectedStepN?: number | null
+  // Photo-evidence data URLs (required for some checklists, e.g. delivery_project).
+  photos?: string[] | null
 }
 
 export type SubmitChecklistState = {
@@ -51,6 +56,21 @@ export async function submitChecklistAction(
 
   const projectId = input?.projectId ? String(input.projectId) : null
 
+  // Required photo evidence (e.g. Delivery Project Checklist needs 2 images).
+  const requiredPhotos = REQUIRED_PHOTOS[slug] ?? 0
+  const photos = (Array.isArray(input?.photos) ? input.photos : [])
+    .filter((p) => typeof p === 'string' && p.startsWith('data:image/'))
+    .slice(0, 6)
+  if (requiredPhotos > 0 && photos.length < requiredPhotos) {
+    return {
+      status: 'error',
+      message: `Please attach ${requiredPhotos} photos before submitting this checklist.`,
+    }
+  }
+  if (photos.some((p) => p.length > MAX_PHOTO_DATA)) {
+    return { status: 'error', message: 'One of the photos is too large. Please retake it.' }
+  }
+
   try {
     const [created] = await db
       .insert(checklists)
@@ -60,6 +80,7 @@ export async function submitChecklistAction(
         createdBy: userId,
         status: 'submitted',
         submittedAt: new Date(),
+        photoData: photos.length > 0 ? photos : null,
       })
       .returning({ id: checklists.id })
 

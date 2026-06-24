@@ -11,7 +11,6 @@ const NAV: Record<string, Item[]> = {
   factory_pm: [
     { href: '/factory-pm/dashboard', icon: 'dashboard', label: 'Dashboard' },
     { href: '/factory-pm/projects', icon: 'factory', label: 'Projects' },
-    { href: '/checklists/delivery_project', icon: 'fact_check', label: 'Delivery Checklist' },
     { href: '/factory-pm/product-readiness', icon: 'inventory_2', label: 'Product Readiness' },
     { href: '/processes', icon: 'account_tree', label: 'Processes' },
     { href: '/profile', icon: 'person', label: 'Profile' },

@@ -7,6 +7,7 @@ import {
   type ChecklistAnswer,
   type SubmitChecklistState,
 } from '@/actions/checklists'
+import { downscaleImage } from '@/lib/downscale-image'
 
 export type WizardItem = {
   id: string
@@ -29,6 +30,7 @@ export default function ChecklistWizard({
   projectId = null,
   expectedStepN = null,
   returnTo = null,
+  requirePhotos = 0,
 }: {
   definitionId: string
   slug: string
@@ -36,10 +38,13 @@ export default function ChecklistWizard({
   projectId?: string | null
   expectedStepN?: number | null
   returnTo?: string | null
+  requirePhotos?: number
 }) {
   const router = useRouter()
   const [stepIdx, setStepIdx] = useState(0)
   const [answers, setAnswers] = useState<Record<string, ChecklistAnswer>>({})
+  const [photos, setPhotos] = useState<string[]>([])
+  const [photoError, setPhotoError] = useState('')
   const [state, dispatch, pending] = useActionState(submitChecklistAction, INITIAL)
 
   // When this checklist was opened from a project workflow step and the step
@@ -106,6 +111,24 @@ export default function ChecklistWizard({
   function optsFor(item: WizardItem): Array<'yes' | 'no' | 'na'> {
     return item.responseOptions === 'yes_no_na' ? ['yes', 'no', 'na'] : ['yes', 'no']
   }
+
+  async function onPhotos(e: React.ChangeEvent<HTMLInputElement>) {
+    setPhotoError('')
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = '' // allow re-selecting the same file
+    for (const file of files) {
+      if (photos.length >= 6) break
+      try {
+        const data = await downscaleImage(file, 1280, 0.8)
+        setPhotos((prev) => (prev.length >= 6 ? prev : [...prev, data]))
+      } catch {
+        setPhotoError('Could not read one of the images. Please try another.')
+      }
+    }
+  }
+
+  const photosNeeded = Math.max(0, requirePhotos - photos.length)
+  const photosOk = photos.length >= requirePhotos
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
@@ -179,6 +202,47 @@ export default function ChecklistWizard({
         })}
       </div>
 
+      {/* Required photo evidence — only on the final step */}
+      {isLast && requirePhotos > 0 && (
+        <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <p className="text-sm font-semibold text-gray-900">
+            Photo evidence <span className="text-error">*</span>
+          </p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            Attach {requirePhotos} photos to submit this checklist.
+            {photosOk ? ' ✓ Done.' : ` ${photosNeeded} more needed.`}
+          </p>
+
+          {photos.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {photos.map((p, i) => (
+                <div key={i} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p} alt={`Evidence ${i + 1}`} className="h-20 w-20 rounded-md border border-gray-200 object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))}
+                    className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-white"
+                    title="Remove"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">close</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {photos.length < 6 && (
+            <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-primary">
+              <span className="material-symbols-outlined text-base">add_a_photo</span>
+              Add photo
+              <input type="file" accept="image/*" multiple className="hidden" onChange={onPhotos} />
+            </label>
+          )}
+          {photoError && <p className="mt-2 text-xs text-error">{photoError}</p>}
+        </div>
+      )}
+
       {state.status === 'error' && (
         <p className="mt-4 text-sm text-error">{state.message ?? 'Something went wrong.'}</p>
       )}
@@ -197,8 +261,9 @@ export default function ChecklistWizard({
         {isLast ? (
           <button
             type="button"
-            onClick={() => dispatch({ definitionId, slug, answers, projectId, expectedStepN })}
-            disabled={pending}
+            onClick={() => dispatch({ definitionId, slug, answers, projectId, expectedStepN, photos })}
+            disabled={pending || !photosOk}
+            title={!photosOk ? `Attach ${requirePhotos} photos first` : undefined}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
           >
             {pending && (

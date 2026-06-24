@@ -4,8 +4,11 @@ import { useActionState, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import SignatureCanvas from 'react-signature-canvas'
 import { submitReadinessAction, type ReadinessState } from '@/actions/readiness'
+import { downscaleImage } from '@/lib/downscale-image'
 
 const INITIAL: ReadinessState = { status: 'idle' }
+
+const REQUIRED_PHOTOS = 2
 
 type Tab = 'digital' | 'upload'
 
@@ -24,9 +27,11 @@ export default function ReadinessForm({
   const [tab, setTab] = useState<Tab>('digital')
   const [state, dispatch, pending] = useActionState(submitReadinessAction, INITIAL)
 
-  // Digital fields
+  // Shared fields
   const [project, setProject] = useState(initialProject)
   const [unit, setUnit] = useState('')
+
+  // Digital fields
   const [materialControl, setMaterialControl] = useState('')
   const [accessories, setAccessories] = useState('')
   const [upholstery, setUpholstery] = useState('')
@@ -34,9 +39,8 @@ export default function ReadinessForm({
   const [signedDate, setSignedDate] = useState('')
   const sigRef = useRef<SignatureCanvas>(null)
 
-  // Upload fields
-  const [uploadData, setUploadData] = useState('')
-  const [uploadName, setUploadName] = useState('')
+  // Required photo evidence (2 images) — applies to both modes.
+  const [photos, setPhotos] = useState<string[]>([])
   const [localError, setLocalError] = useState('')
 
   useEffect(() => {
@@ -50,24 +54,29 @@ export default function ReadinessForm({
     sigRef.current?.clear()
   }
 
-  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 4_000_000) {
-      setLocalError('Image is larger than 4MB — please pick a smaller one.')
-      return
-    }
+  async function onPhotos(e: React.ChangeEvent<HTMLInputElement>) {
     setLocalError('')
-    const reader = new FileReader()
-    reader.onload = () => {
-      setUploadData(typeof reader.result === 'string' ? reader.result : '')
-      setUploadName(file.name)
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    for (const file of files) {
+      if (photos.length >= 6) break
+      try {
+        const data = await downscaleImage(file, 1280, 0.8)
+        setPhotos((prev) => (prev.length >= 6 ? prev : [...prev, data]))
+      } catch {
+        setLocalError('Could not read one of the images. Please try another.')
+      }
     }
-    reader.readAsDataURL(file)
   }
+
+  const photosOk = photos.length >= REQUIRED_PHOTOS
 
   function submit() {
     setLocalError('')
+    if (!photosOk) {
+      setLocalError(`Please attach ${REQUIRED_PHOTOS} photos before submitting.`)
+      return
+    }
     if (tab === 'digital') {
       const sig = sigRef.current
       const signatureData = sig && !sig.isEmpty() ? sig.toDataURL('image/png') : ''
@@ -81,11 +90,12 @@ export default function ReadinessForm({
         confirmedBy,
         signedDate,
         signatureData,
+        photos,
         projectId,
         expectedStepN,
       })
     } else {
-      dispatch({ mode: 'upload', project, unit, uploadData, uploadName, projectId, expectedStepN })
+      dispatch({ mode: 'upload', project, unit, photos, projectId, expectedStepN })
     }
   }
 
@@ -210,31 +220,55 @@ export default function ReadinessForm({
             </div>
           </>
         ) : (
-          <>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className={labelCls}>Project (optional)</label>
-                <input value={project} onChange={(e) => setProject(e.target.value)} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Unit (optional)</label>
-                <input value={unit} onChange={(e) => setUnit(e.target.value)} className={inputCls} />
-              </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelCls}>Project (optional)</label>
+              <input value={project} onChange={(e) => setProject(e.target.value)} className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Photo / scan of the signed form</label>
-              <input type="file" accept="image/*" onChange={onFile} className="block w-full text-sm" />
+              <label className={labelCls}>Unit (optional)</label>
+              <input value={unit} onChange={(e) => setUnit(e.target.value)} className={inputCls} />
             </div>
-            {uploadData && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={uploadData}
-                alt="Readiness form preview"
-                className="max-h-72 w-auto rounded-md border border-gray-200"
-              />
-            )}
-          </>
+          </div>
         )}
+
+        {/* Required photo evidence — both modes. */}
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <p className="text-sm font-semibold text-gray-900">
+            Photos <span className="text-error">*</span>
+          </p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            Attach {REQUIRED_PHOTOS} photos of the signed form / materials to submit.
+            {photosOk ? ' ✓ Done.' : ` ${Math.max(0, REQUIRED_PHOTOS - photos.length)} more needed.`}
+          </p>
+
+          {photos.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {photos.map((p, i) => (
+                <div key={i} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p} alt={`Photo ${i + 1}`} className="h-20 w-20 rounded-md border border-gray-200 object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))}
+                    className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-white"
+                    title="Remove"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">close</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {photos.length < 6 && (
+            <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-primary">
+              <span className="material-symbols-outlined text-base">add_a_photo</span>
+              Add photo
+              <input type="file" accept="image/*" multiple className="hidden" onChange={onPhotos} />
+            </label>
+          )}
+        </div>
 
         {(state.status === 'error' || localError) && (
           <p className="text-sm text-error">{localError || state.message}</p>
@@ -243,7 +277,8 @@ export default function ReadinessForm({
         <button
           type="button"
           onClick={submit}
-          disabled={pending}
+          disabled={pending || !photosOk}
+          title={!photosOk ? `Attach ${REQUIRED_PHOTOS} photos first` : undefined}
           className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
         >
           {pending && (
