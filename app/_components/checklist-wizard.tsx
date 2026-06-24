@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState, useMemo, useState } from 'react'
+import { useActionState, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   submitChecklistAction,
   type ChecklistAnswer,
@@ -25,14 +26,30 @@ export default function ChecklistWizard({
   definitionId,
   slug,
   items,
+  projectId = null,
+  expectedStepN = null,
+  returnTo = null,
 }: {
   definitionId: string
   slug: string
   items: WizardItem[]
+  projectId?: string | null
+  expectedStepN?: number | null
+  returnTo?: string | null
 }) {
+  const router = useRouter()
   const [stepIdx, setStepIdx] = useState(0)
   const [answers, setAnswers] = useState<Record<string, ChecklistAnswer>>({})
   const [state, dispatch, pending] = useActionState(submitChecklistAction, INITIAL)
+
+  // When this checklist was opened from a project workflow step and the step
+  // advanced, return the user to their project board.
+  useEffect(() => {
+    if (state.status === 'success' && state.advanced && returnTo) {
+      const t = setTimeout(() => router.push(returnTo), 1200)
+      return () => clearTimeout(t)
+    }
+  }, [state.status, state.advanced, returnTo, router])
 
   // Group items by their `step`, preserving order. If everything is on one step,
   // fall back to one item per page so small checklists still feel like a wizard.
@@ -69,8 +86,15 @@ export default function ChecklistWizard({
         <span className="material-symbols-outlined text-4xl text-green-600">check_circle</span>
         <p className="mt-2 text-base font-semibold text-gray-900">Checklist submitted</p>
         <p className="mt-1 text-sm text-gray-500">
-          Your responses were recorded. See “Your submissions” below.
+          {state.advanced
+            ? 'This step is complete — the project moves to the next step. Returning to your projects…'
+            : 'Your responses were recorded. See “Your submissions” below.'}
         </p>
+        {state.advanced && returnTo && (
+          <a href={returnTo} className="mt-3 inline-block text-sm font-semibold text-primary hover:underline">
+            Back to projects
+          </a>
+        )}
       </div>
     )
   }
@@ -173,7 +197,7 @@ export default function ChecklistWizard({
         {isLast ? (
           <button
             type="button"
-            onClick={() => dispatch({ definitionId, slug, answers })}
+            onClick={() => dispatch({ definitionId, slug, answers, projectId, expectedStepN })}
             disabled={pending}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
           >

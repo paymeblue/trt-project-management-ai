@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
 import { readinessForms } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
+import { advanceProjectStep } from '@/actions/workflow'
 
 export type ReadinessInput = {
   mode: 'digital' | 'upload'
@@ -17,11 +18,15 @@ export type ReadinessInput = {
   signatureData?: string
   uploadData?: string
   uploadName?: string
+  // Set when launched from a project workflow step.
+  projectId?: string | null
+  expectedStepN?: number | null
 }
 
 export type ReadinessState = {
   status: 'idle' | 'success' | 'error'
   message?: string
+  advanced?: boolean
 }
 
 // ~6MB cap on any single data URL we persist (base64 of an image/signature).
@@ -69,6 +74,14 @@ export async function submitReadinessAction(
     return { status: 'error', message: 'Could not save the form. Please try again.' }
   }
 
+  let advanced = false
+  if (input?.projectId && input?.expectedStepN) {
+    advanced = await advanceProjectStep({
+      projectId: String(input.projectId),
+      expectedStepN: Number(input.expectedStepN),
+    })
+  }
+
   revalidatePath('/factory-pm/readiness')
-  return { status: 'success', message: 'Readiness form submitted.' }
+  return { status: 'success', message: 'Readiness form submitted.', advanced }
 }

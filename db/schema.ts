@@ -10,7 +10,7 @@ import {
 } from 'drizzle-orm/pg-core'
 
 // ── Enums ────────────────────────────────────────────────────────────────
-export const roleEnum = pgEnum('role', ['factory_pm', 'site_pm', 'super_admin'])
+export const roleEnum = pgEnum('role', ['factory_pm', 'site_pm', 'super_admin', 'operations'])
 export const projectStatusEnum = pgEnum('project_status', ['not_delivered', 'delivered'])
 export const targetRoleEnum = pgEnum('target_role', ['factory_pm', 'site_pm', 'both'])
 export const itemTypeEnum = pgEnum('item_type', ['radio', 'text', 'file'])
@@ -40,11 +40,23 @@ export const projects = pgTable('projects', {
   id:           uuid('id').primaryKey().defaultRandom(),
   name:         text('name').notNull(),
   location:     text('location'),
-  deliveryDate: timestamp('delivery_date'),
+  deliveryDate: timestamp('delivery_date'),                 // doubles as the deadline (Operations sets it)
   status:       projectStatusEnum('status').default('not_delivered').notNull(),
+  currentStep:  integer('current_step').default(2).notNull(), // workflow step awaiting action (see lib/workflow.ts)
   createdBy:    uuid('created_by').notNull().references(() => users.id),
   createdAt:    timestamp('created_at').defaultNow().notNull(),
   updatedAt:    timestamp('updated_at').defaultNow().notNull(),
+})
+
+// ── Project Step Completions (workflow audit trail / timeline) ────────────
+export const projectStepCompletions = pgTable('project_step_completions', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  projectId:   uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  stepKey:     text('step_key').notNull(),               // WorkflowStep.key
+  stepN:       integer('step_n').notNull(),              // WorkflowStep.n
+  completedBy: uuid('completed_by').notNull().references(() => users.id),
+  notes:       text('notes'),
+  completedAt: timestamp('completed_at').defaultNow().notNull(),
 })
 
 // ── Checklist Definitions (CHK-01: template catalogue) ───────────────────

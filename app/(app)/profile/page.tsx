@@ -11,12 +11,14 @@ const ROLE_LABELS: Record<string, string> = {
   factory_pm: 'Factory PM',
   site_pm: 'Site PM',
   super_admin: 'Super Admin',
+  operations: 'Operations',
 }
 
 const DASH: Record<string, string> = {
   factory_pm: '/factory-pm/dashboard',
   site_pm: '/site-pm/dashboard',
   super_admin: '/admin/dashboard',
+  operations: '/admin/dashboard',
 }
 
 export default async function ProfilePage() {

@@ -5,12 +5,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // Prevent `import 'server-only'` from throwing in the test environment
 vi.mock('server-only', () => ({}))
 
-// Mock next/navigation so redirect() throws (like Next does) and we can assert it
-vi.mock('next/navigation', () => ({
-  redirect: vi.fn(() => {
+// Mock next/navigation so redirect() throws (like Next does) and we can assert it.
+// Mock next/headers cookies() used by signoutAction to clear session cookies.
+const { redirectMock, cookieStore } = vi.hoisted(() => ({
+  redirectMock: vi.fn(() => {
     throw new Error('REDIRECT')
   }),
+  cookieStore: { get: vi.fn(() => undefined), delete: vi.fn() },
 }))
+vi.mock('next/navigation', () => ({ redirect: redirectMock }))
+vi.mock('next/headers', () => ({ cookies: vi.fn(async () => cookieStore) }))
 
 // Capture bcrypt.hash calls without doing real hashing
 const bcryptHashMock = vi.fn()
@@ -99,92 +103,33 @@ describe('auth actions (NextAuth Credentials)', () => {
 
   // ── AUTH-01 ───────────────────────────────────────────────────────────────
 
-  describe('AUTH-01: signUpAction — happy path (factory_pm)', () => {
-    it('hashes the password with bcrypt and inserts a users row with the hashed value', async () => {
+  describe('AUTH-01: signUpAction — public sign-up is disabled', () => {
+    it('returns the disabled message and performs NO side-effects (no hash/insert/email/signIn)', async () => {
       const { signUpAction } = await import('@/actions/auth')
       const fd = makeSignupFormData({ role: 'factory_pm' })
 
-      // signUpAction redirects at the end — catch the thrown redirect
-      await signUpAction({}, fd).catch(() => {})
-
-      expect(bcryptHashMock).toHaveBeenCalledOnce()
-      expect(bcryptHashMock).toHaveBeenCalledWith('securepass1', 10)
-
-      expect(dbInsertMock).toHaveBeenCalledOnce()
-      expect(dbValuesMock).toHaveBeenCalledOnce()
-      expect(dbValuesMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          role: 'factory_pm',
-          hashedPassword: '$2b$10$hashedpassword',
-        }),
-      )
-    })
-
-    it('calls sendVerificationEmail with the new userId and email', async () => {
-      const { signUpAction } = await import('@/actions/auth')
-      const fd = makeSignupFormData({ email: 'user@factory.com', role: 'factory_pm' })
-
-      await signUpAction({}, fd).catch(() => {})
-
-      expect(sendVerificationEmailMock).toHaveBeenCalledOnce()
-      expect(sendVerificationEmailMock).toHaveBeenCalledWith('new-user-id', 'user@factory.com')
-    })
-
-    it('calls NextAuth signIn(credentials) after inserting the user', async () => {
-      const { signUpAction } = await import('@/actions/auth')
-      const fd = makeSignupFormData({ email: 'signme@in.com', password: 'mypassword1' })
-
-      await signUpAction({}, fd).catch(() => {})
-
-      expect(signInMock).toHaveBeenCalledOnce()
-      expect(signInMock).toHaveBeenCalledWith(
-        'credentials',
-        expect.objectContaining({ email: 'signme@in.com', password: 'mypassword1', redirect: false }),
-      )
-    })
-
-    it('accepts site_pm role as well (both allowed roles work)', async () => {
-      const { signUpAction } = await import('@/actions/auth')
-      const fd = makeSignupFormData({ role: 'site_pm' })
-
-      await signUpAction({}, fd).catch(() => {})
-
-      expect(dbValuesMock).toHaveBeenCalledWith(
-        expect.objectContaining({ role: 'site_pm' }),
-      )
-      expect(bcryptHashMock).toHaveBeenCalledOnce()
-    })
-  })
-
-  // ── AUTH-02 ───────────────────────────────────────────────────────────────
-
-  describe('AUTH-02: signUpAction — privilege-escalation guard (super_admin rejected)', () => {
-    it('returns { errors } and NEVER hashes, inserts, or sends email for role=super_admin', async () => {
-      const { signUpAction } = await import('@/actions/auth')
-      const fd = makeSignupFormData({ role: 'super_admin' })
-
       const result = await signUpAction({}, fd)
 
-      // Must return errors — not redirect
-      expect(result).toHaveProperty('errors')
-      expect(result.errors).toBeTruthy()
+      expect(result).toHaveProperty('message')
+      expect(result.message).toMatch(/disabled/i)
 
-      // Privilege-escalation guard: none of the side-effects must fire
+      // No account is created by self sign-up anymore.
       expect(bcryptHashMock).not.toHaveBeenCalled()
       expect(dbInsertMock).not.toHaveBeenCalled()
       expect(sendVerificationEmailMock).not.toHaveBeenCalled()
       expect(signInMock).not.toHaveBeenCalled()
     })
 
-    it('returns field-level errors on other invalid input (e.g. short password)', async () => {
+    it('stays disabled regardless of the requested role', async () => {
       const { signUpAction } = await import('@/actions/auth')
-      const fd = makeSignupFormData({ password: 'short' })
 
-      const result = await signUpAction({}, fd)
+      for (const role of ['site_pm', 'super_admin', 'operations']) {
+        const result = await signUpAction({}, makeSignupFormData({ role }))
+        expect(result).toHaveProperty('message')
+      }
 
-      expect(result).toHaveProperty('errors')
-      expect(bcryptHashMock).not.toHaveBeenCalled()
       expect(dbInsertMock).not.toHaveBeenCalled()
+      expect(signInMock).not.toHaveBeenCalled()
     })
   })
 
@@ -230,16 +175,16 @@ describe('auth actions (NextAuth Credentials)', () => {
       expect(result).toHaveProperty('message', 'Invalid email or password.')
     })
 
-    it('signoutAction calls NextAuth signOut with redirectTo sign-in', async () => {
+    it('signoutAction signs out (redirect:false), clears cookies, then redirects to /sign-in', async () => {
       signOutMock.mockResolvedValue(undefined)
 
       const { signoutAction } = await import('@/actions/auth')
-      await signoutAction()
+      // signoutAction ends with redirect('/sign-in'), which throws in the mock.
+      await signoutAction().catch(() => {})
 
       expect(signOutMock).toHaveBeenCalledOnce()
-      expect(signOutMock).toHaveBeenCalledWith(
-        expect.objectContaining({ redirectTo: '/sign-in' }),
-      )
+      expect(signOutMock).toHaveBeenCalledWith(expect.objectContaining({ redirect: false }))
+      expect(redirectMock).toHaveBeenCalledWith('/sign-in')
     })
   })
 })

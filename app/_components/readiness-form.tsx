@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState, useRef, useState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import SignatureCanvas from 'react-signature-canvas'
 import { submitReadinessAction, type ReadinessState } from '@/actions/readiness'
 
@@ -8,12 +9,23 @@ const INITIAL: ReadinessState = { status: 'idle' }
 
 type Tab = 'digital' | 'upload'
 
-export default function ReadinessForm() {
+export default function ReadinessForm({
+  projectId = null,
+  expectedStepN = null,
+  returnTo = null,
+  initialProject = '',
+}: {
+  projectId?: string | null
+  expectedStepN?: number | null
+  returnTo?: string | null
+  initialProject?: string
+}) {
+  const router = useRouter()
   const [tab, setTab] = useState<Tab>('digital')
   const [state, dispatch, pending] = useActionState(submitReadinessAction, INITIAL)
 
   // Digital fields
-  const [project, setProject] = useState('')
+  const [project, setProject] = useState(initialProject)
   const [unit, setUnit] = useState('')
   const [materialControl, setMaterialControl] = useState('')
   const [accessories, setAccessories] = useState('')
@@ -26,6 +38,13 @@ export default function ReadinessForm() {
   const [uploadData, setUploadData] = useState('')
   const [uploadName, setUploadName] = useState('')
   const [localError, setLocalError] = useState('')
+
+  useEffect(() => {
+    if (state.status === 'success' && state.advanced && returnTo) {
+      const t = setTimeout(() => router.push(returnTo), 1200)
+      return () => clearTimeout(t)
+    }
+  }, [state.status, state.advanced, returnTo, router])
 
   function clearSignature() {
     sigRef.current?.clear()
@@ -62,9 +81,11 @@ export default function ReadinessForm() {
         confirmedBy,
         signedDate,
         signatureData,
+        projectId,
+        expectedStepN,
       })
     } else {
-      dispatch({ mode: 'upload', project, unit, uploadData, uploadName })
+      dispatch({ mode: 'upload', project, unit, uploadData, uploadName, projectId, expectedStepN })
     }
   }
 
@@ -73,14 +94,24 @@ export default function ReadinessForm() {
       <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center shadow-sm">
         <span className="material-symbols-outlined text-4xl text-green-600">check_circle</span>
         <p className="mt-2 text-base font-semibold text-gray-900">Readiness form submitted</p>
-        <p className="mt-1 text-sm text-gray-500">It’s recorded below in the submissions list.</p>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="mt-4 rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-        >
-          New form
-        </button>
+        <p className="mt-1 text-sm text-gray-500">
+          {state.advanced
+            ? 'This step is complete — the project moves to the next step. Returning to your projects…'
+            : 'It’s recorded below in the submissions list.'}
+        </p>
+        {state.advanced && returnTo ? (
+          <a href={returnTo} className="mt-4 inline-block text-sm font-semibold text-primary hover:underline">
+            Back to projects
+          </a>
+        ) : (
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-4 rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          >
+            New form
+          </button>
+        )}
       </div>
     )
   }

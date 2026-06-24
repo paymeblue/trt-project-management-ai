@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { Roles } from '@/lib/workflow'
 
 type Item = { href: string; icon: string; label: string }
 
 const NAV: Record<string, Item[]> = {
   factory_pm: [
     { href: '/factory-pm/dashboard', icon: 'dashboard', label: 'Dashboard' },
-    { href: '/factory-pm/projects', icon: 'factory', label: 'Floor Projects' },
+    { href: '/factory-pm/projects', icon: 'factory', label: 'Projects' },
     { href: '/checklists/delivery_project', icon: 'fact_check', label: 'Delivery Checklist' },
     { href: '/factory-pm/product-readiness', icon: 'inventory_2', label: 'Product Readiness' },
     { href: '/processes', icon: 'account_tree', label: 'Processes' },
@@ -19,8 +20,6 @@ const NAV: Record<string, Item[]> = {
   site_pm: [
     { href: '/site-pm/dashboard', icon: 'dashboard', label: 'Dashboard' },
     { href: '/site-pm/projects', icon: 'factory', label: 'Projects' },
-    { href: '/checklists/confirmation', icon: 'fact_check', label: 'Confirmation' },
-    { href: '/checklists/production', icon: 'inventory_2', label: 'Production' },
     { href: '/site-pm/issues', icon: 'assignment_late', label: 'Issue Log' },
     { href: '/email-formats', icon: 'mail', label: 'Email Formats' },
     { href: '/processes', icon: 'account_tree', label: 'Processes' },
@@ -29,6 +28,8 @@ const NAV: Record<string, Item[]> = {
   ],
   super_admin: [
     { href: '/admin/dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { href: '/admin/projects/new', icon: 'add_box', label: 'New Project' },
+    { href: '/admin/timeline', icon: 'timeline', label: 'Timeline' },
     { href: '/admin/overview', icon: 'monitoring', label: 'Overview' },
     { href: '/admin/users', icon: 'group', label: 'Users' },
     { href: '/admin/content', icon: 'edit_note', label: 'Content' },
@@ -40,7 +41,8 @@ const NAV: Record<string, Item[]> = {
 
 export default function SidebarNav({ role }: { role: string }) {
   const pathname = usePathname()
-  const items = NAV[role] ?? []
+  // Operations shares the full admin navigation.
+  const items = NAV[role] ?? NAV[role === Roles.Operations ? Roles.SuperAdmin : role] ?? []
 
   // Until the icon/text fonts finish loading, Material Symbols render as raw
   // ligature text ("dashboard", "fact_check"…). Show a skeleton instead.

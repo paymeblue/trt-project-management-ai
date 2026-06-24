@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { staticContent } from '@/db/schema'
-import { verifySession } from '@/lib/dal'
+import { verifySession, isAdminRole } from '@/lib/dal'
 import { updateEmailFormatsAction } from '@/actions/email-formats'
 
 export const dynamic = 'force-dynamic'
@@ -10,6 +10,7 @@ const DASH: Record<string, string> = {
   factory_pm: '/factory-pm/dashboard',
   site_pm: '/site-pm/dashboard',
   super_admin: '/admin/dashboard',
+  operations: '/admin/dashboard',
 }
 
 const TEMPLATES: { title: string; subject: string; body: string }[] = [
@@ -69,7 +70,7 @@ export default async function EmailFormatsPage() {
     .limit(1)
 
   const body = content?.body ?? ''
-  const isAdmin = role === 'super_admin'
+  const isAdmin = isAdminRole(role)
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">

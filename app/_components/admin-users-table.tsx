@@ -10,7 +10,10 @@ const ROLES = [
   { value: 'factory_pm', label: 'Factory PM' },
   { value: 'site_pm', label: 'Site PM' },
   { value: 'super_admin', label: 'Super Admin' },
+  { value: 'operations', label: 'Operations' },
 ]
+
+const ADMIN_ROLES = ['super_admin', 'operations']
 
 export default function AdminUsersTable({ users, meId }: { users: Row[]; meId: string }) {
   const router = useRouter()
@@ -21,7 +24,7 @@ export default function AdminUsersTable({ users, meId }: { users: Row[]; meId: s
   const [confirmDelete, setConfirmDelete] = useState<Row | null>(null)
   const [warning, setWarning] = useState('')
 
-  const isProtected = (u: Row) => u.role === 'super_admin' && u.id !== meId
+  const isProtected = (u: Row) => ADMIN_ROLES.includes(u.role) && u.id !== meId
 
   async function update(u: Row) {
     if (isProtected(u)) {

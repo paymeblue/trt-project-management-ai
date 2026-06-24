@@ -89,10 +89,7 @@ export default function SignInForm() {
       </form>
 
       <p className="mt-6 text-center text-sm text-gray-500">
-        Don&apos;t have an account?{' '}
-        <a href="/sign-up" className="font-medium text-primary hover:underline">
-          Create one
-        </a>
+        Accounts are created by your administrator. Contact them if you need access.
       </p>
     </div>
   );

@@ -69,13 +69,16 @@ export default function DashboardShell({
   userName,
   role,
   tiles,
+  roleLabel,
 }: {
   userName: string
   role: string
   tiles: Tile[]
+  roleLabel?: string
 }) {
   const label =
-    role === 'factory_pm' ? 'Factory PM' : role === 'site_pm' ? 'Site PM' : 'Super Admin'
+    roleLabel ??
+    (role === 'factory_pm' ? 'Factory PM' : role === 'site_pm' ? 'Site PM' : 'Super Admin')
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">

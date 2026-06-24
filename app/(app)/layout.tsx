@@ -1,40 +1,52 @@
-import type { ReactNode } from 'react'
-import { redirect } from 'next/navigation'
-import { eq } from 'drizzle-orm'
-import { auth } from '@/auth'
-import { db } from '@/db'
-import { users } from '@/db/schema'
-import SidebarNav from '@/app/_components/sidebar-nav'
-import SignOutButton from '@/app/_components/sign-out-button'
-import PaulArredo from '@/app/_components/paul-arredo'
-import ThemeToggle from '@/app/_components/theme-toggle'
-import MobileSidebar from '@/app/_components/mobile-sidebar'
-import ChatDrawer from '@/app/_components/chat-drawer'
+import type { ReactNode } from 'react';
+import { redirect } from 'next/navigation';
+import { eq } from 'drizzle-orm';
+import { auth } from '@/auth';
+import { db } from '@/db';
+import { users } from '@/db/schema';
+import SidebarNav from '@/app/_components/sidebar-nav';
+import SignOutButton from '@/app/_components/sign-out-button';
+import PaulArredo from '@/app/_components/paul-arredo';
+import ThemeToggle from '@/app/_components/theme-toggle';
+import MobileSidebar from '@/app/_components/mobile-sidebar';
+import ChatDrawer from '@/app/_components/chat-drawer';
+import { isAdminRole, type UserRole } from '@/lib/workflow';
 
 const ROLE_LABELS: Record<string, string> = {
   factory_pm: 'Factory PM',
   site_pm: 'Site PM',
   super_admin: 'Super Admin',
-}
+  operations: 'Operations',
+};
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  const session = await auth()
-  if (!session?.user) redirect('/sign-in')
+  const session = await auth();
+  if (!session?.user) redirect('/sign-in');
 
-  const name = session.user.name ?? 'User'
-  const role = (session.user.role as string) ?? 'factory_pm'
+  const name = session.user.name ?? 'User';
+  const role = (session.user.role as string) ?? 'factory_pm';
   const initials =
     name
       .split(' ')
       .map((p) => p[0])
       .slice(0, 2)
       .join('')
-      .toUpperCase() || 'U'
+      .toUpperCase() || 'U';
 
   const [me] = session.user.id
-    ? await db.select({ avatarData: users.avatarData }).from(users).where(eq(users.id, session.user.id)).limit(1)
-    : []
-  const avatarData = me?.avatarData ?? null
+    ? await db
+        .select({ avatarData: users.avatarData, position: users.position })
+        .from(users)
+        .where(eq(users.id, session.user.id))
+        .limit(1)
+    : [];
+  const avatarData = me?.avatarData ?? null;
+
+  // Admin roles (super_admin / operations) display their job position instead
+  // of a generic role label, e.g. "Head of Projects".
+  const isAdmin = isAdminRole(role as UserRole);
+  const roleLabel =
+    (isAdmin && me?.position?.trim()) || ROLE_LABELS[role] || role;
 
   return (
     <div className="min-h-screen bg-background text-on-surface">
@@ -44,16 +56,24 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary-container text-title-md font-title-md font-bold text-on-primary-container">
             {avatarData ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarData} alt={name} className="h-full w-full object-cover" />
+              <img
+                src={avatarData}
+                alt={name}
+                className="h-full w-full object-cover"
+              />
             ) : (
               initials
             )}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-title-md font-title-md font-bold leading-tight text-primary">{name}</p>
-            <p className="truncate text-body-md font-body-md leading-tight text-on-surface-variant">{ROLE_LABELS[role] ?? role}</p>
+            <p className="truncate text-title-md font-title-md font-bold leading-tight text-primary">
+              {name}
+            </p>
+            <p className="truncate text-body-md font-body-md leading-tight text-on-surface-variant">
+              {roleLabel}
+            </p>
             <p className="truncate text-label-sm font-label-sm uppercase tracking-wider text-on-surface-variant">
-              Aredo Manufacturing
+              Arredo Manufacturing
             </p>
           </div>
         </div>
@@ -72,18 +92,22 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <MobileSidebar
               name={name}
               role={role}
-              roleLabel={ROLE_LABELS[role] ?? role}
+              roleLabel={roleLabel}
               initials={initials}
               avatarData={avatarData}
             />
-            <span className="material-symbols-outlined text-primary">architecture</span>
-            <h1 className="text-headline-md font-headline-md font-extrabold text-primary">TRT Arredo</h1>
+            <span className="material-symbols-outlined text-primary">
+              architecture
+            </span>
+            <h1 className="text-headline-md font-headline-md font-extrabold text-primary">
+              TRT Arredo
+            </h1>
           </div>
           <div className="flex items-center gap-2">
             <ChatDrawer />
             <ThemeToggle />
             <span className="hidden rounded-full border border-outline-variant bg-surface-container-low px-3 py-1.5 text-label-md font-label-md text-on-surface-variant sm:inline">
-              {ROLE_LABELS[role] ?? role}
+              {roleLabel}
             </span>
           </div>
         </header>
@@ -96,5 +120,5 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       {/* Paul Arredo floating assistant */}
       <PaulArredo />
     </div>
-  )
+  );
 }

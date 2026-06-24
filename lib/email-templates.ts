@@ -11,6 +11,32 @@ export function verificationEmail({ name, verifyUrl }: { name: string; verifyUrl
   return { subject, html, text }
 }
 
+export function credentialsEmail({
+  name,
+  email,
+  password,
+  roleLabel,
+  loginUrl,
+}: {
+  name: string
+  email: string
+  password: string
+  roleLabel: string
+  loginUrl: string
+}) {
+  const subject = 'Your TRT PM account'
+  const html = `
+<p>Hi ${name},</p>
+<p>An account has been created for you on TRT PM as <strong>${roleLabel}</strong>. Use these credentials to sign in:</p>
+<p><strong>Email:</strong> ${email}<br/><strong>Temporary password:</strong> ${password}</p>
+<p><a href="${loginUrl}">Sign in to TRT PM</a></p>
+<p>For your security, please change your password after your first sign-in.</p>
+`.trim()
+  const text = `Hi ${name},\n\nAn account has been created for you on TRT PM as ${roleLabel}.\n\nEmail: ${email}\nTemporary password: ${password}\n\nSign in: ${loginUrl}\n\nPlease change your password after your first sign-in.`
+
+  return { subject, html, text }
+}
+
 export function passwordResetEmail({ name, resetUrl }: { name: string; resetUrl: string }) {
   const subject = 'Reset your TRT PM password'
   const html = `

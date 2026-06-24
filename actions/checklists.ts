@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { checklistTemplateItems, checklists, checklistResponses } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
+import { advanceProjectStep } from '@/actions/workflow'
 
 type ResponseValue = 'yes' | 'no' | 'na'
 
@@ -18,11 +19,17 @@ export type SubmitChecklistInput = {
   definitionId: string
   slug: string
   answers: Record<string, ChecklistAnswer>
+  // Set when launched from a project workflow step — ties the checklist to the
+  // project and auto-advances it on success.
+  projectId?: string | null
+  expectedStepN?: number | null
 }
 
 export type SubmitChecklistState = {
   status: 'idle' | 'success' | 'error'
   message?: string
+  // True when a project workflow step was advanced by this submission.
+  advanced?: boolean
 }
 
 export async function submitChecklistAction(
@@ -42,10 +49,18 @@ export async function submitChecklistAction(
 
   if (items.length === 0) return { status: 'error', message: 'This checklist has no items.' }
 
+  const projectId = input?.projectId ? String(input.projectId) : null
+
   try {
     const [created] = await db
       .insert(checklists)
-      .values({ definitionId, createdBy: userId, status: 'submitted', submittedAt: new Date() })
+      .values({
+        definitionId,
+        projectId,
+        createdBy: userId,
+        status: 'submitted',
+        submittedAt: new Date(),
+      })
       .returning({ id: checklists.id })
 
     for (const item of items) {
@@ -63,6 +78,14 @@ export async function submitChecklistAction(
     return { status: 'error', message: 'Could not save your submission. Please try again.' }
   }
 
+  let advanced = false
+  if (projectId && input?.expectedStepN) {
+    advanced = await advanceProjectStep({
+      projectId,
+      expectedStepN: Number(input.expectedStepN),
+    })
+  }
+
   revalidatePath(`/checklists/${slug}`)
-  return { status: 'success', message: 'Checklist submitted.' }
+  return { status: 'success', message: 'Checklist submitted.', advanced }
 }

@@ -4,7 +4,7 @@ import DashboardShell, { type Tile } from '@/app/_components/dashboard-shell'
 export const dynamic = 'force-dynamic'
 
 const TILES: Tile[] = [
-  { title: 'Factory Floor Projects', description: 'Projects with delivery timeline and Delivered / Not Delivered status.', href: '/factory-pm/projects', status: 'ready' },
+  { title: 'Projects', description: 'View Operations-created projects and act on your current workflow step.', href: '/factory-pm/projects', status: 'ready' },
   { title: 'Delivery Project Checklist', description: 'Create new and review delivery checklists.', href: '/checklists/delivery_project', status: 'ready' },
   { title: 'Product Readiness Checklist', description: 'Track readiness files (name + link).', href: '/factory-pm/product-readiness', status: 'ready' },
   { title: 'Materials / Accessories Readiness Form', description: 'Upload the signed form or create & sign a digital version.', href: '/factory-pm/readiness', status: 'ready' },

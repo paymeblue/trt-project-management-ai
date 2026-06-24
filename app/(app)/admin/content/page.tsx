@@ -1,4 +1,4 @@
-import { requireRole } from '@/lib/dal'
+import { requireAdmin } from '@/lib/dal'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,7 +9,7 @@ const LINKS = [
 ]
 
 export default async function AdminContentPage() {
-  await requireRole('super_admin')
+  await requireAdmin()
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
       <a href="/admin/dashboard" className="text-sm text-primary hover:underline">

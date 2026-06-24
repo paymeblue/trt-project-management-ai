@@ -1,6 +1,6 @@
-import { requireRole } from '@/lib/dal'
+import { requireAdmin } from '@/lib/dal'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireRole('super_admin')
+  await requireAdmin()
   return <>{children}</>
 }

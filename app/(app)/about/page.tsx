@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { staticContent } from '@/db/schema'
-import { verifySession } from '@/lib/dal'
+import { verifySession, isAdminRole } from '@/lib/dal'
 import { updateAboutAction } from '@/actions/content'
 import TrtFlowDiagram from '@/app/_components/trt-flow-diagram'
 
@@ -11,6 +11,7 @@ const DASH: Record<string, string> = {
   factory_pm: '/factory-pm/dashboard',
   site_pm: '/site-pm/dashboard',
   super_admin: '/admin/dashboard',
+  operations: '/admin/dashboard',
 }
 
 const ROLES: { name: string; icon: string; blurb: string }[] = [
@@ -43,7 +44,7 @@ export default async function AboutPage() {
     .limit(1)
 
   const body = about?.body ?? ''
-  const isAdmin = role === 'super_admin'
+  const isAdmin = isAdminRole(role)
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">

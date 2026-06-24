@@ -1,7 +1,7 @@
 import { count, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { users, projects, checklists, issues } from '@/db/schema'
-import { requireRole } from '@/lib/dal'
+import { requireAdmin } from '@/lib/dal'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,7 +42,7 @@ function BarChart({ data }: { data: { label: string; value: number; color: strin
 }
 
 export default async function AdminOverviewPage() {
-  await requireRole('super_admin')
+  await requireAdmin()
 
   const [
     [{ totalUsers }],

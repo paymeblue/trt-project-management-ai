@@ -1,13 +1,46 @@
 import { desc, eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { readinessForms } from '@/db/schema'
+import { readinessForms, projects } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import ReadinessForm from '@/app/_components/readiness-form'
+import { stepByN, canRoleActOnStep, type UserRole } from '@/lib/workflow'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ReadinessPage() {
-  const { userId } = await verifySession()
+export default async function ReadinessPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ projectId?: string; step?: string }>
+}) {
+  const { userId, role } = await verifySession()
+  const sp = await searchParams
+
+  const projectId = typeof sp.projectId === 'string' ? sp.projectId : null
+  const stepN = sp.step ? Number(sp.step) : null
+
+  let workflowProjectId: string | null = null
+  let workflowStepN: number | null = null
+  let workflowNotice: string | null = null
+  let workflowProjectName = ''
+
+  if (projectId && stepN) {
+    const [proj] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
+    const step = stepByN(stepN)
+    if (!proj || !step || step.kind !== 'readiness') {
+      workflowNotice = 'This project step could not be found.'
+    } else if (proj.currentStep !== stepN) {
+      workflowNotice =
+        proj.currentStep > stepN
+          ? 'This step has already been completed for this project.'
+          : 'This step is not active yet for this project.'
+    } else if (!canRoleActOnStep(step.role, role as UserRole)) {
+      workflowNotice = 'It is not your turn to act on this step.'
+    } else {
+      workflowProjectId = projectId
+      workflowStepN = stepN
+      workflowProjectName = proj.name
+    }
+  }
 
   const submissions = await db
     .select({
@@ -25,15 +58,38 @@ export default async function ReadinessPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
-      <a href="/factory-pm/dashboard" className="text-sm text-primary hover:underline">
-        ← Dashboard
+      <a
+        href={workflowProjectId ? '/factory-pm/projects' : '/factory-pm/dashboard'}
+        className="text-sm text-primary hover:underline"
+      >
+        ← {workflowProjectId ? 'Back to projects' : 'Dashboard'}
       </a>
       <h1 className="mb-1 mt-2 text-2xl font-bold text-gray-900">Materials / Accessories Readiness Form</h1>
       <p className="mb-6 text-sm text-gray-500">
         Upload a photo of the signed paper form, or create a digital version and sign on screen.
       </p>
 
-      <ReadinessForm />
+      {workflowNotice && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          {workflowNotice}{' '}
+          <a href="/factory-pm/projects" className="font-semibold underline">
+            Back to projects
+          </a>
+        </div>
+      )}
+
+      {workflowProjectId && (
+        <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm text-primary">
+          Submitting this form will advance the project to its next step.
+        </div>
+      )}
+
+      <ReadinessForm
+        projectId={workflowProjectId}
+        expectedStepN={workflowStepN}
+        returnTo={workflowProjectId ? '/factory-pm/projects' : null}
+        initialProject={workflowProjectName}
+      />
 
       <h2 className="mb-3 mt-10 text-sm font-semibold text-gray-900">Your submissions</h2>
       <div className="space-y-2">

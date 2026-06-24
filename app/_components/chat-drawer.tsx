@@ -25,6 +25,7 @@ const ROLE_LABEL: Record<string, string> = {
   factory_pm: 'Factory PM',
   site_pm: 'Site PM',
   super_admin: 'Super Admin',
+  operations: 'Operations',
 }
 
 function playPing() {

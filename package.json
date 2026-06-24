@@ -12,6 +12,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed-admin": "tsx db/seed-admin.ts",
+    "db:seed-operations": "tsx db/seed-operations.ts",
+    "db:seed-workflow-checklists": "tsx db/seed-workflow-checklists.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

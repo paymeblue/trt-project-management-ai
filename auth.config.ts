@@ -26,7 +26,7 @@ export const authConfig = {
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string
-        session.user.role = token.role as "factory_pm" | "site_pm" | "super_admin"
+        session.user.role = token.role as "factory_pm" | "site_pm" | "super_admin" | "operations"
       }
       return session
     },

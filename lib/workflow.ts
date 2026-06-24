@@ -1,0 +1,85 @@
+// ── Canonical project workflow ────────────────────────────────────────────
+// Single source of truth for the ordered, multi-role process a project moves
+// through. `projects.currentStep` holds the step number awaiting action.
+// Importable from both server and client components — keep it free of any
+// server-only imports.
+
+// Enum-style constant for roles — gives autocomplete + a single source of truth.
+// Values are the literal strings, so they stay assignable to the `UserRole` union
+// (avoids the no-overlap friction of TypeScript string `enum`s).
+export const Roles = {
+  FactoryPm: 'factory_pm',
+  SitePm: 'site_pm',
+  SuperAdmin: 'super_admin',
+  Operations: 'operations',
+} as const
+
+export type UserRole = (typeof Roles)[keyof typeof Roles]
+export type WorkflowRole = typeof Roles.Operations | typeof Roles.SitePm | typeof Roles.FactoryPm
+export type StepKind = 'creation' | 'checklist' | 'readiness' | 'ack'
+
+// True for roles with full admin rights (admin area, project creation, timeline).
+export function isAdminRole(role: UserRole): boolean {
+  return role === Roles.SuperAdmin || role === Roles.Operations
+}
+
+export type WorkflowStep = {
+  n: number
+  key: string
+  label: string
+  role: WorkflowRole
+  kind: StepKind
+  slug?: string // checklist definition slug (kind === 'checklist')
+}
+
+export const WORKFLOW_STEPS: WorkflowStep[] = [
+  { n: 1, key: 'new_project', label: 'New Project', role: 'operations', kind: 'creation' },
+  { n: 2, key: 'confirmation', label: 'Confirmation', role: 'site_pm', kind: 'checklist', slug: 'confirmation' },
+  { n: 3, key: 'factory_floor', label: 'Factory Floor Projects', role: 'factory_pm', kind: 'ack' },
+  { n: 4, key: 'materials_readiness', label: 'Materials / Accessories Readiness', role: 'factory_pm', kind: 'readiness' },
+  { n: 5, key: 'delivery_readiness', label: 'Delivery Readiness', role: 'site_pm', kind: 'checklist', slug: 'delivery_site_readiness' },
+  { n: 6, key: 'delivery_project', label: 'Delivery Project Checklist', role: 'factory_pm', kind: 'checklist', slug: 'delivery_project' },
+  { n: 7, key: 'project_check_report', label: 'Project Check Report', role: 'factory_pm', kind: 'checklist', slug: 'project_check_report' },
+  { n: 8, key: 'approval_installation', label: 'Approval to Commence Installation', role: 'operations', kind: 'checklist', slug: 'approval_to_commence_installation' },
+  { n: 9, key: 'installation_readiness', label: 'Installation Readiness', role: 'site_pm', kind: 'checklist', slug: 'installation_readiness' },
+  { n: 10, key: 'sorting', label: 'Sorting', role: 'site_pm', kind: 'checklist', slug: 'sorting' },
+  { n: 11, key: 'close_out', label: 'Close Out', role: 'site_pm', kind: 'checklist', slug: 'close_out' },
+]
+
+// New projects begin awaiting the first actionable step (Confirmation); step 1
+// (New Project) is completed by Operations at creation time.
+export const FIRST_ACTION_STEP = 2
+export const LAST_STEP = WORKFLOW_STEPS[WORKFLOW_STEPS.length - 1].n // 11
+
+export function stepByN(n: number): WorkflowStep | undefined {
+  return WORKFLOW_STEPS.find((s) => s.n === n)
+}
+
+export function isProjectComplete(currentStep: number): boolean {
+  return currentStep > LAST_STEP
+}
+
+const ROLE_LABELS: Record<WorkflowRole, string> = {
+  operations: 'Operations',
+  site_pm: 'Site PM',
+  factory_pm: 'Factory PM',
+}
+
+export function workflowRoleLabel(role: WorkflowRole): string {
+  return ROLE_LABELS[role]
+}
+
+// Operations steps may also be actioned by a super_admin (full admin rights).
+export function canRoleActOnStep(stepRole: WorkflowRole, userRole: UserRole): boolean {
+  if (stepRole === Roles.Operations) return isAdminRole(userRole)
+  return stepRole === userRole
+}
+
+// Destination for an actionable step. `ack` steps are completed inline from the
+// modal (no destination).
+export function stepHref(step: WorkflowStep, projectId: string): string | null {
+  const q = `?projectId=${projectId}&step=${step.n}`
+  if (step.kind === 'checklist' && step.slug) return `/checklists/${step.slug}${q}`
+  if (step.kind === 'readiness') return `/factory-pm/readiness${q}`
+  return null
+}
