@@ -21,13 +21,35 @@ export function TrtMark({ className = 'h-10 w-10' }: { className?: string }) {
   )
 }
 
-export function TrtLogo({ light = false }: { light?: boolean }) {
+// Official TRT Arredo logo image. `light` renders it white (via filter) for use
+// on dark surfaces (sidebar, header); otherwise the original brand colour shows.
+export function TrtLogo({
+  light = false,
+  className = 'h-9 w-auto',
+}: {
+  light?: boolean
+  className?: string
+}) {
   return (
-    <div className="flex items-center gap-2.5">
-      <TrtMark className="h-9 w-9" />
-      <span className={`text-xl font-extrabold tracking-tight ${light ? 'text-white' : 'text-gray-900'}`}>
-        TRT <span className="text-primary">Arredo</span>
-      </span>
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/trt-logo.webp"
+      alt="TRT Arredo"
+      className={`${className} object-contain ${light ? 'brightness-0 invert' : ''}`}
+    />
+  )
+}
+
+// The logo rendered white — for the faint full-screen watermark. Caller sets
+// size + opacity.
+export function TrtWatermark({ className = '' }: { className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/trt-logo.webp"
+      alt=""
+      aria-hidden="true"
+      className={`${className} object-contain brightness-0 invert`}
+    />
   )
 }

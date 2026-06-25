@@ -13,6 +13,7 @@ import ChatDrawer from '@/app/_components/chat-drawer';
 import PendingStepGate from '@/app/_components/pending-step-gate';
 import HeaderProjectSwitcher from '@/app/_components/header-project-switcher';
 import MyWorkProvider from '@/app/_components/my-work-provider';
+import { TrtLogo, TrtWatermark } from '@/app/_components/trt-logo';
 import { getMyWork } from '@/lib/my-work';
 import { isAdminRole, type UserRole } from '@/lib/workflow';
 
@@ -58,9 +59,21 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <MyWorkProvider initial={initialWork}>
-    <div className="min-h-screen bg-background text-on-surface">
+    <div className="relative min-h-screen bg-background text-on-surface">
+      {/* TRT logo watermark behind every screen */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center overflow-hidden"
+      >
+        <TrtWatermark className="w-[58vmin] opacity-[0.06]" />
+      </div>
+
       {/* NavigationDrawer (fixed, out of flow) */}
       <aside className="fixed left-0 top-0 bottom-0 z-40 hidden w-72 flex-col overflow-y-auto border-r border-outline-variant bg-surface-container-low md:flex">
+        {/* Brand */}
+        <div className="flex shrink-0 items-center border-b border-outline-variant px-6 py-4">
+          <TrtLogo light />
+        </div>
         <div className="flex h-16 shrink-0 items-center gap-3 border-b border-outline-variant px-6 md:h-20">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary-container text-title-md font-title-md font-bold text-on-primary-container">
             {avatarData ? (
@@ -95,7 +108,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main canvas — block with left padding for the fixed sidebar (can't collapse) */}
-      <div className="flex min-h-screen w-full flex-col md:pl-72">
+      <div className="relative z-10 flex min-h-screen w-full flex-col md:pl-72">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-outline-variant bg-surface/95 px-margin-mobile backdrop-blur-sm md:h-20 md:px-margin-desktop">
           <div className="flex items-center gap-2">
             <MobileSidebar
@@ -105,12 +118,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               initials={initials}
               avatarData={avatarData}
             />
-            <span className="material-symbols-outlined text-primary">
-              architecture
-            </span>
-            <h1 className="text-headline-md font-headline-md font-extrabold text-primary">
-              TRT Arredo
-            </h1>
+            <TrtLogo light className="h-8 w-auto" />
             <HeaderProjectSwitcher viewerRole={role as UserRole} />
           </div>
           <div className="flex items-center gap-2">
