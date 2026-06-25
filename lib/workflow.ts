@@ -50,6 +50,12 @@ export const WORKFLOW_STEPS: WorkflowStep[] = [
 export const FIRST_ACTION_STEP = 2
 export const LAST_STEP = WORKFLOW_STEPS[WORKFLOW_STEPS.length - 1].n // 11
 
+// Shapes shared between the layout, the /api/my-work endpoint and the client
+// provider that drives the header switcher + forcing gate.
+export type ActiveProject = { id: string; name: string; stepN: number; deadline: string | null }
+export type PendingWork = { projectId: string; name: string; stepN: number; deadline: string | null }
+export type MyWork = { activeProjects: ActiveProject[]; pending: PendingWork[] }
+
 export function stepByN(n: number): WorkflowStep | undefined {
   return WORKFLOW_STEPS.find((s) => s.n === n)
 }

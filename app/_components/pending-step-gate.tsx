@@ -1,16 +1,10 @@
 'use client'
 
 import { useActionState, useEffect, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { stepByN, stepHref, workflowRoleLabel } from '@/lib/workflow'
 import { completeAckStepAction, type AckStepState } from '@/actions/workflow'
-
-export type PendingItem = {
-  projectId: string
-  name: string
-  stepN: number
-  deadline: string | null // ISO
-}
+import { useMyWork } from '@/app/_components/my-work-provider'
 
 const INITIAL_ACK: AckStepState = { ok: false }
 
@@ -20,15 +14,15 @@ function isStepRoute(pathname: string) {
   return pathname.startsWith('/checklists/') || pathname.startsWith('/factory-pm/readiness')
 }
 
-export default function PendingStepGate({ pending }: { pending: PendingItem[] }) {
-  const router = useRouter()
+export default function PendingStepGate() {
+  const { pending, refresh } = useMyWork()
   const pathname = usePathname()
   const [ackState, dispatchAck, ackPending] = useActionState(completeAckStepAction, INITIAL_ACK)
   const [notes, setNotes] = useState('')
 
   useEffect(() => {
-    if (ackState.ok) router.refresh()
-  }, [ackState.ok, router])
+    if (ackState.ok) refresh()
+  }, [ackState.ok, refresh])
 
   // Most urgent pending item only — once handled, the next one surfaces.
   const item = pending[0]

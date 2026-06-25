@@ -9,24 +9,13 @@ import {
   LAST_STEP,
   type UserRole,
 } from '@/lib/workflow'
-
-type HeaderProject = {
-  id: string
-  name: string
-  stepN: number
-  deadline: string | null
-}
+import { useMyWork } from '@/app/_components/my-work-provider'
 
 // Dismissable navbar indicator: shows the "current" in-progress project + the
 // step it's on, with a dropdown to switch between projects (a PM may juggle
-// several at once). Selection is remembered in the session.
-export default function HeaderProjectSwitcher({
-  projects,
-  viewerRole,
-}: {
-  projects: HeaderProject[]
-  viewerRole: UserRole
-}) {
+// several at once). Data is live (polled by MyWorkProvider).
+export default function HeaderProjectSwitcher({ viewerRole }: { viewerRole: UserRole }) {
+  const { activeProjects: projects } = useMyWork()
   // State is held in-memory; because this component lives in the app layout it
   // survives client-side navigations (it only resets on a full page reload).
   const [dismissed, setDismissed] = useState(false)
