@@ -169,6 +169,11 @@
 .dark .hover\:bg-red-50:hover { background-color: #3a1414 !important; }
 .dark .hover\:bg-red-700:hover { background-color: #b91c1c !important; }
 
+/* Brand logo adapts to the theme: original brand colour in light mode, white
+   in dark mode (so it stays visible on dark surfaces + as a watermark). */
+.trt-logo-adaptive { filter: none; }
+.dark .trt-logo-adaptive { filter: brightness(0) invert(1); }
+
 .dark .text-gray-900 { color: var(--color-on-surface) !important; }
 .dark .text-gray-800 { color: var(--color-on-surface) !important; }
 .dark .text-gray-700 { color: var(--color-on-surface-variant) !important; }

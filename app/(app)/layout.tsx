@@ -72,7 +72,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <aside className="fixed left-0 top-0 bottom-0 z-40 hidden w-72 flex-col overflow-y-auto border-r border-outline-variant bg-surface-container-low md:flex">
         {/* Brand */}
         <div className="flex shrink-0 items-center border-b border-outline-variant px-6 py-4">
-          <TrtLogo light />
+          <TrtLogo />
         </div>
         <div className="flex h-16 shrink-0 items-center gap-3 border-b border-outline-variant px-6 md:h-20">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary-container text-title-md font-title-md font-bold text-on-primary-container">
@@ -118,7 +118,6 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               initials={initials}
               avatarData={avatarData}
             />
-            <TrtLogo light className="h-8 w-auto" />
             <HeaderProjectSwitcher viewerRole={role as UserRole} />
           </div>
           <div className="flex items-center gap-2">

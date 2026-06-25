@@ -48,7 +48,7 @@ export default function MobileSidebar({
             className="relative z-10 flex h-full w-72 max-w-[80%] flex-col overflow-y-auto border-r border-outline-variant bg-surface-container-low"
           >
             <div className="flex items-center border-b border-outline-variant px-6 py-4">
-              <TrtLogo light />
+              <TrtLogo />
             </div>
             <div className="flex items-center gap-3 border-b border-outline-variant p-6">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary-container text-title-md font-bold text-on-primary-container">

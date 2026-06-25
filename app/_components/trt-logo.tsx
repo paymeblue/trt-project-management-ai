@@ -21,27 +21,21 @@ export function TrtMark({ className = 'h-10 w-10' }: { className?: string }) {
   )
 }
 
-// Official TRT Arredo logo image. `light` renders it white (via filter) for use
-// on dark surfaces (sidebar, header); otherwise the original brand colour shows.
-export function TrtLogo({
-  light = false,
-  className = 'h-9 w-auto',
-}: {
-  light?: boolean
-  className?: string
-}) {
+// Official TRT Arredo logo image. Theme-adaptive: brand colour in light mode,
+// white in dark mode (see `.trt-logo-adaptive` in globals.css).
+export function TrtLogo({ className = 'h-9 w-auto' }: { className?: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src="/trt-logo.webp"
       alt="TRT Arredo"
-      className={`${className} object-contain ${light ? 'brightness-0 invert' : ''}`}
+      className={`${className} trt-logo-adaptive object-contain`}
     />
   )
 }
 
-// The logo rendered white — for the faint full-screen watermark. Caller sets
-// size + opacity.
+// The logo for the faint full-screen watermark. Theme-adaptive like the logo;
+// caller sets size + opacity.
 export function TrtWatermark({ className = '' }: { className?: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -49,7 +43,7 @@ export function TrtWatermark({ className = '' }: { className?: string }) {
       src="/trt-logo.webp"
       alt=""
       aria-hidden="true"
-      className={`${className} object-contain brightness-0 invert`}
+      className={`${className} trt-logo-adaptive object-contain`}
     />
   )
 }
