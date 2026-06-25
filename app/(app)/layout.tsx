@@ -63,15 +63,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       {/* TRT logo watermark behind every screen */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center overflow-hidden"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-0 flex justify-center overflow-hidden pb-10"
       >
-        <TrtWatermark className="w-[58vmin] opacity-[0.06]" />
+        <TrtWatermark className="w-[46vmin] opacity-[0.07]" />
       </div>
 
       {/* NavigationDrawer (fixed, out of flow) */}
       <aside className="fixed left-0 top-0 bottom-0 z-40 hidden w-72 flex-col overflow-y-auto border-r border-outline-variant bg-surface-container-low md:flex">
-        {/* Brand */}
-        <div className="flex shrink-0 items-center border-b border-outline-variant px-6 py-4">
+        {/* Brand — same height as the top header bar so the divider runs straight */}
+        <div className="flex h-16 shrink-0 items-center border-b border-outline-variant px-6 md:h-20">
           <TrtLogo />
         </div>
         <div className="flex h-16 shrink-0 items-center gap-3 border-b border-outline-variant px-6 md:h-20">
