@@ -29,6 +29,7 @@ const NAV: Record<string, Item[]> = {
     { href: '/admin/dashboard', icon: 'dashboard', label: 'Dashboard' },
     { href: '/admin/projects/new', icon: 'add_box', label: 'New Project' },
     { href: '/admin/timeline', icon: 'timeline', label: 'Timeline' },
+    { href: '/admin/analytics', icon: 'analytics', label: 'Analytics' },
     { href: '/admin/overview', icon: 'monitoring', label: 'Overview' },
     { href: '/admin/users', icon: 'group', label: 'Users' },
     { href: '/admin/content', icon: 'edit_note', label: 'Content' },
