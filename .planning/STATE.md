@@ -5,7 +5,7 @@ milestone_name: milestone
 status: executing
 stopped_at: context exhaustion at 75% (2026-06-20)
 last_updated: "2026-06-27T00:00:00.000Z"
-last_activity: 2026-06-27 -- Quick task: Super Admin delivery analytics (ECharts) shipped
+last_activity: 2026-06-27 -- Quick task: Overview Operations/project-status cards + bigger file input
 progress:
   total_phases: 10
   completed_phases: 1
@@ -79,6 +79,7 @@ None yet.
 | Date | Slug | Description | Status |
 |------|------|-------------|--------|
 | 2026-06-27 | analytics-delivery-speed | Super Admin Analytics page — ECharts delivery-speed-per-project chart (Bar/Ranked/Line/Pie) + stat cards + sidebar link | complete ✓ |
+| 2026-06-27 | overview-stats-file-input | Overview: Operations user card + Completed/In Progress project cards; bigger process-flow file upload zone | complete ✓ |
 
 ## Deferred Items
 

@@ -67,7 +67,14 @@ export default function ProcessFlowForm() {
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-gray-600">Process flow image</label>
-        <input type="file" accept="image/*" onChange={onFile} className="block w-full text-sm" />
+        <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center transition-colors hover:border-primary hover:bg-primary/5">
+          <span className="material-symbols-outlined text-4xl text-gray-400">upload_file</span>
+          <span className="text-sm font-medium text-gray-700">
+            {imageData ? 'Change image' : 'Click to upload a process flow image'}
+          </span>
+          <span className="text-xs text-gray-400">PNG or JPG</span>
+          <input type="file" accept="image/*" onChange={onFile} className="hidden" />
+        </label>
       </div>
       {imageData && (
         // eslint-disable-next-line @next/next/no-img-element

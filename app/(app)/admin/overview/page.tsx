@@ -49,6 +49,7 @@ export default async function AdminOverviewPage() {
     [{ factoryPmCount }],
     [{ sitePmCount }],
     [{ superAdminCount }],
+    [{ operationsCount }],
     [{ totalProjects }],
     [{ totalChecklists }],
     [{ totalIssues }],
@@ -66,6 +67,10 @@ export default async function AdminOverviewPage() {
       .select({ superAdminCount: count() })
       .from(users)
       .where(eq(users.role, 'super_admin')),
+    db
+      .select({ operationsCount: count() })
+      .from(users)
+      .where(eq(users.role, 'operations')),
     db.select({ totalProjects: count() }).from(projects),
     db
       .select({ totalChecklists: count() })
@@ -92,11 +97,12 @@ export default async function AdminOverviewPage() {
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
           Users
         </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <StatCard label="Total Users" value={totalUsers} />
           <StatCard label="Factory PMs" value={factoryPmCount} />
           <StatCard label="Site PMs" value={sitePmCount} />
           <StatCard label="Super Admins" value={superAdminCount} />
+          <StatCard label="Operations" value={operationsCount} />
         </div>
       </section>
 
@@ -104,8 +110,10 @@ export default async function AdminOverviewPage() {
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
           Activity
         </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <StatCard label="Total Projects" value={totalProjects} />
+          <StatCard label="Completed" value={delivered} />
+          <StatCard label="In Progress" value={notDelivered} />
           <StatCard label="Checklists Submitted" value={totalChecklists} />
           <StatCard label="Total Issues" value={totalIssues} />
         </div>
