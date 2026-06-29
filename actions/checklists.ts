@@ -3,10 +3,15 @@
 import { revalidatePath } from 'next/cache'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { checklistTemplateItems, checklists, checklistResponses } from '@/db/schema'
+import {
+  checklistDefinitions,
+  checklistTemplateItems,
+  checklists,
+  checklistResponses,
+} from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { advanceProjectStep } from '@/actions/workflow'
-import { REQUIRED_PHOTOS } from '@/lib/workflow'
+import { REQUIRED_PHOTOS, canEditChecklist, type ChecklistTargetRole } from '@/lib/workflow'
 
 type ResponseValue = 'yes' | 'no' | 'na'
 
@@ -109,4 +114,121 @@ export async function submitChecklistAction(
 
   revalidatePath(`/checklists/${slug}`)
   return { status: 'success', message: 'Checklist submitted.', advanced }
+}
+
+// ── Template editing (Site PM / Factory PM) ───────────────────────────────
+// PMs maintain their own checklist wording. Authorization is derived from the
+// definition's `target_role` server-side — never trusted from the client.
+
+const MAX_LABEL = 500
+const MAX_HELP = 1000
+
+export type EditChecklistState = { status: 'idle' | 'success' | 'error'; message?: string }
+
+// Loads a definition and asserts the caller may edit it. Returns the definition
+// (incl. slug for revalidation) or an error message.
+async function authorizeChecklistEdit(definitionId: string) {
+  const { role } = await verifySession()
+  const [def] = await db
+    .select()
+    .from(checklistDefinitions)
+    .where(eq(checklistDefinitions.id, definitionId))
+    .limit(1)
+  if (!def) return { error: 'Checklist not found.' as const }
+  if (!canEditChecklist(role, def.targetRole as ChecklistTargetRole)) {
+    return { error: 'You do not have permission to edit this checklist.' as const }
+  }
+  return { def }
+}
+
+export type UpdateChecklistItemTextInput = {
+  itemId: string
+  label: string
+  helpText?: string | null
+}
+
+export async function updateChecklistItemText(
+  input: UpdateChecklistItemTextInput,
+): Promise<EditChecklistState> {
+  const itemId = String(input?.itemId ?? '')
+  const label = String(input?.label ?? '').trim()
+  const helpText = input?.helpText ? String(input.helpText).trim() : null
+  if (!itemId) return { status: 'error', message: 'Missing item.' }
+  if (!label) return { status: 'error', message: 'Question text cannot be empty.' }
+  if (label.length > MAX_LABEL || (helpText && helpText.length > MAX_HELP)) {
+    return { status: 'error', message: 'That text is too long.' }
+  }
+
+  const [item] = await db
+    .select()
+    .from(checklistTemplateItems)
+    .where(eq(checklistTemplateItems.id, itemId))
+    .limit(1)
+  if (!item) return { status: 'error', message: 'Question not found.' }
+
+  const auth = await authorizeChecklistEdit(item.definitionId)
+  if ('error' in auth) return { status: 'error', message: auth.error }
+
+  try {
+    await db
+      .update(checklistTemplateItems)
+      .set({ label, helpText: helpText || null })
+      .where(eq(checklistTemplateItems.id, itemId))
+  } catch {
+    return { status: 'error', message: 'Could not save the change. Please try again.' }
+  }
+
+  revalidatePath(`/checklists/${auth.def.slug}`)
+  return { status: 'success', message: 'Saved.' }
+}
+
+export type AddChecklistItemInput = {
+  definitionId: string
+  label: string
+  helpText?: string | null
+}
+
+export async function addChecklistItem(
+  input: AddChecklistItemInput,
+): Promise<EditChecklistState> {
+  const definitionId = String(input?.definitionId ?? '')
+  const label = String(input?.label ?? '').trim()
+  const helpText = input?.helpText ? String(input.helpText).trim() : null
+  if (!definitionId) return { status: 'error', message: 'Missing checklist.' }
+  if (!label) return { status: 'error', message: 'Question text cannot be empty.' }
+  if (label.length > MAX_LABEL || (helpText && helpText.length > MAX_HELP)) {
+    return { status: 'error', message: 'That text is too long.' }
+  }
+
+  const auth = await authorizeChecklistEdit(definitionId)
+  if ('error' in auth) return { status: 'error', message: auth.error }
+
+  // Append after the last existing item, keeping it in the last step/section.
+  const existing = await db
+    .select()
+    .from(checklistTemplateItems)
+    .where(eq(checklistTemplateItems.definitionId, definitionId))
+  const lastStep = existing.reduce((m, i) => Math.max(m, i.step), 1)
+  const lastSection =
+    existing.filter((i) => i.step === lastStep).sort((a, b) => b.sortOrder - a.sortOrder)[0]
+      ?.sectionTitle ?? null
+  const nextSort = existing.reduce((m, i) => Math.max(m, i.sortOrder), 0) + 1
+
+  try {
+    await db.insert(checklistTemplateItems).values({
+      definitionId,
+      step: lastStep,
+      sectionTitle: lastSection,
+      sortOrder: nextSort,
+      label,
+      itemType: 'radio',
+      responseOptions: 'yes_no',
+      helpText: helpText || null,
+    })
+  } catch {
+    return { status: 'error', message: 'Could not add the question. Please try again.' }
+  }
+
+  revalidatePath(`/checklists/${auth.def.slug}`)
+  return { status: 'success', message: 'Question added.' }
 }

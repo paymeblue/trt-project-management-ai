@@ -8,7 +8,15 @@ import {
 } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import ChecklistWizard, { type WizardItem } from '@/app/_components/checklist-wizard'
-import { REQUIRED_PHOTOS, stepByN, canRoleActOnStep, type UserRole } from '@/lib/workflow'
+import ChecklistEditor, { type EditableItem } from '@/app/_components/checklist-editor'
+import {
+  REQUIRED_PHOTOS,
+  stepByN,
+  canRoleActOnStep,
+  canEditChecklist,
+  type UserRole,
+  type ChecklistTargetRole,
+} from '@/lib/workflow'
 
 export const dynamic = 'force-dynamic'
 
@@ -99,6 +107,8 @@ export default async function ChecklistPage({
     )
     .orderBy(asc(checklistTemplateItems.step), asc(checklistTemplateItems.sortOrder))
 
+  const canEdit = canEditChecklist(role as UserRole, def.targetRole as ChecklistTargetRole)
+
   const past = await db
     .select()
     .from(checklists)
@@ -133,6 +143,15 @@ export default async function ChecklistPage({
         <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-600">
           Optional checklist — recorded against this project but it does not change the step order.
         </div>
+      )}
+
+      {canEdit && (
+        <ChecklistEditor
+          definitionId={def.id}
+          items={items.map(
+            (i): EditableItem => ({ id: i.id, label: i.label, helpText: i.helpText }),
+          )}
+        />
       )}
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">

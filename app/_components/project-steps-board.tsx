@@ -26,12 +26,22 @@ export type BoardProject = {
 const INITIAL_ACK: AckStepState = { ok: false }
 
 // ── Blinking deadline countdown ────────────────────────────────────────────
-function Countdown({ deadline }: { deadline: string | null }) {
+function Countdown({ deadline, complete = false }: { deadline: string | null; complete?: boolean }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
+    if (complete) return
     const i = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(i)
-  }, [])
+  }, [complete])
+
+  // Once delivered, the deadline no longer counts down — show a static status.
+  if (complete) {
+    return (
+      <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">
+        Delivered
+      </span>
+    )
+  }
 
   if (!deadline) {
     return (
@@ -132,7 +142,7 @@ function StepsModal({
 
         <div className="mb-4 flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
           <span className="text-xs font-medium text-gray-600">Deadline</span>
-          <Countdown deadline={project.deliveryDate} />
+          <Countdown deadline={project.deliveryDate} complete={complete} />
         </div>
 
         {complete && (
@@ -315,7 +325,7 @@ export default function ProjectStepsBoard({
               </div>
               <p className="mt-1 text-xs text-gray-500">{currentStepLabel(p)}</p>
               <div className="mt-3">
-                <Countdown deadline={p.deliveryDate} />
+                <Countdown deadline={p.deliveryDate} complete={isProjectComplete(p.currentStep)} />
               </div>
             </button>
           )

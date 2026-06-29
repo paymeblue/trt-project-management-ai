@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: context exhaustion at 75% (2026-06-20)
-last_updated: "2026-06-27T00:00:00.000Z"
-last_activity: 2026-06-27 -- Quick task: Overview Operations/project-status cards + bigger file input
+last_updated: "2026-06-29T00:00:00.000Z"
+last_activity: 2026-06-29 -- Quick task: editable checklist text (Site/Factory PM inline edit + add)
 progress:
   total_phases: 10
   completed_phases: 1
@@ -80,6 +80,7 @@ None yet.
 |------|------|-------------|--------|
 | 2026-06-27 | analytics-delivery-speed | Super Admin Analytics page — ECharts delivery-speed-per-project chart (Bar/Ranked/Line/Pie) + stat cards + sidebar link | complete ✓ |
 | 2026-06-27 | overview-stats-file-input | Overview: Operations user card + Completed/In Progress project cards; bigger process-flow file upload zone | complete ✓ |
+| 2026-06-29 | editable-checklist-text | Inline "Edit checklist questions" on /checklists/[slug] — Site/Factory PMs edit item label/help text + add items, authorized by definition target_role | complete ✓ |
 
 ## Deferred Items
 
