@@ -1,69 +1,39 @@
-// End-to-end flow of how work moves Factory PM → Site PM, with Super Admin
-// overseeing both. Pure server component (styled boxes + arrows), responsive,
-// dark-mode aware via semantic tokens.
+// End-to-end workflow, rendered straight from WORKFLOW_STEPS (the single source
+// of truth in lib/workflow.ts) so the diagram can never drift out of order. It
+// is the real interleaved sequence — Operations → Site PM → Factory PM → … —
+// not a Factory/Site two-lane handoff. Pure server component, dark-mode aware
+// via semantic tokens; role accent colours are fixed hues legible on both themes.
 
-type Step = { n: number; title: string; detail: string }
+import { WORKFLOW_STEPS, workflowRoleLabel, type WorkflowRole } from '@/lib/workflow'
 
-const FACTORY: Step[] = [
-  { n: 1, title: 'Floor Project created', detail: 'A manufacturing job is opened with its delivery timeline.' },
-  { n: 2, title: 'Delivery Project Checklist', detail: 'Production completed & quality-checked, items labelled, fragile wrapped.' },
-  { n: 3, title: 'Materials / Accessories Readiness Form', detail: 'Confirm materials complete; sign digitally or upload the signed form.' },
-  { n: 4, title: 'Mark Delivered → Dispatch', detail: 'Project status flips to Delivered and is handed to the Site PM.' },
-]
-
-const SITE: Step[] = [
-  { n: 5, title: 'Confirmation / Verification', detail: 'On arrival, verify the delivery against the architect’s drawing with photos.' },
-  { n: 6, title: 'Project Production Checklist', detail: 'Full QA across Kitchen, Closet, Vanity & TV units (boxes, doors, panels…).' },
-  { n: 7, title: 'Delivery Site Readiness + Issue Log', detail: 'Confirm the site is ready; log and track any on-site issues.' },
-  { n: 8, title: 'Close Out', detail: 'Final sign-off completes the project on site.' },
-]
-
-function Lane({
-  label,
-  sub,
-  icon,
-  steps,
-}: {
-  label: string
-  sub: string
-  icon: string
-  steps: Step[]
-}) {
-  return (
-    <div className="flex-1 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
-      <div className="mb-4 flex items-center gap-2">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-container text-on-primary-container">
-          <span className="material-symbols-outlined text-[20px]">{icon}</span>
-        </span>
-        <div>
-          <p className="text-sm font-bold text-on-surface">{label}</p>
-          <p className="text-xs text-on-surface-variant">{sub}</p>
-        </div>
-      </div>
-      <ol className="space-y-2">
-        {steps.map((s) => (
-          <li
-            key={s.n}
-            className="flex gap-3 rounded-lg border border-outline-variant bg-surface-container-low p-3"
-          >
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
-              {s.n}
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-on-surface">{s.title}</p>
-              <p className="text-xs leading-relaxed text-on-surface-variant">{s.detail}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
-    </div>
-  )
+const ROLE_COLOR: Record<WorkflowRole, string> = {
+  operations: '#6366f1', // indigo
+  site_pm: '#0ea5e9', // sky
+  factory_pm: '#f97316', // orange
 }
+
+// Short, role-accurate blurbs keyed by the canonical step key.
+const DETAIL: Record<string, string> = {
+  new_project: 'Operations opens the project and sets its delivery timeline.',
+  confirmation: 'Site PM confirms the project details to start the workflow.',
+  materials_readiness:
+    'Factory PM confirms materials & accessories are complete — sign digitally or upload the signed form.',
+  delivery_readiness: 'Site PM confirms the site is ready to receive the delivery.',
+  delivery_project:
+    'Factory PM completes production QA — items labelled, fragile-wrapped, ready to dispatch.',
+  project_check_report: 'Factory PM records the final production check report before handoff.',
+  approval_installation: 'Operations approves commencement of on-site installation.',
+  installation_readiness: 'Site PM confirms everything is ready to begin installation.',
+  sorting: 'Site PM sorts and stages the delivered items on site.',
+  close_out: 'Final sign-off completes the project on site.',
+}
+
+const ROLES: WorkflowRole[] = ['operations', 'site_pm', 'factory_pm']
 
 export default function TrtFlowDiagram() {
   return (
     <div>
-      {/* Super Admin oversight banner spanning both lanes */}
+      {/* Super Admin oversight banner */}
       <div className="mb-4 flex items-center gap-3 rounded-2xl border border-dashed border-outline-variant bg-surface-container p-4">
         <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary-container text-on-secondary-container">
           <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
@@ -71,33 +41,61 @@ export default function TrtFlowDiagram() {
         <div>
           <p className="text-sm font-bold text-on-surface">Super Admin — oversight across everything</p>
           <p className="text-xs text-on-surface-variant">
-            Monitors both lanes (read-only), manages users &amp; content, and authors the process
+            Monitors every step (read-only), manages users &amp; content, and authors the process
             flow charts. Cannot edit another Super Admin.
           </p>
         </div>
       </div>
 
-      <div className="flex flex-col items-stretch gap-4 md:flex-row md:items-start">
-        <Lane
-          label="Factory PM"
-          sub="Manufacturing floor"
-          icon="factory"
-          steps={FACTORY}
-        />
-
-        {/* Handoff connector */}
-        <div className="flex items-center justify-center md:flex-col md:pt-24">
-          <div className="flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow">
-            <span className="material-symbols-outlined text-[16px]">local_shipping</span>
-            Handoff
-          </div>
-          <span className="material-symbols-outlined rotate-90 text-on-surface-variant md:rotate-0">
-            arrow_forward
+      {/* Role legend */}
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+        {ROLES.map((role) => (
+          <span key={role} className="inline-flex items-center gap-1.5 text-xs text-on-surface-variant">
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: ROLE_COLOR[role] }}
+            />
+            {workflowRoleLabel(role)}
           </span>
-        </div>
-
-        <Lane label="Site PM" sub="Installation site" icon="apartment" steps={SITE} />
+        ))}
       </div>
+
+      {/* Sequential timeline */}
+      <ol className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+        {WORKFLOW_STEPS.map((step, i) => {
+          const color = ROLE_COLOR[step.role]
+          const last = i === WORKFLOW_STEPS.length - 1
+          return (
+            <li key={step.key} className="flex gap-3">
+              {/* Number badge + connecting rail */}
+              <div className="flex flex-col items-center">
+                <span
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                  style={{ backgroundColor: color }}
+                >
+                  {step.n}
+                </span>
+                {!last && <span className="my-1 w-px flex-1 bg-outline-variant" />}
+              </div>
+
+              <div className={`flex-1 ${last ? '' : 'pb-4'}`}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-on-surface">{step.label}</p>
+                  <span
+                    className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                    style={{ backgroundColor: `${color}22`, color }}
+                  >
+                    {workflowRoleLabel(step.role)}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs leading-relaxed text-on-surface-variant">
+                  {DETAIL[step.key]}
+                </p>
+              </div>
+            </li>
+          )
+        })}
+      </ol>
 
       <p className="mt-4 text-xs text-on-surface-variant">
         Throughout, anyone can ask <span className="font-semibold text-primary">Paul Arredo</span> (the

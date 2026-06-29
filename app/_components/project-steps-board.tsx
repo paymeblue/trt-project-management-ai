@@ -254,13 +254,46 @@ function StepsModal({
 }
 
 // ── Board (dropdown + cards) ───────────────────────────────────────────────
+const PROJECTS_POLL_MS = 4000
+
 export default function ProjectStepsBoard({
-  projects,
+  projects: initialProjects,
   viewerRole,
 }: {
   projects: BoardProject[]
   viewerRole: UserRole
 }) {
+  // Seed from the server-rendered snapshot, then poll /api/projects so newly
+  // created projects and step advances appear without a manual refresh. The
+  // poll keeps state current, so there's no need to sync the prop back in.
+  const [projects, setProjects] = useState<BoardProject[]>(initialProjects)
+
+  useEffect(() => {
+    let cancelled = false
+    async function refresh() {
+      try {
+        const res = await fetch('/api/projects', { cache: 'no-store' })
+        if (!res.ok) return
+        const json = (await res.json()) as BoardProject[]
+        if (!cancelled) setProjects(json)
+      } catch {
+        // transient network error — keep last known state
+      }
+    }
+    const id = setInterval(refresh, PROJECTS_POLL_MS)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', refresh)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [])
+
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = projects.find((p) => p.id === selectedId) ?? null
 

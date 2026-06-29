@@ -19,26 +19,69 @@ export default function PendingStepGate() {
   const pathname = usePathname()
   const [ackState, dispatchAck, ackPending] = useActionState(completeAckStepAction, INITIAL_ACK)
   const [notes, setNotes] = useState('')
+  // Per-session dismissals (reset on full reload) so the modal can be closed
+  // without nagging on every poll — keyed by project + step so a different
+  // pending item still surfaces.
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (ackState.ok) refresh()
   }, [ackState.ok, refresh])
 
-  // Most urgent pending item only — once handled, the next one surfaces.
-  const item = pending[0]
-  if (!item || isStepRoute(pathname)) return null
+  // Most urgent pending item the user hasn't dismissed this session.
+  const keyOf = (projectId: string, stepN: number) => `${projectId}:${stepN}`
+  const item =
+    isStepRoute(pathname)
+      ? undefined
+      : pending.find((p) => !dismissed.has(keyOf(p.projectId, p.stepN)))
+
+  function close() {
+    if (item) setDismissed((prev) => new Set(prev).add(keyOf(item.projectId, item.stepN)))
+  }
+
+  useEffect(() => {
+    if (!item) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') close()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item])
+
+  if (!item) return null
 
   const step = stepByN(item.stepN)
   if (!step) return null
+
+  const others = pending.filter(
+    (p) => p !== item && !dismissed.has(keyOf(p.projectId, p.stepN)),
+  ).length
 
   const href = stepHref(step, item.projectId)
   const deadlineText = item.deadline ? new Date(item.deadline).toLocaleDateString() : 'No deadline'
 
   return (
-    // Unclosable: no backdrop click, no Escape, no close button. It clears only
-    // when the step is confirmed/completed (which removes it from `pending`).
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+    // Dismissable: backdrop click, Escape, or the close button hide it for this
+    // session. It also clears automatically once the step is confirmed/completed
+    // (which removes it from `pending`).
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
+      onClick={close}
+    >
+      <div
+        className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={close}
+          aria-label="Dismiss"
+          className="absolute right-3 top-3 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+        >
+          <span className="material-symbols-outlined">close</span>
+        </button>
+
         <div className="mb-3 flex items-center gap-2">
           <span className="material-symbols-outlined animate-pulse text-2xl text-primary">
             notifications_active
@@ -47,7 +90,7 @@ export default function PendingStepGate() {
         </div>
 
         <p className="text-sm text-gray-600">
-          A step is on your desk and must be completed before you continue.
+          A step is on your desk. Complete it to advance the project — or close this to continue.
         </p>
 
         <div className="my-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
@@ -58,10 +101,9 @@ export default function PendingStepGate() {
           <p className="mt-1 text-xs text-gray-500">
             Your role: {workflowRoleLabel(step.role)} · Deadline: {deadlineText}
           </p>
-          {pending.length > 1 && (
+          {others > 0 && (
             <p className="mt-2 text-xs font-medium text-amber-700">
-              {pending.length - 1} more {pending.length - 1 === 1 ? 'project' : 'projects'} waiting
-              after this one.
+              {others} more {others === 1 ? 'project' : 'projects'} waiting after this one.
             </p>
           )}
         </div>
