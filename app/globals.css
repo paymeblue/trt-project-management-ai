@@ -253,3 +253,28 @@ body {
 .material-symbols-outlined.fill {
   font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
 }
+
+/* Until the Material Symbols icon font finishes loading, its ligature text
+   (e.g. "dashboard", "inventory_2") would render raw and look broken. Show a
+   small shimmer skeleton in the icon's place instead. `fonts-ready` is added to
+   <html> by a script in the root layout once the icon font is available. */
+@keyframes trt-skeleton {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+html:not(.fonts-ready) .material-symbols-outlined {
+  width: 1em;
+  height: 1em;
+  overflow: hidden;
+  color: transparent !important;
+  border-radius: 0.2em;
+  background-image: linear-gradient(
+    90deg,
+    var(--color-surface-container-high) 25%,
+    var(--color-surface-container-highest) 37%,
+    var(--color-surface-container-high) 63%
+  );
+  background-size: 200% 100%;
+  animation: trt-skeleton 1.4s ease-in-out infinite;
+  vertical-align: middle;
+}

@@ -46,6 +46,11 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
         />
+        {/* Reveal icons (replacing the skeleton) once the Material Symbols font
+            is loaded. Timeout fallback so icons never stay hidden. */}
+        <Script id="fonts-ready" strategy="afterInteractive">
+          {`(function(){var d=document.documentElement;function r(){d.classList.add('fonts-ready')}try{if(document.fonts&&document.fonts.load){var t=setTimeout(r,3000);document.fonts.load('1em "Material Symbols Outlined"').then(function(){clearTimeout(t);r()}).catch(function(){clearTimeout(t);r()})}else{r()}}catch(e){r()}})()`}
+        </Script>
         {children}
       </body>
     </html>
