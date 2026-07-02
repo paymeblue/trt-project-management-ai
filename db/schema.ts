@@ -11,7 +11,7 @@ import {
 } from 'drizzle-orm/pg-core'
 
 // ── Enums ────────────────────────────────────────────────────────────────
-export const roleEnum = pgEnum('role', ['factory_pm', 'site_pm', 'super_admin', 'operations'])
+export const roleEnum = pgEnum('role', ['factory_pm', 'site_pm', 'super_admin', 'operations', 'design', 'production'])
 export const projectStatusEnum = pgEnum('project_status', ['not_delivered', 'delivered', 'paused'])
 export const targetRoleEnum = pgEnum('target_role', ['factory_pm', 'site_pm', 'both'])
 export const itemTypeEnum = pgEnum('item_type', ['radio', 'text', 'file'])

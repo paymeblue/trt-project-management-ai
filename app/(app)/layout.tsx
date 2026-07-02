@@ -16,14 +16,7 @@ import NotificationsBell from '@/app/_components/notifications-bell';
 import MyWorkProvider from '@/app/_components/my-work-provider';
 import { TrtLogo, TrtWatermark } from '@/app/_components/trt-logo';
 import { getMyWork } from '@/lib/my-work';
-import { isAdminRole, type UserRole } from '@/lib/workflow';
-
-const ROLE_LABELS: Record<string, string> = {
-  factory_pm: 'Factory PM',
-  site_pm: 'Site PM',
-  super_admin: 'Super Admin',
-  operations: 'Operations',
-};
+import { isAdminRole, userRoleLabel, type UserRole } from '@/lib/workflow';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await auth();
@@ -52,7 +45,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // of a generic role label, e.g. "Head of Projects".
   const isAdmin = isAdminRole(role as UserRole);
   const roleLabel =
-    (isAdmin && me?.position?.trim()) || ROLE_LABELS[role] || role;
+    (isAdmin && me?.position?.trim()) || userRoleLabel(role);
 
   // Header switcher + forcing gate get a server-rendered snapshot; the provider
   // then polls /api/my-work to keep them near-real-time.

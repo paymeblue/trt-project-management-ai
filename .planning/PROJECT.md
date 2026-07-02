@@ -23,7 +23,7 @@ A PM on the floor or on-site can complete a structured checklist (with photo evi
 - Higher-authority approval to advance without a checklist (#3)
 - Escalate issues to every super admin + per-project dispute section (#6)
 
-**Deferred:** Multi-department extensibility for future Design/Production roles (#7) — out of scope this milestone.
+**Delivered (Phase 15):** Multi-department extensibility (#7) — Design & Production are now first-class roles with a working shell; their workflow steps can be added additively later.
 
 **Locked decisions:** in-app alerts only (no email) · checklists super_admin-only · sign-off by super_admin · phases continue at 11–14.
 

@@ -1,6 +1,8 @@
 import type { DefaultSession } from "next-auth"
+import type { UserRole } from "@/lib/workflow"
 
-type Role = "factory_pm" | "site_pm" | "super_admin" | "operations"
+// Derived from the single source of truth so new departments never drift here.
+type Role = UserRole
 
 declare module "next-auth" {
   interface Session {

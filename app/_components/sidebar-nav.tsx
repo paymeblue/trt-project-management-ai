@@ -38,6 +38,19 @@ const NAV: Record<string, Item[]> = {
     { href: '/about', icon: 'info', label: 'About TRT' },
     { href: '/profile', icon: 'person', label: 'Profile' },
   ],
+  // Future departments — minimal shell until their workflow steps are added.
+  design: [
+    { href: '/design/dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { href: '/processes', icon: 'account_tree', label: 'Processes' },
+    { href: '/profile', icon: 'person', label: 'Profile' },
+    { href: '/about', icon: 'info', label: 'About TRT' },
+  ],
+  production: [
+    { href: '/production/dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { href: '/processes', icon: 'account_tree', label: 'Processes' },
+    { href: '/profile', icon: 'person', label: 'Profile' },
+    { href: '/about', icon: 'info', label: 'About TRT' },
+  ],
 }
 
 export default function SidebarNav({ role }: { role: string }) {

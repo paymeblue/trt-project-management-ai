@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import OpenChatButton from '@/app/_components/open-chat-button'
+import { userRoleLabel } from '@/lib/workflow'
 
 export type Tile = {
   title: string
@@ -76,9 +77,7 @@ export default function DashboardShell({
   tiles: Tile[]
   roleLabel?: string
 }) {
-  const label =
-    roleLabel ??
-    (role === 'factory_pm' ? 'Factory PM' : role === 'site_pm' ? 'Site PM' : 'Super Admin')
+  const label = roleLabel ?? userRoleLabel(role)
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">

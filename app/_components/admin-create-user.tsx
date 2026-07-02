@@ -7,6 +7,8 @@ import { createUserAction } from '@/actions/admin-users'
 const ROLES = [
   { value: 'factory_pm', label: 'Factory PM' },
   { value: 'site_pm', label: 'Site PM' },
+  { value: 'design', label: 'Design' },
+  { value: 'production', label: 'Production' },
 ]
 
 export default function AdminCreateUser() {

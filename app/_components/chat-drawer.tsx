@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Drawer } from 'vaul'
+import { userRoleLabel } from '@/lib/workflow'
 
 type ChatUser = { id: string; name: string; role: string; email?: string }
 type Conversation = {
@@ -21,12 +22,6 @@ type Msg = {
   createdAt: string
 }
 
-const ROLE_LABEL: Record<string, string> = {
-  factory_pm: 'Factory PM',
-  site_pm: 'Site PM',
-  super_admin: 'Super Admin',
-  operations: 'Operations',
-}
 
 function playPing() {
   try {
@@ -265,7 +260,7 @@ export default function ChatDrawer() {
                   </Drawer.Title>
                   {activeOther && (
                     <p className="text-xs text-gray-400">
-                      {ROLE_LABEL[activeOther.role] ?? activeOther.role}
+                      {userRoleLabel(activeOther.role)}
                       {activeOther.email ? ` · ${activeOther.email}` : ''}
                     </p>
                   )}
@@ -310,7 +305,7 @@ export default function ChatDrawer() {
                             <span className="block truncate text-gray-900">{u.name}</span>
                             <span className="block truncate text-xs text-gray-400">{u.email}</span>
                           </span>
-                          <span className="shrink-0 text-xs text-gray-400">{ROLE_LABEL[u.role] ?? u.role}</span>
+                          <span className="shrink-0 text-xs text-gray-400">{userRoleLabel(u.role)}</span>
                         </button>
                       ))}
                     </div>

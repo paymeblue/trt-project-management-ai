@@ -11,6 +11,8 @@ const ROLES = [
   { value: 'site_pm', label: 'Site PM' },
   { value: 'super_admin', label: 'Super Admin' },
   { value: 'operations', label: 'Operations' },
+  { value: 'design', label: 'Design' },
+  { value: 'production', label: 'Production' },
 ]
 
 const ADMIN_ROLES = ['super_admin', 'operations']

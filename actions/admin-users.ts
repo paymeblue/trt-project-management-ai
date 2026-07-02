@@ -7,7 +7,7 @@ import bcrypt from 'bcryptjs'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { requireAdmin, isAdminRole } from '@/lib/dal'
-import { Roles, type UserRole } from '@/lib/workflow'
+import { Roles, userRoleLabel, type UserRole } from '@/lib/workflow'
 import { sendEmail } from '@/lib/email'
 import { credentialsEmail } from '@/lib/email-templates'
 
@@ -16,17 +16,18 @@ const ASSIGNABLE_ROLES: UserRole[] = [
   Roles.SitePm,
   Roles.SuperAdmin,
   Roles.Operations,
+  Roles.Design,
+  Roles.Production,
 ]
 
-// Roles an admin may create from the UI (PMs). Admins/operations come from seeds.
-const CREATABLE_ROLES: UserRole[] = [Roles.FactoryPm, Roles.SitePm]
-
-const ROLE_LABELS: Record<UserRole, string> = {
-  factory_pm: 'Factory PM',
-  site_pm: 'Site PM',
-  super_admin: 'Super Admin',
-  operations: 'Operations',
-}
+// Roles an admin may create from the UI. PMs + the future departments; the
+// admin/operations accounts still come from seeds.
+const CREATABLE_ROLES: UserRole[] = [
+  Roles.FactoryPm,
+  Roles.SitePm,
+  Roles.Design,
+  Roles.Production,
+]
 
 type ActionResult = { ok: boolean; error?: string }
 type CreateUserResult = ActionResult & { tempPassword?: string; emailed?: boolean }
@@ -52,7 +53,7 @@ export async function createUserAction(input: {
 
   if (name.length < 2) return { ok: false, error: 'Name must be at least 2 characters.' }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, error: 'Enter a valid email.' }
-  if (!CREATABLE_ROLES.includes(role)) return { ok: false, error: 'Role must be Factory PM or Site PM.' }
+  if (!CREATABLE_ROLES.includes(role)) return { ok: false, error: 'That role can\'t be created here.' }
 
   const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1)
   if (existing.length > 0) return { ok: false, error: 'A user with that email already exists.' }
@@ -78,7 +79,7 @@ export async function createUserAction(input: {
       name,
       email,
       password: tempPassword,
-      roleLabel: ROLE_LABELS[role],
+      roleLabel: userRoleLabel(role),
       loginUrl,
     })
     await sendEmail({ to: email, subject, html, text })
