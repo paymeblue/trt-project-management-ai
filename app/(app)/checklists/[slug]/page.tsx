@@ -15,7 +15,6 @@ import {
   canRoleActOnStep,
   canEditChecklist,
   type UserRole,
-  type ChecklistTargetRole,
 } from '@/lib/workflow'
 
 export const dynamic = 'force-dynamic'
@@ -107,7 +106,7 @@ export default async function ChecklistPage({
     )
     .orderBy(asc(checklistTemplateItems.step), asc(checklistTemplateItems.sortOrder))
 
-  const canEdit = canEditChecklist(role as UserRole, def.targetRole as ChecklistTargetRole)
+  const canEdit = canEditChecklist(role as UserRole)
 
   const past = await db
     .select()
