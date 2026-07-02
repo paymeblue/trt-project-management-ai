@@ -4,9 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { projects, projectStepCompletions } from '@/db/schema'
+import { projects, projectStepCompletions, projectStepDeadlines } from '@/db/schema'
 import { requireAdmin } from '@/lib/dal'
-import { FIRST_ACTION_STEP } from '@/lib/workflow'
+import { FIRST_ACTION_STEP, WORKFLOW_STEPS } from '@/lib/workflow'
 
 export type CreateProjectState = { status: 'idle' | 'error'; message?: string }
 
@@ -40,6 +40,20 @@ export async function createProjectAction(
     stepN: 1,
     completedBy: userId,
   })
+
+  // Per-step deadlines (REQ-G05): one optional date per actionable step
+  // (form field `deadline_<n>`). Step 1 auto-completes, so it has none.
+  const stepDeadlineRows = WORKFLOW_STEPS.filter((s) => s.n >= FIRST_ACTION_STEP)
+    .map((s) => {
+      const raw = String(formData.get(`deadline_${s.n}`) ?? '').trim()
+      if (!raw) return null
+      const d = new Date(raw)
+      return Number.isNaN(d.getTime()) ? null : { projectId: created.id, stepN: s.n, deadline: d }
+    })
+    .filter((r): r is { projectId: string; stepN: number; deadline: Date } => r !== null)
+  if (stepDeadlineRows.length) {
+    await db.insert(projectStepDeadlines).values(stepDeadlineRows)
+  }
 
   revalidatePath('/admin/timeline')
   revalidatePath('/site-pm/projects')

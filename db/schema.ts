@@ -7,6 +7,7 @@ import {
   timestamp,
   uuid,
   jsonb,
+  unique,
 } from 'drizzle-orm/pg-core'
 
 // ── Enums ────────────────────────────────────────────────────────────────
@@ -58,6 +59,16 @@ export const projectStepCompletions = pgTable('project_step_completions', {
   notes:       text('notes'),
   completedAt: timestamp('completed_at').defaultNow().notNull(),
 })
+
+// Per-step deadlines set by Operations at project creation (REQ-G05) so each
+// actor is accountable to their own step, not just one project-wide date.
+export const projectStepDeadlines = pgTable('project_step_deadlines', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  stepN:     integer('step_n').notNull(),                // WorkflowStep.n
+  deadline:  timestamp('deadline').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({ projectStepUq: unique().on(t.projectId, t.stepN) }))
 
 // ── Checklist Definitions (CHK-01: template catalogue) ───────────────────
 export const checklistDefinitions = pgTable('checklist_definitions', {

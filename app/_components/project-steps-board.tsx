@@ -18,9 +18,16 @@ export type BoardProject = {
   id: string
   name: string
   location: string | null
-  deliveryDate: string | null // ISO
+  deliveryDate: string | null // ISO — project-wide fallback deadline
   currentStep: number
   status: 'delivered' | 'not_delivered'
+  stepDeadlines?: Record<string, string> // stepN → ISO (REQ-G05)
+}
+
+// The deadline that applies to a given step: its own per-step deadline, else the
+// project-wide delivery date.
+function deadlineForStep(p: BoardProject, stepN: number): string | null {
+  return p.stepDeadlines?.[String(stepN)] ?? p.deliveryDate
 }
 
 const INITIAL_ACK: AckStepState = { ok: false }
@@ -141,8 +148,8 @@ function StepsModal({
         </div>
 
         <div className="mb-4 flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-          <span className="text-xs font-medium text-gray-600">Deadline</span>
-          <Countdown deadline={project.deliveryDate} complete={complete} />
+          <span className="text-xs font-medium text-gray-600">Current step deadline</span>
+          <Countdown deadline={deadlineForStep(project, project.currentStep)} complete={complete} />
         </div>
 
         {complete && (
@@ -194,7 +201,15 @@ function StepsModal({
                     >
                       {step.n}. {step.label}
                     </p>
-                    <p className="text-xs text-gray-400">{workflowRoleLabel(step.role)}</p>
+                    <p className="text-xs text-gray-400">
+                      {workflowRoleLabel(step.role)}
+                      {project.stepDeadlines?.[String(step.n)] && (
+                        <span className="text-gray-400">
+                          {' · due '}
+                          {new Date(project.stepDeadlines[String(step.n)]).toLocaleDateString()}
+                        </span>
+                      )}
+                    </p>
                   </div>
                   {done && <span className="text-xs font-medium text-green-600">Done</span>}
                 </div>
@@ -358,7 +373,10 @@ export default function ProjectStepsBoard({
               </div>
               <p className="mt-1 text-xs text-gray-500">{currentStepLabel(p)}</p>
               <div className="mt-3">
-                <Countdown deadline={p.deliveryDate} complete={isProjectComplete(p.currentStep)} />
+                <Countdown
+                  deadline={deadlineForStep(p, p.currentStep)}
+                  complete={isProjectComplete(p.currentStep)}
+                />
               </div>
             </button>
           )
