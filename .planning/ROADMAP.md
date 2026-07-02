@@ -17,6 +17,12 @@ The build goes foundation-first: lock down auth, the role model, transactional e
 - [ ] **Phase 9: Dave Aredo (AI Assistant)** - Role-scoped streaming chat grounded in process docs, server-side rate limiting, persisted history
 - [ ] **Phase 10: Production Hardening & PDF-Blocked Items** - Mobile/field testing, error boundaries, finalize Issue Log format, deploy
 
+### Milestone v1.1 — Super-admin governance & accountability
+- [ ] **Phase 11: Permissions & Quick Wins** - Lock checklist authoring to super_admin (REQ-G01), distinct analytics color per project (REQ-G02), map Issue Log to a project (REQ-G03)
+- [ ] **Phase 12: Workflow Extensions** - New super_admin Sign-Off step 11 after Close Out (REQ-G04) + per-step deadlines set by Operations at creation (REQ-G05)
+- [ ] **Phase 13: Super-Admin Alerts Foundation** - In-app notifications subsystem + alerts panel/header bell + `paused` project status (REQ-G06, REQ-G07)
+- [ ] **Phase 14: Escalation Flows** - Pause/flag→notify+pause (REQ-G08), higher-authority approval to advance without a checklist (REQ-G09), escalate-to-all-super-admins + per-project dispute section (REQ-G10)
+
 ## Phase Details
 
 ### Phase 1: Foundation — Auth, Roles, Email, Schema, DAL
@@ -176,10 +182,74 @@ Plans:
 - [ ] 10-01: Mobile/field testing + error boundaries
 - [ ] 10-02: Load finalized checklist/Issue Log content from PDFs; deployment hardening
 
+---
+
+## Phase Details — Milestone v1.1
+
+### Phase 11: Permissions & Quick Wins
+**Goal**: Super admins are the sole checklist authors, analytics reads cleanly per project, and every issue is anchored to a project.
+**Depends on**: existing app (no v1.1 phase deps) — safe warm-up, no shared subsystem
+**Requirements**: REQ-G01, REQ-G02, REQ-G03
+**Success Criteria** (what must be TRUE):
+  1. Only super_admin can reach/execute checklist create/edit; Operations + both PMs are denied server-side but can still fill/submit
+  2. Each project has a distinct, stable color across analytics charts
+  3. Issue creation requires a project; Issue Log shows and filters by project; `issues.project_id` is non-null (existing rows handled)
+**Plans**: TBD (set at /gsd-plan-phase 11)
+
+Plans:
+- [ ] 11-01: Lock checklist authoring to super_admin (`canEditChecklist`, editor route/actions, hide entry points)
+- [ ] 11-02: Per-project color mapping in analytics-chart.tsx
+- [ ] 11-03: Issue↔project — required projectId, create selector, list filter (+ backfill guard)
+
+### Phase 12: Workflow Extensions
+**Goal**: The workflow ends with a super_admin sign-off, and every step carries its own Operations-set deadline for accountability.
+**Depends on**: Phase 11 (sequencing only)
+**Requirements**: REQ-G04, REQ-G05
+**Success Criteria** (what must be TRUE):
+  1. Step 11 "Sign Off" (role super_admin) exists after Close Out; project is complete only after it; gate/board/diagram/getMyWork reflect it
+  2. `isProjectComplete` boundary updated with migration care for projects currently at step 11
+  3. Operations sets a deadline per step at creation; each step shows its own countdown/overdue in board, header switcher, and my-work
+**Plans**: TBD (set at /gsd-plan-phase 12)
+
+Plans:
+- [ ] 12-01: Add Sign-Off step 11 + shift completion boundary (schema/data migration, workflow, gate, diagram, my-work)
+- [ ] 12-02: Per-step deadlines — schema, new-project form, board/countdown/my-work reads
+
+### Phase 13: Super-Admin Alerts Foundation
+**Goal**: A reusable in-app alert channel to super admins exists, and projects can be paused — the base the escalation flows build on.
+**Depends on**: (independent of 11/12; before 14)
+**Requirements**: REQ-G06, REQ-G07
+**Success Criteria** (what must be TRUE):
+  1. `notifications` table + `/api/notifications` polled near-real-time; header bell with unread badge + alerts panel (read/mark-read)
+  2. Alerts target all super admins and deep-link to the relevant project/step
+  3. `projects.status` supports `paused`; board/gate/my-work treat paused projects as not requiring forced action
+**Plans**: TBD (set at /gsd-plan-phase 13)
+
+Plans:
+- [ ] 13-01: Notifications schema + API + polling provider
+- [ ] 13-02: Header bell + alerts panel UI
+- [ ] 13-03: `paused` status plumbed through board/gate/my-work
+
+### Phase 14: Escalation Flows
+**Goal**: Actors can pause/flag, request checklist-bypass approval, and escalate/dispute — all routed to super admins for action.
+**Depends on**: Phase 13 (notifications + paused status), Phase 12 (per-step context helpful)
+**Requirements**: REQ-G08, REQ-G09, REQ-G10
+**Success Criteria** (what must be TRUE):
+  1. Pause/flag with reason notifies all super admins and pauses the project until a super admin resumes it (who/when/why recorded)
+  2. A step can be advanced without its checklist only via a super-admin-approved bypass request; approval/denial audited
+  3. Issues can be escalated to every super admin; each project has a threaded dispute section visible to participants + all super admins
+**Plans**: TBD (set at /gsd-plan-phase 14)
+
+Plans:
+- [ ] 14-01: Pause/flag → notify + pause + super-admin resolve/resume
+- [ ] 14-02: Higher-authority bypass request → approve/deny + audit + advance
+- [ ] 14-03: Escalate issue to all super admins + per-project dispute thread
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10
+v1.0 phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10
+v1.1 phases: 11 → 12 → 13 → 14 (11 and 13 independent; 12 after 11 by sequencing; 14 after 13)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -193,3 +263,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 8. Real-time Chat | 0/3 | Not started | - |
 | 9. Dave Aredo (AI Assistant) | 0/3 | Not started | - |
 | 10. Production Hardening & PDF-Blocked Items | 0/2 | Not started | - |
+| **v1.1 — Super-admin governance & accountability** | | | |
+| 11. Permissions & Quick Wins | 0/3 | Not started | - |
+| 12. Workflow Extensions | 0/2 | Not started | - |
+| 13. Super-Admin Alerts Foundation | 0/3 | Not started | - |
+| 14. Escalation Flows | 0/3 | Not started | - |
