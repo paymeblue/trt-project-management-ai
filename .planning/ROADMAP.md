@@ -19,7 +19,7 @@ The build goes foundation-first: lock down auth, the role model, transactional e
 
 ### Milestone v1.1 — Super-admin governance & accountability
 - [x] **Phase 11: Permissions & Quick Wins** - Lock checklist authoring to super_admin (REQ-G01), distinct analytics color per project (REQ-G02), map Issue Log to a project (REQ-G03)
-- [ ] **Phase 12: Workflow Extensions** - New super_admin Sign-Off step 11 after Close Out (REQ-G04) + per-step deadlines set by Operations at creation (REQ-G05)
+- [x] **Phase 12: Workflow Extensions** - New super_admin Sign-Off step 11 after Close Out (REQ-G04) + per-step deadlines set by Operations at creation (REQ-G05)
 - [ ] **Phase 13: Super-Admin Alerts Foundation** - In-app notifications subsystem + alerts panel/header bell + `paused` project status (REQ-G06, REQ-G07)
 - [ ] **Phase 14: Escalation Flows** - Pause/flag→notify+pause (REQ-G08), higher-authority approval to advance without a checklist (REQ-G09), escalate-to-all-super-admins + per-project dispute section (REQ-G10)
 
@@ -212,8 +212,8 @@ Plans:
 **Plans**: TBD (set at /gsd-plan-phase 12)
 
 Plans:
-- [ ] 12-01: Add Sign-Off step 11 + shift completion boundary (schema/data migration, workflow, gate, diagram, my-work)
-- [ ] 12-02: Per-step deadlines — schema, new-project form, board/countdown/my-work reads
+- [x] 12-01: Add Sign-Off step 11 + shift completion boundary (schema/data migration, workflow, gate, diagram, my-work)
+- [x] 12-02: Per-step deadlines — schema, new-project form, board/countdown/my-work reads
 
 ### Phase 13: Super-Admin Alerts Foundation
 **Goal**: A reusable in-app alert channel to super admins exists, and projects can be paused — the base the escalation flows build on.
@@ -265,6 +265,6 @@ v1.1 phases: 11 → 12 → 13 → 14 (11 and 13 independent; 12 after 11 by sequ
 | 10. Production Hardening & PDF-Blocked Items | 0/2 | Not started | - |
 | **v1.1 — Super-admin governance & accountability** | | | |
 | 11. Permissions & Quick Wins | 3/3 | Complete ✓ | 2026-07-02 |
-| 12. Workflow Extensions | 0/2 | Not started | - |
+| 12. Workflow Extensions | 2/2 | Complete ✓ | 2026-07-02 |
 | 13. Super-Admin Alerts Foundation | 0/3 | Not started | - |
 | 14. Escalation Flows | 0/3 | Not started | - |
