@@ -23,6 +23,10 @@ The build goes foundation-first: lock down auth, the role model, transactional e
 - [x] **Phase 13: Super-Admin Alerts Foundation** - In-app notifications subsystem + alerts panel/header bell + `paused` project status (REQ-G06, REQ-G07)
 - [x] **Phase 14: Escalation Flows** - Pause/flag→notify+pause (REQ-G08), higher-authority approval to advance without a checklist (REQ-G09), escalate-to-all-super-admins + per-project dispute section (REQ-G10)
 
+
+### Milestone v1.1 (extension)
+- [x] **Phase 15: Multi-department extensibility (#7)** - Design & Production as first-class roles with a working shell (nav, dashboards, admin assignment); centralized userRoleLabel/roleDashboard helpers; departments own no workflow steps yet (additive later)
+
 ## Phase Details
 
 ### Phase 1: Foundation — Auth, Roles, Email, Schema, DAL
