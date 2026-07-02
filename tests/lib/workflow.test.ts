@@ -8,16 +8,19 @@ import {
   stepByN,
   isProjectComplete,
   isAdminRole,
+  canEditChecklist,
   canRoleActOnStep,
   stepHref,
   workflowRoleLabel,
+  userRoleLabel,
+  roleDashboard,
 } from '@/lib/workflow'
 
 describe('workflow definition', () => {
-  it('has 10 steps numbered 1..10 in order', () => {
-    expect(WORKFLOW_STEPS).toHaveLength(10)
+  it('has 11 steps numbered 1..11 in order (incl. Sign Off)', () => {
+    expect(WORKFLOW_STEPS).toHaveLength(11)
     WORKFLOW_STEPS.forEach((s, i) => expect(s.n).toBe(i + 1))
-    expect(LAST_STEP).toBe(10)
+    expect(LAST_STEP).toBe(11)
     expect(FIRST_ACTION_STEP).toBe(2)
   })
 
@@ -25,7 +28,7 @@ describe('workflow definition', () => {
     expect(WORKFLOW_STEPS.some((s) => s.key === 'factory_floor')).toBe(false)
   })
 
-  it('orders the roles correctly: Operations → Site PM → Factory PM …', () => {
+  it('orders the roles correctly: Operations → Site PM → Factory PM … → Sign Off', () => {
     const order = WORKFLOW_STEPS.map((s) => [s.key, s.role])
     expect(order).toEqual([
       ['new_project', 'operations'],
@@ -38,7 +41,13 @@ describe('workflow definition', () => {
       ['installation_readiness', 'site_pm'],
       ['sorting', 'site_pm'],
       ['close_out', 'site_pm'],
+      ['sign_off', 'super_admin'],
     ])
+  })
+
+  it('final step is a super_admin Sign-Off ack step (REQ-G04)', () => {
+    const last = WORKFLOW_STEPS[WORKFLOW_STEPS.length - 1]
+    expect(last).toMatchObject({ n: 11, key: 'sign_off', role: 'super_admin', kind: 'ack' })
   })
 
   it("the Factory PM's first step is Materials / Accessories Readiness", () => {
@@ -111,5 +120,59 @@ describe('misc helpers', () => {
     expect(workflowRoleLabel('operations')).toBe('Operations')
     expect(workflowRoleLabel('site_pm')).toBe('Site PM')
     expect(workflowRoleLabel('factory_pm')).toBe('Factory PM')
+    expect(workflowRoleLabel('super_admin')).toBe('Super Admin')
+  })
+})
+
+describe('v1.1 governance (REQ-G01, G04, G07)', () => {
+  it('canEditChecklist is super_admin only', () => {
+    expect(canEditChecklist(Roles.SuperAdmin)).toBe(true)
+    expect(canEditChecklist(Roles.Operations)).toBe(false)
+    expect(canEditChecklist(Roles.FactoryPm)).toBe(false)
+    expect(canEditChecklist(Roles.SitePm)).toBe(false)
+  })
+
+  it('Sign-Off (step 11) is actionable only by super_admin', () => {
+    expect(canRoleActOnStep('super_admin', Roles.SuperAdmin)).toBe(true)
+    expect(canRoleActOnStep('super_admin', Roles.Operations)).toBe(false)
+    expect(canRoleActOnStep('super_admin', Roles.FactoryPm)).toBe(false)
+  })
+
+  it('completion boundary is past Sign-Off: step 11 pending, 12 complete', () => {
+    expect(isProjectComplete(10)).toBe(false) // Close Out done, awaiting Sign Off
+    expect(isProjectComplete(11)).toBe(false) // at Sign Off
+    expect(isProjectComplete(12)).toBe(true) // signed off → delivered
+  })
+})
+
+describe('#7 multi-department extensibility', () => {
+  it('recognises design + production as roles', () => {
+    expect(Roles.Design).toBe('design')
+    expect(Roles.Production).toBe('production')
+  })
+
+  it('userRoleLabel covers every role with a safe fallback', () => {
+    expect(userRoleLabel('factory_pm')).toBe('Factory PM')
+    expect(userRoleLabel('site_pm')).toBe('Site PM')
+    expect(userRoleLabel('super_admin')).toBe('Super Admin')
+    expect(userRoleLabel('operations')).toBe('Operations')
+    expect(userRoleLabel('design')).toBe('Design')
+    expect(userRoleLabel('production')).toBe('Production')
+    expect(userRoleLabel('something_new')).toBe('User')
+  })
+
+  it('roleDashboard routes every role to its home', () => {
+    expect(roleDashboard('factory_pm')).toBe('/factory-pm/dashboard')
+    expect(roleDashboard('site_pm')).toBe('/site-pm/dashboard')
+    expect(roleDashboard('super_admin')).toBe('/admin/dashboard')
+    expect(roleDashboard('operations')).toBe('/admin/dashboard')
+    expect(roleDashboard('design')).toBe('/design/dashboard')
+    expect(roleDashboard('production')).toBe('/production/dashboard')
+    expect(roleDashboard('unknown')).toBe('/dashboard')
+  })
+
+  it('new departments own no workflow steps yet (added additively later)', () => {
+    expect(WORKFLOW_STEPS.some((s) => s.role === ('design' as never))).toBe(false)
+    expect(WORKFLOW_STEPS.some((s) => s.role === ('production' as never))).toBe(false)
   })
 })
