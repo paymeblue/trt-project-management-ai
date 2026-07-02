@@ -31,10 +31,28 @@ const C = {
   text: '#374151',
 }
 
-function barColor(p: ProjectSpeed): string {
-  if (!p.complete) return C.amber // ongoing
-  if (p.onTime === false) return C.red // delivered late
-  return C.green // delivered on time
+// Distinct, legible colours so each project reads as its own hue (REQ-G02).
+// Assigned by name-sorted index → the same project keeps its colour across chart
+// types and reloads, and no two projects share a colour until the palette wraps.
+const PROJECT_PALETTE = [
+  '#006591', '#e11d48', '#16a34a', '#f59e0b', '#7c3aed', '#0891b2', '#db2777',
+  '#65a30d', '#ea580c', '#2563eb', '#0d9488', '#c026d3', '#ca8a04', '#4f46e5',
+]
+
+function buildColorMap(data: ProjectSpeed[]): Record<string, string> {
+  const names = [...new Set(data.map((d) => d.name))].sort((a, b) => a.localeCompare(b))
+  const map: Record<string, string> = {}
+  names.forEach((n, i) => {
+    map[n] = PROJECT_PALETTE[i % PROJECT_PALETTE.length]
+  })
+  return map
+}
+
+// Per-project fill, with a red outline flagging a late delivery so the on-time
+// signal survives the switch from status-based to project-based colouring.
+function itemStyleFor(p: ProjectSpeed, color: string) {
+  const late = p.onTime === false
+  return { color, borderColor: late ? C.red : 'transparent', borderWidth: late ? 2 : 0 }
 }
 
 export default function AnalyticsChart({ data }: { data: ProjectSpeed[] }) {
@@ -46,6 +64,8 @@ export default function AnalyticsChart({ data }: { data: ProjectSpeed[] }) {
     () => (data.length ? data.reduce((s, d) => s + d.days, 0) / data.length : 0),
     [data],
   )
+
+  const colorMap = useMemo(() => buildColorMap(data), [data])
 
   const option = useMemo<echarts.EChartsOption>(() => {
     const tooltipFmt = (val: number, p: ProjectSpeed) =>
@@ -85,7 +105,11 @@ export default function AnalyticsChart({ data }: { data: ProjectSpeed[] }) {
             data: data.map((d) => ({
               name: d.name,
               value: d.days,
-              itemStyle: { color: barColor(d) },
+              itemStyle: {
+                color: colorMap[d.name],
+                borderColor: d.onTime === false ? C.red : '#fff',
+                borderWidth: 2,
+              },
             })),
           },
         ],
@@ -138,7 +162,7 @@ export default function AnalyticsChart({ data }: { data: ProjectSpeed[] }) {
       series: [
         {
           type: kind === 'line' ? 'line' : 'bar',
-          data: sorted.map((d) => ({ value: d.days, itemStyle: { color: barColor(d) } })),
+          data: sorted.map((d) => ({ value: d.days, itemStyle: itemStyleFor(d, colorMap[d.name]) })),
           barMaxWidth: 42,
           ...(kind === 'line'
             ? {
@@ -153,7 +177,7 @@ export default function AnalyticsChart({ data }: { data: ProjectSpeed[] }) {
         },
       ],
     }
-  }, [data, kind, avg])
+  }, [data, kind, avg, colorMap])
 
   useEffect(() => {
     if (!elRef.current) return
@@ -221,13 +245,19 @@ export default function AnalyticsChart({ data }: { data: ProjectSpeed[] }) {
 
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-gray-500">
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ background: C.green }} /> On time
+          <span className="flex gap-0.5">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: PROJECT_PALETTE[0] }} />
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: PROJECT_PALETTE[1] }} />
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: PROJECT_PALETTE[2] }} />
+          </span>
+          Each colour = a project
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ background: C.red }} /> Late
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ background: C.amber }} /> In progress
+          <span
+            className="h-2.5 w-2.5 rounded-full border-2"
+            style={{ borderColor: C.red, background: 'transparent' }}
+          />
+          Red outline = delivered late
         </span>
         <span className="ml-auto flex items-center gap-1.5">
           <span className="inline-block h-0 w-4 border-t-2 border-dashed border-primary" /> Average
