@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Super-admin governance & accountability
-status: executing
+status: complete
 stopped_at: null
 last_updated: "2026-07-02T00:00:00.000Z"
-last_activity: 2026-07-02 -- Phase 13 complete (notifications schema/API, header bell, paused status)
+last_activity: 2026-07-02 -- Phase 14 complete; MILESTONE v1.1 DONE (all REQ-G01..G10 shipped)
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 11
-  completed_plans: 8
-  percent: 75
+  completed_plans: 11
+  percent: 100
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-07-02)
 ## Current Position
 
 Milestone: v1.1 — Super-admin governance & accountability
-Phase: 13 of 14 — COMPLETE (3/3). Next: Phase 14 (Escalation Flows — pause/flag, bypass approval, dispute)
+Phase: 14 of 14 — COMPLETE (3/3). Milestone v1.1 COMPLETE. Next: /gsd-verify-work or /gsd-complete-milestone
 Plan: —
 Status: Executing
-Last activity: 2026-07-02 -- Phase 13 shipped: notifications (REQ-G06), paused status (REQ-G07)
+Last activity: 2026-07-02 -- Phase 14 shipped: pause/flag (G08), bypass approval (G09), escalate+dispute (G10)
 
-Progress: [#######▓░░] 75% (v1.1 — 3/4 phases)
+Progress: [##########] 100% (v1.1 — 4/4 phases) ✓
 
 ## Performance Metrics
 

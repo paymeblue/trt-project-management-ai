@@ -21,7 +21,7 @@ The build goes foundation-first: lock down auth, the role model, transactional e
 - [x] **Phase 11: Permissions & Quick Wins** - Lock checklist authoring to super_admin (REQ-G01), distinct analytics color per project (REQ-G02), map Issue Log to a project (REQ-G03)
 - [x] **Phase 12: Workflow Extensions** - New super_admin Sign-Off step 11 after Close Out (REQ-G04) + per-step deadlines set by Operations at creation (REQ-G05)
 - [x] **Phase 13: Super-Admin Alerts Foundation** - In-app notifications subsystem + alerts panel/header bell + `paused` project status (REQ-G06, REQ-G07)
-- [ ] **Phase 14: Escalation Flows** - Pause/flag→notify+pause (REQ-G08), higher-authority approval to advance without a checklist (REQ-G09), escalate-to-all-super-admins + per-project dispute section (REQ-G10)
+- [x] **Phase 14: Escalation Flows** - Pause/flag→notify+pause (REQ-G08), higher-authority approval to advance without a checklist (REQ-G09), escalate-to-all-super-admins + per-project dispute section (REQ-G10)
 
 ## Phase Details
 
@@ -241,9 +241,9 @@ Plans:
 **Plans**: TBD (set at /gsd-plan-phase 14)
 
 Plans:
-- [ ] 14-01: Pause/flag → notify + pause + super-admin resolve/resume
-- [ ] 14-02: Higher-authority bypass request → approve/deny + audit + advance
-- [ ] 14-03: Escalate issue to all super admins + per-project dispute thread
+- [x] 14-01: Pause/flag → notify + pause + super-admin resolve/resume
+- [x] 14-02: Higher-authority bypass request → approve/deny + audit + advance
+- [x] 14-03: Escalate issue to all super admins + per-project dispute thread
 
 ## Progress
 
@@ -267,4 +267,4 @@ v1.1 phases: 11 → 12 → 13 → 14 (11 and 13 independent; 12 after 11 by sequ
 | 11. Permissions & Quick Wins | 3/3 | Complete ✓ | 2026-07-02 |
 | 12. Workflow Extensions | 2/2 | Complete ✓ | 2026-07-02 |
 | 13. Super-Admin Alerts Foundation | 3/3 | Complete ✓ | 2026-07-02 |
-| 14. Escalation Flows | 0/3 | Not started | - |
+| 14. Escalation Flows | 3/3 | Complete ✓ | 2026-07-02 |
