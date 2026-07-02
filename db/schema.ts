@@ -283,3 +283,19 @@ export const readinessForms = pgTable('readiness_forms', {
   photoData:      text('photo_data').array(),          // required photos (2+), base64 data URLs
   createdAt:      timestamp('created_at').defaultNow().notNull(),
 })
+
+// ── In-app notifications (super-admin alerts, v1.1) ────────────────────────
+// One row per recipient (fanned out to every super admin) so read state is
+// per-user. `type` is a free string kept flexible for escalation kinds added in
+// Phase 14 (pause_flag | bypass_request | escalation | dispute | …).
+export const notifications = pgTable('notifications', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  recipientId: uuid('recipient_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  type:        text('type').notNull(),
+  title:       text('title').notNull(),
+  body:        text('body'),
+  projectId:   uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+  actorId:     uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
+  readAt:      timestamp('read_at'),                    // null = unread
+  createdAt:   timestamp('created_at').defaultNow().notNull(),
+})
