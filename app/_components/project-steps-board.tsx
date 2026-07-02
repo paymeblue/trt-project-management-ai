@@ -13,26 +13,52 @@ import {
   type UserRole,
 } from '@/lib/workflow'
 import { completeAckStepAction, type AckStepState } from '@/actions/workflow'
+import { pauseProjectAction, resumeProjectAction, type FlagState } from '@/actions/projects'
+import { requestStepBypassAction, type BypassState } from '@/actions/bypass'
 
 export type BoardProject = {
   id: string
   name: string
   location: string | null
-  deliveryDate: string | null // ISO
+  deliveryDate: string | null // ISO — project-wide fallback deadline
   currentStep: number
-  status: 'delivered' | 'not_delivered'
+  status: 'delivered' | 'not_delivered' | 'paused'
+  stepDeadlines?: Record<string, string> // stepN → ISO (REQ-G05)
+}
+
+// The deadline that applies to a given step: its own per-step deadline, else the
+// project-wide delivery date.
+function deadlineForStep(p: BoardProject, stepN: number): string | null {
+  return p.stepDeadlines?.[String(stepN)] ?? p.deliveryDate
 }
 
 const INITIAL_ACK: AckStepState = { ok: false }
 
 // ── Blinking deadline countdown ────────────────────────────────────────────
-function Countdown({ deadline, complete = false }: { deadline: string | null; complete?: boolean }) {
+function Countdown({
+  deadline,
+  complete = false,
+  paused = false,
+}: {
+  deadline: string | null
+  complete?: boolean
+  paused?: boolean
+}) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    if (complete) return
+    if (complete || paused) return
     const i = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(i)
-  }, [complete])
+  }, [complete, paused])
+
+  // Paused projects hold their clock until a super admin resumes them.
+  if (paused) {
+    return (
+      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+        Paused
+      </span>
+    )
+  }
 
   // Once delivered, the deadline no longer counts down — show a static status.
   if (complete) {
@@ -104,6 +130,155 @@ function AckComplete({ projectId, stepN }: { projectId: string; stepN: number })
   )
 }
 
+const INITIAL_BYPASS: BypassState = { ok: false }
+
+// Actor asks a super admin for approval to skip the current step's checklist
+// (REQ-G09). Rendered under the current step's action when it's your turn.
+function BypassRequest({ projectId, stepN }: { projectId: string; stepN: number }) {
+  const router = useRouter()
+  const [state, dispatch, pending] = useActionState(requestStepBypassAction, INITIAL_BYPASS)
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState('')
+
+  useEffect(() => {
+    if (state.ok) router.refresh()
+  }, [state.ok, router])
+
+  if (state.ok) return <p className="mt-2 text-xs font-medium text-green-600">{state.message}</p>
+
+  return (
+    <div className="mt-2">
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="text-xs text-gray-500 hover:text-gray-700 hover:underline"
+        >
+          Can&apos;t complete it? Request approval to skip
+        </button>
+      ) : (
+        <div className="space-y-2 rounded-md border border-dashed border-gray-300 p-2">
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={2}
+            placeholder="Why should a super admin let this step be skipped?"
+            className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs focus:border-primary focus:outline-none"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => dispatch({ projectId, stepN, reason })}
+              className="rounded-md border border-primary px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/5 disabled:opacity-60"
+            >
+              {pending ? 'Requesting…' : 'Request approval'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="text-xs font-medium text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+          {!state.ok && state.message && <p className="text-xs text-error">{state.message}</p>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const INITIAL_FLAG: FlagState = { ok: false }
+
+// Pause/flag a project when things aren't ready → notifies super admins (REQ-G08).
+// A super admin sees a Resume control while the project is paused.
+function FlagControls({ project, viewerRole }: { project: BoardProject; viewerRole: UserRole }) {
+  const router = useRouter()
+  const paused = project.status === 'paused'
+  const [pauseState, pauseDispatch, pausePending] = useActionState(pauseProjectAction, INITIAL_FLAG)
+  const [resumeState, resumeDispatch, resumePending] = useActionState(
+    resumeProjectAction,
+    INITIAL_FLAG,
+  )
+  const [showReason, setShowReason] = useState(false)
+  const [reason, setReason] = useState('')
+
+  useEffect(() => {
+    if (pauseState.ok || resumeState.ok) router.refresh()
+  }, [pauseState.ok, resumeState.ok, router])
+
+  if (isProjectComplete(project.currentStep)) return null
+
+  if (paused) {
+    if (viewerRole !== Roles.SuperAdmin) return null // banner already explains; only SA resumes
+    return (
+      <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+        <button
+          type="button"
+          disabled={resumePending}
+          onClick={() => resumeDispatch({ projectId: project.id })}
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
+        >
+          <span className="material-symbols-outlined text-sm">play_arrow</span>
+          {resumePending ? 'Resuming…' : 'Resume project'}
+        </button>
+        {resumeState.message && (
+          <p className={`mt-1 text-xs ${resumeState.ok ? 'text-green-600' : 'text-error'}`}>
+            {resumeState.message}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border border-dashed border-amber-300 bg-amber-50/40 p-3">
+      {!showReason ? (
+        <button
+          type="button"
+          onClick={() => setShowReason(true)}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800 hover:underline"
+        >
+          <span className="material-symbols-outlined text-sm">flag</span>
+          Flag as not ready (pause project)
+        </button>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-amber-800">Flag this project as not ready</p>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={2}
+            placeholder="What isn't ready? (optional — super admins will see this)"
+            className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={pausePending}
+              onClick={() => pauseDispatch({ projectId: project.id, reason })}
+              className="rounded-md bg-amber-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+            >
+              {pausePending ? 'Flagging…' : 'Flag & pause'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowReason(false)}
+              className="text-xs font-medium text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+          {!pauseState.ok && pauseState.message && (
+            <p className="text-xs text-error">{pauseState.message}</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Steps modal ────────────────────────────────────────────────────────────
 function StepsModal({
   project,
@@ -115,6 +290,7 @@ function StepsModal({
   onClose: () => void
 }) {
   const complete = isProjectComplete(project.currentStep)
+  const paused = project.status === 'paused'
 
   return (
     <div
@@ -141,8 +317,12 @@ function StepsModal({
         </div>
 
         <div className="mb-4 flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-          <span className="text-xs font-medium text-gray-600">Deadline</span>
-          <Countdown deadline={project.deliveryDate} complete={complete} />
+          <span className="text-xs font-medium text-gray-600">Current step deadline</span>
+          <Countdown
+            deadline={deadlineForStep(project, project.currentStep)}
+            complete={complete}
+            paused={paused}
+          />
         </div>
 
         {complete && (
@@ -151,11 +331,17 @@ function StepsModal({
           </div>
         )}
 
+        {paused && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+            Paused — flagged as not ready. A super admin must resume it before work continues.
+          </div>
+        )}
+
         <ol className="space-y-2">
           {WORKFLOW_STEPS.map((step) => {
             const done = step.n < project.currentStep
             const current = step.n === project.currentStep
-            const mine = canRoleActOnStep(step.role, viewerRole)
+            const mine = !paused && canRoleActOnStep(step.role, viewerRole)
             const href = current && mine ? stepHref(step, project.id) : null
 
             const tip = done
@@ -194,7 +380,15 @@ function StepsModal({
                     >
                       {step.n}. {step.label}
                     </p>
-                    <p className="text-xs text-gray-400">{workflowRoleLabel(step.role)}</p>
+                    <p className="text-xs text-gray-400">
+                      {workflowRoleLabel(step.role)}
+                      {project.stepDeadlines?.[String(step.n)] && (
+                        <span className="text-gray-400">
+                          {' · due '}
+                          {new Date(project.stepDeadlines[String(step.n)]).toLocaleDateString()}
+                        </span>
+                      )}
+                    </p>
                   </div>
                   {done && <span className="text-xs font-medium text-green-600">Done</span>}
                 </div>
@@ -216,6 +410,9 @@ function StepsModal({
                         <span className="material-symbols-outlined text-sm">arrow_forward</span>
                       </a>
                     ) : null}
+                    {mine && (step.kind === 'checklist' || step.kind === 'readiness') && (
+                      <BypassRequest projectId={project.id} stepN={step.n} />
+                    )}
                   </div>
                 )}
               </li>
@@ -248,6 +445,17 @@ function StepsModal({
             </div>
           </div>
         )}
+
+        {/* Flag / pause (any actor) + resume (super admin) — REQ-G08 */}
+        <FlagControls project={project} viewerRole={viewerRole} />
+
+        <a
+          href={`/disputes/${project.id}`}
+          className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+        >
+          <span className="material-symbols-outlined text-sm">forum</span>
+          Open project discussion
+        </a>
       </div>
     </div>
   )
@@ -298,13 +506,14 @@ export default function ProjectStepsBoard({
   const selected = projects.find((p) => p.id === selectedId) ?? null
 
   function currentStepLabel(p: BoardProject) {
+    if (p.status === 'paused') return 'Paused'
     if (isProjectComplete(p.currentStep)) return 'Delivered'
     const step = WORKFLOW_STEPS.find((s) => s.n === p.currentStep)
     return step ? `${step.label} (${p.currentStep}/${LAST_STEP})` : `Step ${p.currentStep}`
   }
 
   function needsViewer(p: BoardProject) {
-    if (isProjectComplete(p.currentStep)) return false
+    if (p.status === 'paused' || isProjectComplete(p.currentStep)) return false
     const step = WORKFLOW_STEPS.find((s) => s.n === p.currentStep)
     return step ? canRoleActOnStep(step.role, viewerRole) : false
   }
@@ -350,15 +559,25 @@ export default function ProjectStepsBoard({
             >
               <div className="flex w-full items-center justify-between gap-2">
                 <p className="font-semibold text-gray-900">{p.name}</p>
-                {mine && (
-                  <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase text-white">
-                    Needs you
+                {p.status === 'paused' ? (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-800">
+                    Paused
                   </span>
+                ) : (
+                  mine && (
+                    <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase text-white">
+                      Needs you
+                    </span>
+                  )
                 )}
               </div>
               <p className="mt-1 text-xs text-gray-500">{currentStepLabel(p)}</p>
               <div className="mt-3">
-                <Countdown deadline={p.deliveryDate} complete={isProjectComplete(p.currentStep)} />
+                <Countdown
+                  deadline={deadlineForStep(p, p.currentStep)}
+                  complete={isProjectComplete(p.currentStep)}
+                  paused={p.status === 'paused'}
+                />
               </div>
             </button>
           )

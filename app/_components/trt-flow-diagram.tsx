@@ -10,6 +10,7 @@ const ROLE_COLOR: Record<WorkflowRole, string> = {
   operations: '#6366f1', // indigo
   site_pm: '#0ea5e9', // sky
   factory_pm: '#f97316', // orange
+  super_admin: '#059669', // emerald
 }
 
 // Short, role-accurate blurbs keyed by the canonical step key.
@@ -25,10 +26,11 @@ const DETAIL: Record<string, string> = {
   approval_installation: 'Operations approves commencement of on-site installation.',
   installation_readiness: 'Site PM confirms everything is ready to begin installation.',
   sorting: 'Site PM sorts and stages the delivered items on site.',
-  close_out: 'Final sign-off completes the project on site.',
+  close_out: 'Site PM completes the on-site close-out checklist.',
+  sign_off: 'Super Admin gives the final sign-off — the project is complete only after this.',
 }
 
-const ROLES: WorkflowRole[] = ['operations', 'site_pm', 'factory_pm']
+const ROLES: WorkflowRole[] = ['operations', 'site_pm', 'factory_pm', 'super_admin']
 
 export default function TrtFlowDiagram() {
   return (

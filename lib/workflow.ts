@@ -15,7 +15,11 @@ export const Roles = {
 } as const
 
 export type UserRole = (typeof Roles)[keyof typeof Roles]
-export type WorkflowRole = typeof Roles.Operations | typeof Roles.SitePm | typeof Roles.FactoryPm
+export type WorkflowRole =
+  | typeof Roles.Operations
+  | typeof Roles.SitePm
+  | typeof Roles.FactoryPm
+  | typeof Roles.SuperAdmin
 export type StepKind = 'creation' | 'checklist' | 'readiness' | 'ack'
 
 // True for roles with full admin rights (admin area, project creation, timeline).
@@ -27,12 +31,11 @@ export function isAdminRole(role: UserRole): boolean {
 // `checklist_definitions`). A `both` checklist is editable by either PM role.
 export type ChecklistTargetRole = typeof Roles.FactoryPm | typeof Roles.SitePm | 'both'
 
-// Who may edit a checklist's question text. Admins edit everything; a PM edits a
-// checklist only when its audience matches their own role (or is `both`).
-export function canEditChecklist(userRole: UserRole, targetRole: ChecklistTargetRole): boolean {
-  if (isAdminRole(userRole)) return true
-  if (targetRole === 'both') return userRole === Roles.FactoryPm || userRole === Roles.SitePm
-  return userRole === targetRole
+// Who may author (create/edit) a checklist's questions. Locked to super_admin
+// only (v1.1 REQ-G01): Operations and both PM roles can still fill and submit
+// checklists, but only a super admin can change the questions themselves.
+export function canEditChecklist(userRole: UserRole): boolean {
+  return userRole === Roles.SuperAdmin
 }
 
 export type WorkflowStep = {
@@ -55,11 +58,14 @@ export const WORKFLOW_STEPS: WorkflowStep[] = [
   { n: 8, key: 'installation_readiness', label: 'Installation Readiness', role: 'site_pm', kind: 'checklist', slug: 'installation_readiness' },
   { n: 9, key: 'sorting', label: 'Sorting', role: 'site_pm', kind: 'checklist', slug: 'sorting' },
   { n: 10, key: 'close_out', label: 'Close Out', role: 'site_pm', kind: 'checklist', slug: 'close_out' },
+  { n: 11, key: 'sign_off', label: 'Sign Off', role: 'super_admin', kind: 'ack' },
 ]
 
 // New projects begin awaiting the first actionable step (Confirmation); step 1
 // (New Project) is completed by Operations at creation time.
 export const FIRST_ACTION_STEP = 2
+// Final step is the super_admin Sign Off (11); a project is only complete once it
+// advances PAST it (currentStep 12). See isProjectComplete.
 export const LAST_STEP = WORKFLOW_STEPS[WORKFLOW_STEPS.length - 1].n // 11
 
 // Shapes shared between the layout, the /api/my-work endpoint and the client
@@ -80,6 +86,7 @@ const ROLE_LABELS: Record<WorkflowRole, string> = {
   operations: 'Operations',
   site_pm: 'Site PM',
   factory_pm: 'Factory PM',
+  super_admin: 'Super Admin',
 }
 
 export function workflowRoleLabel(role: WorkflowRole): string {

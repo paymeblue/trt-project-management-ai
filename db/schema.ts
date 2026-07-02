@@ -7,11 +7,12 @@ import {
   timestamp,
   uuid,
   jsonb,
+  unique,
 } from 'drizzle-orm/pg-core'
 
 // ── Enums ────────────────────────────────────────────────────────────────
 export const roleEnum = pgEnum('role', ['factory_pm', 'site_pm', 'super_admin', 'operations'])
-export const projectStatusEnum = pgEnum('project_status', ['not_delivered', 'delivered'])
+export const projectStatusEnum = pgEnum('project_status', ['not_delivered', 'delivered', 'paused'])
 export const targetRoleEnum = pgEnum('target_role', ['factory_pm', 'site_pm', 'both'])
 export const itemTypeEnum = pgEnum('item_type', ['radio', 'text', 'file'])
 export const responseOptionsEnum = pgEnum('response_options', ['yes_no', 'yes_no_na'])
@@ -58,6 +59,16 @@ export const projectStepCompletions = pgTable('project_step_completions', {
   notes:       text('notes'),
   completedAt: timestamp('completed_at').defaultNow().notNull(),
 })
+
+// Per-step deadlines set by Operations at project creation (REQ-G05) so each
+// actor is accountable to their own step, not just one project-wide date.
+export const projectStepDeadlines = pgTable('project_step_deadlines', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  stepN:     integer('step_n').notNull(),                // WorkflowStep.n
+  deadline:  timestamp('deadline').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({ projectStepUq: unique().on(t.projectId, t.stepN) }))
 
 // ── Checklist Definitions (CHK-01: template catalogue) ───────────────────
 export const checklistDefinitions = pgTable('checklist_definitions', {
@@ -244,12 +255,24 @@ export const passwordResetTokens = pgTable('password_reset_tokens', {
 // ── Issue Log (Site PM) ───────────────────────────────────────────────────
 export const issues = pgTable('issues', {
   id:          uuid('id').primaryKey().defaultRandom(),
-  projectId:   uuid('project_id').references(() => projects.id),
+  projectId:   uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   title:       text('title').notNull(),
   description: text('description'),
   status:      text('status').default('open').notNull(), // 'open' | 'closed'
+  escalatedAt: timestamp('escalated_at'),                 // set when escalated to super admins (REQ-G10)
   createdBy:   uuid('created_by').notNull().references(() => users.id),
   createdAt:   timestamp('created_at').defaultNow().notNull(),
+})
+
+// ── Per-project dispute thread (v1.1, REQ-G10) ─────────────────────────────
+// A threaded discussion tied to a project, visible to participants + all super
+// admins, for resolving disputes/escalations.
+export const projectDisputes = pgTable('project_disputes', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  authorId:  uuid('author_id').notNull().references(() => users.id),
+  body:      text('body').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
 // ── Materials / Accessories Readiness Form (Factory PM) ───────────────────
@@ -271,4 +294,35 @@ export const readinessForms = pgTable('readiness_forms', {
   uploadName:     text('upload_name'),
   photoData:      text('photo_data').array(),          // required photos (2+), base64 data URLs
   createdAt:      timestamp('created_at').defaultNow().notNull(),
+})
+
+// ── Step bypass requests (higher-authority approval, v1.1) ─────────────────
+// An actor asks a super admin to advance a step WITHOUT completing its checklist
+// (REQ-G09). Approval is audited (who requested, who decided, when, why).
+export const stepBypassRequests = pgTable('step_bypass_requests', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  projectId:   uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  stepN:       integer('step_n').notNull(),
+  reason:      text('reason'),
+  status:      text('status').default('pending').notNull(), // 'pending' | 'approved' | 'denied'
+  requestedBy: uuid('requested_by').notNull().references(() => users.id),
+  decidedBy:   uuid('decided_by').references(() => users.id),
+  decidedAt:   timestamp('decided_at'),
+  createdAt:   timestamp('created_at').defaultNow().notNull(),
+})
+
+// ── In-app notifications (super-admin alerts, v1.1) ────────────────────────
+// One row per recipient (fanned out to every super admin) so read state is
+// per-user. `type` is a free string kept flexible for escalation kinds added in
+// Phase 14 (pause_flag | bypass_request | escalation | dispute | …).
+export const notifications = pgTable('notifications', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  recipientId: uuid('recipient_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  type:        text('type').notNull(),
+  title:       text('title').notNull(),
+  body:        text('body'),
+  projectId:   uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+  actorId:     uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
+  readAt:      timestamp('read_at'),                    // null = unread
+  createdAt:   timestamp('created_at').defaultNow().notNull(),
 })

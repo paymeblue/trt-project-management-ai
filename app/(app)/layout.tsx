@@ -12,6 +12,7 @@ import MobileSidebar from '@/app/_components/mobile-sidebar';
 import ChatDrawer from '@/app/_components/chat-drawer';
 import PendingStepGate from '@/app/_components/pending-step-gate';
 import HeaderProjectSwitcher from '@/app/_components/header-project-switcher';
+import NotificationsBell from '@/app/_components/notifications-bell';
 import MyWorkProvider from '@/app/_components/my-work-provider';
 import { TrtLogo, TrtWatermark } from '@/app/_components/trt-logo';
 import { getMyWork } from '@/lib/my-work';
@@ -121,6 +122,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <HeaderProjectSwitcher viewerRole={role as UserRole} />
           </div>
           <div className="flex items-center gap-2">
+            {role === 'super_admin' && <NotificationsBell />}
             <ChatDrawer />
             <ThemeToggle />
             <span className="hidden rounded-full border border-outline-variant bg-surface-container-low px-3 py-1.5 text-label-md font-label-md text-on-surface-variant sm:inline">

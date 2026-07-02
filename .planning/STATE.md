@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: executing
-stopped_at: context exhaustion at 75% (2026-06-20)
-last_updated: "2026-06-29T00:00:00.000Z"
-last_activity: 2026-06-29 -- Quick task: editable checklist text (Site/Factory PM inline edit + add)
+milestone: v1.1
+milestone_name: Super-admin governance & accountability
+status: complete
+stopped_at: null
+last_updated: "2026-07-02T00:00:00.000Z"
+last_activity: 2026-07-02 -- Phase 14 complete; MILESTONE v1.1 DONE (all REQ-G01..G10 shipped)
 progress:
-  total_phases: 10
-  completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 11
+  completed_plans: 11
   percent: 100
 ---
 
@@ -18,19 +18,20 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-18)
+See: .planning/PROJECT.md (updated 2026-07-02)
 
 **Core value:** A PM on the floor or on-site can complete a structured checklist (with photo evidence) on their phone and have it permanently recorded — replacing paper, with role-scoped visibility and read-only Super Admin oversight.
-**Current focus:** Phase 1 — Foundation (Auth, Roles, Schema, DAL)
+**Current focus:** Milestone v1.1 — Super-admin governance & accountability (phases 11–14)
 
 ## Current Position
 
-Phase: 1 of 10 — COMPLETE. Next: Phase 2 (App Shell, Profile, Content & S3)
-Plan: 1 of 5 in current phase — Plan 01 COMPLETE
+Milestone: v1.1 — Super-admin governance & accountability
+Phase: 14 of 14 — COMPLETE (3/3). Milestone v1.1 COMPLETE. Next: /gsd-verify-work or /gsd-complete-milestone
+Plan: —
 Status: Executing
-Last activity: 2026-06-19 -- Phase 1 Plan 01 executed (schema, DB push, Vitest stubs)
+Last activity: 2026-07-02 -- Phase 14 shipped: pause/flag (G08), bypass approval (G09), escalate+dispute (G10)
 
-Progress: [#░░░░░░░░░] 5%
+Progress: [##########] 100% (v1.1 — 4/4 phases) ✓
 
 ## Performance Metrics
 
@@ -62,6 +63,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - Supabase Realtime (`@supabase/supabase-js` 2.108.2) is TRANSPORT ONLY — Neon stays single source of truth; no app data in Supabase
 - Collaborative diagram editing = shared, last-write-wins per element for v1 (not CRDT)
 - Phase 1 schema now lays ALL tables (incl. conversations, messages, process_diagrams, ai_usage) up front to avoid migration churn; EMAIL-01/02 (Resend) added to Phase 1
+- MILESTONE v1.1 (2026-07-02): super-admin governance & accountability. Locked: (1) checklist authoring → super_admin ONLY (tighten `canEditChecklist`/gating in lib/workflow.ts, actions/checklists.ts, checklists/[slug]/page.tsx, checklist-editor.tsx); (2) super-admin alerts IN-APP ONLY (notifications table + panel + header bell + 4s poll like my-work-provider; no Resend); (3) new Sign-Off step 11 by super_admin after Close Out — mind `isProjectComplete` boundary (delivered rows sit at currentStep 11 today); (4) per-step deadlines by Operations at creation (new schema, replace single projects.deliveryDate reads); new `paused` project status. #7 (Design/Production departments) deferred.
 
 ### Pending Todos
 
@@ -90,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-06-20T22:04:26.424Z
-Stopped at: context exhaustion at 75% (2026-06-20)
-Resume file: None
+Last session: 2026-07-02
+Stopped at: Milestone v1.1 planned — ready to plan Phase 11
+Resume file: None (run /gsd-plan-phase 11)

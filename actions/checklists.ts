@@ -11,7 +11,7 @@ import {
 } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { advanceProjectStep } from '@/actions/workflow'
-import { REQUIRED_PHOTOS, canEditChecklist, type ChecklistTargetRole } from '@/lib/workflow'
+import { REQUIRED_PHOTOS, canEditChecklist } from '@/lib/workflow'
 
 type ResponseValue = 'yes' | 'no' | 'na'
 
@@ -135,7 +135,7 @@ async function authorizeChecklistEdit(definitionId: string) {
     .where(eq(checklistDefinitions.id, definitionId))
     .limit(1)
   if (!def) return { error: 'Checklist not found.' as const }
-  if (!canEditChecklist(role, def.targetRole as ChecklistTargetRole)) {
+  if (!canEditChecklist(role)) {
     return { error: 'You do not have permission to edit this checklist.' as const }
   }
   return { def }

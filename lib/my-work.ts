@@ -1,6 +1,7 @@
 import 'server-only'
+import { inArray } from 'drizzle-orm'
 import { db } from '@/db'
-import { projects } from '@/db/schema'
+import { projects, projectStepDeadlines } from '@/db/schema'
 import {
   stepByN,
   canRoleActOnStep,
@@ -19,16 +20,37 @@ export async function getMyWork(role: UserRole): Promise<MyWork> {
       name: projects.name,
       currentStep: projects.currentStep,
       deliveryDate: projects.deliveryDate,
+      status: projects.status,
     })
     .from(projects)
 
-  const active = rows.filter((p) => !isProjectComplete(p.currentStep))
+  // Paused projects are excluded from active work: no forced gate, no header
+  // "Act" until a super admin resumes them (REQ-G07).
+  const active = rows.filter((p) => !isProjectComplete(p.currentStep) && p.status !== 'paused')
+
+  // Per-step deadlines (REQ-G05): the deadline shown for a project is the one
+  // set for its CURRENT step, falling back to the project-wide delivery date.
+  const activeIds = active.map((p) => p.id)
+  const deadlineRows = activeIds.length
+    ? await db
+        .select({
+          projectId: projectStepDeadlines.projectId,
+          stepN: projectStepDeadlines.stepN,
+          deadline: projectStepDeadlines.deadline,
+        })
+        .from(projectStepDeadlines)
+        .where(inArray(projectStepDeadlines.projectId, activeIds))
+    : []
+  const stepDeadline = new Map<string, Date>()
+  for (const d of deadlineRows) stepDeadline.set(`${d.projectId}:${d.stepN}`, d.deadline)
+  const currentDeadline = (p: { id: string; currentStep: number; deliveryDate: Date | null }) =>
+    stepDeadline.get(`${p.id}:${p.currentStep}`) ?? p.deliveryDate
 
   const activeProjects = active.map((p) => ({
     id: p.id,
     name: p.name,
     stepN: p.currentStep,
-    deadline: p.deliveryDate ? p.deliveryDate.toISOString() : null,
+    deadline: currentDeadline(p)?.toISOString() ?? null,
   }))
 
   const pending = active
@@ -40,7 +62,7 @@ export async function getMyWork(role: UserRole): Promise<MyWork> {
       projectId: p.id,
       name: p.name,
       stepN: p.currentStep,
-      deadline: p.deliveryDate ? p.deliveryDate.toISOString() : null,
+      deadline: currentDeadline(p)?.toISOString() ?? null,
     }))
     .sort((a, b) => {
       if (a.deadline && b.deadline) return a.deadline.localeCompare(b.deadline)

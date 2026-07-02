@@ -8,13 +8,44 @@ A digital platform that replaces the paper checklists TRT Arredo currently uses 
 
 A PM on the floor or on-site can complete a structured checklist (with photo evidence) on their phone and have it permanently recorded — replacing paper, with each role seeing only what's theirs and the Super Admin seeing everything read-only.
 
+## Current Milestone: v1.1 Super-admin governance & accountability
+
+**Goal:** Give super admins central control and escalation power (locked checklist authoring, in-app alerts, pause/approve/dispute flows) and make every actor accountable via per-step deadlines and a final sign-off.
+
+**Target features (REQ-G01…G10, see REQUIREMENTS.md):**
+- Checklist create/edit locked to super_admin only (#1)
+- Distinct analytics color per project (#8)
+- Issue Log mapped to a project (#9)
+- New super_admin Sign-Off step after Close Out (#4)
+- Per-step deadlines set by Operations at creation (#5)
+- In-app super-admin alerts subsystem + `paused` project status (foundation for #2/#3/#6)
+- Pause/flag → notify all super admins, project paused until resolved (#2)
+- Higher-authority approval to advance without a checklist (#3)
+- Escalate issues to every super admin + per-project dispute section (#6)
+
+**Deferred:** Multi-department extensibility for future Design/Production roles (#7) — out of scope this milestone.
+
+**Locked decisions:** in-app alerts only (no email) · checklists super_admin-only · sign-off by super_admin · phases continue at 11–14.
+
 ## Requirements
 
 ### Validated
 
-(None yet — ship to validate)
+**Milestone v1.1 — Super-admin governance & accountability (2026-07-02)**
+- [x] REQ-G01 — Checklist authoring locked to super_admin (Phase 11)
+- [x] REQ-G02 — Distinct per-project analytics colours (Phase 11)
+- [x] REQ-G03 — Issue Log mapped to a project (Phase 11)
+- [x] REQ-G04 — super_admin Sign-Off step 11 after Close Out (Phase 12)
+- [x] REQ-G05 — Per-step deadlines set by Operations at creation (Phase 12)
+- [x] REQ-G06 — In-app notifications + header bell (Phase 13)
+- [x] REQ-G07 — `paused` project status (Phase 13)
+- [x] REQ-G08 — Pause/flag → notify + pause + resume (Phase 14)
+- [x] REQ-G09 — Higher-authority approval to skip a checklist step (Phase 14)
+- [x] REQ-G10 — Escalate issues to all super admins + per-project dispute thread (Phase 14)
 
 ### Active
+
+**Milestone v1.1 requirements shipped & validated — see the Validated section above.**
 
 **Auth & Roles**
 - [ ] Users can self-serve sign up and select their role (Factory PM or Site PM) without waiting for admin approval
@@ -125,6 +156,11 @@ A PM on the floor or on-site can complete a structured checklist (with photo evi
 | Human-to-human real-time chat added to v1 (was deferred) | User requested dashboard chat over WebSockets | — Pending |
 | Resend for transactional email | User-specified; covers verification/reset + notifications | — Pending |
 | v1 collaborative editing = last-write-wins per element (not CRDT) | Pragmatic; full multiplayer CRDT is disproportionate for v1 | — Pending |
+| v1.1: checklist authoring locked to super_admin only | User: only super admins may create/edit checklists; PMs & Operations lose authoring (keep fill/submit) | ✓ Decided 2026-07-02 |
+| v1.1: super-admin alerts are in-app only (no email) | User chose in-app panel + header bell + polling; avoids Resend dependency for escalations | ✓ Decided 2026-07-02 |
+| v1.1: final Sign-Off step (11) performed by super_admin | User: higher authority closes the project after Close Out | ✓ Decided 2026-07-02 |
+| v1.1: per-step deadlines set by Operations at creation | Accountability per step, not just one project deadline | ✓ Decided 2026-07-02 |
+| v1.1: multi-department extensibility (Design/Production) deferred | User explicitly skipped #7 for now | ✓ Deferred 2026-07-02 |
 
 ## Evolution
 
@@ -144,4 +180,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-18 after initialization*
+*Last updated: 2026-07-02 — milestone v1.1 (Super-admin governance & accountability) started*

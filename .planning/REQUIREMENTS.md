@@ -140,5 +140,68 @@
 - Unmapped: 0 ✓
 
 ---
+
+## v1.1 Requirements — Super-admin governance & accountability
+
+**Defined:** 2026-07-02
+**Milestone goal:** Give super admins central control and escalation power, and make every actor accountable via per-step deadlines and a final sign-off.
+
+### Governance & permissions
+
+- [ ] **REQ-G01**: Only super_admin can create or edit checklist definitions and their template items. Operations and both PM roles can still fill and submit checklists but cannot author them. Enforced server-side (not just hidden in UI).
+  - *Success:* A factory_pm / site_pm / operations user hits the checklist editor route or edit action → denied; super_admin succeeds. `canEditChecklist` returns true only for super_admin.
+
+### Analytics & issue tracking
+
+- [ ] **REQ-G02**: Each project is rendered with a distinct, stable color everywhere it appears in analytics (ECharts). Same project → same color across chart types and reloads.
+  - *Success:* A deterministic project→color mapping; two projects never share a color in the same chart; color is stable across renders.
+- [ ] **REQ-G03**: Every issue is tied to a project. Issue Log create requires selecting a project; the Issue Log view can be filtered by project and shows each issue's project.
+  - *Success:* `issues.project_id` is required (backfill/guard existing rows); create form has a required project selector; list has a project filter column/control.
+
+### Workflow extensions
+
+- [ ] **REQ-G04**: A final "Sign Off" step (step 11), performed by super_admin, follows Close Out. A project is only fully complete (delivered/closed) after sign-off; the gate, board, flow diagram, and completion boundary all reflect step 11.
+  - *Success:* `WORKFLOW_STEPS` includes step 11 (role super_admin); `isProjectComplete` boundary updated (with migration care for existing rows sitting at 11); a super_admin can perform sign-off and only then is the project complete.
+- [ ] **REQ-G05**: Operations sets a deadline per workflow step when creating a project (not just one project-wide date). Each step surfaces its own countdown/overdue state in the board, the header switcher, and my-work.
+  - *Success:* New per-step deadline storage; create form collects a date per actionable step; board/countdown/my-work read per-step deadlines; overdue shown per step.
+
+### Super-admin alert subsystem (in-app only)
+
+- [ ] **REQ-G06**: A persisted in-app notifications subsystem targets super admins. An alerts panel + header bell shows unread count and recent alerts, polled near-real-time (reuse the existing 4s poll pattern). No email.
+  - *Success:* `notifications` table (recipient, type, project ref, payload, read state); `/api/notifications` polled; header bell with unread badge; panel to read/mark-read.
+- [ ] **REQ-G07**: Projects support a `paused` status distinct from `not_delivered` and `delivered`. Paused projects are visually marked and their workflow gate is suspended until resumed.
+  - *Success:* project status enum gains `paused`; board/gate/my-work handle paused (no forced action while paused).
+
+### Escalation flows (build on the alert subsystem + paused status)
+
+- [ ] **REQ-G08**: Any actor can pause/flag a project (or a specific checklist) when things aren't ready. This notifies all super admins and sets the project to `paused`; it stays paused until a super admin resolves (resumes) it.
+  - *Success:* Pause/flag action with reason → notification fan-out to all super admins → project `paused`; super admin resolve/resume action clears it and records who/when/why.
+- [ ] **REQ-G09**: An actor can request higher-authority approval to advance a step without completing its checklist. A super admin approves or denies; on approval the step advances and the bypass is recorded (who requested, who approved, reason).
+  - *Success:* Bypass-request action on an actionable step → super-admin approval queue (via notifications) → approve advances the step with an audit row; deny leaves it.
+- [ ] **REQ-G10**: Issues can be escalated to every super admin, and each project has a threaded dispute section tied to it (visible to participants and all super admins).
+  - *Success:* Issue "escalate" fans a notification to all super admins; a per-project dispute thread (messages tied to project) that super admins and participants can read/post.
+
+### v1.1 Out of Scope
+
+| Deferred | Reason |
+|----------|--------|
+| Multi-department extensibility (future Design/Production roles/departments) (#7) | User explicitly deferred; revisit when those departments are introduced |
+| Email delivery of super-admin alerts | User chose in-app only for this milestone |
+
+## v1.1 Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| REQ-G01, REQ-G02, REQ-G03 | Phase 11 | Complete ✓ |
+| REQ-G04, REQ-G05 | Phase 12 | Complete ✓ |
+| REQ-G06, REQ-G07 | Phase 13 | Complete ✓ |
+| REQ-G08, REQ-G09, REQ-G10 | Phase 14 | Complete ✓ |
+
+**Coverage:**
+- v1.1 requirements: 10 total
+- Mapped to phases: 10
+- Unmapped: 0 ✓
+
+---
 *Requirements defined: 2026-06-18*
-*Last updated: 2026-06-18 after initialization*
+*Last updated: 2026-07-02 — v1.1 milestone requirements added*

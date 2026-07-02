@@ -1,23 +1,12 @@
-import { desc } from 'drizzle-orm'
-import { db } from '@/db'
-import { projects } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
-import ProjectStepsBoard, { type BoardProject } from '@/app/_components/project-steps-board'
+import { getBoardProjects } from '@/lib/projects-board'
+import ProjectStepsBoard from '@/app/_components/project-steps-board'
 
 export const dynamic = 'force-dynamic'
 
 export default async function FactoryProjectsPage() {
   await verifySession()
-  const rows = await db.select().from(projects).orderBy(desc(projects.createdAt))
-
-  const board: BoardProject[] = rows.map((p) => ({
-    id: p.id,
-    name: p.name,
-    location: p.location,
-    deliveryDate: p.deliveryDate ? p.deliveryDate.toISOString() : null,
-    currentStep: p.currentStep,
-    status: p.status,
-  }))
+  const board = await getBoardProjects()
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
