@@ -20,7 +20,7 @@ The build goes foundation-first: lock down auth, the role model, transactional e
 ### Milestone v1.1 — Super-admin governance & accountability
 - [x] **Phase 11: Permissions & Quick Wins** - Lock checklist authoring to super_admin (REQ-G01), distinct analytics color per project (REQ-G02), map Issue Log to a project (REQ-G03)
 - [x] **Phase 12: Workflow Extensions** - New super_admin Sign-Off step 11 after Close Out (REQ-G04) + per-step deadlines set by Operations at creation (REQ-G05)
-- [ ] **Phase 13: Super-Admin Alerts Foundation** - In-app notifications subsystem + alerts panel/header bell + `paused` project status (REQ-G06, REQ-G07)
+- [x] **Phase 13: Super-Admin Alerts Foundation** - In-app notifications subsystem + alerts panel/header bell + `paused` project status (REQ-G06, REQ-G07)
 - [ ] **Phase 14: Escalation Flows** - Pause/flag→notify+pause (REQ-G08), higher-authority approval to advance without a checklist (REQ-G09), escalate-to-all-super-admins + per-project dispute section (REQ-G10)
 
 ## Phase Details
@@ -226,9 +226,9 @@ Plans:
 **Plans**: TBD (set at /gsd-plan-phase 13)
 
 Plans:
-- [ ] 13-01: Notifications schema + API + polling provider
-- [ ] 13-02: Header bell + alerts panel UI
-- [ ] 13-03: `paused` status plumbed through board/gate/my-work
+- [x] 13-01: Notifications schema + API + polling provider
+- [x] 13-02: Header bell + alerts panel UI
+- [x] 13-03: `paused` status plumbed through board/gate/my-work
 
 ### Phase 14: Escalation Flows
 **Goal**: Actors can pause/flag, request checklist-bypass approval, and escalate/dispute — all routed to super admins for action.
@@ -266,5 +266,5 @@ v1.1 phases: 11 → 12 → 13 → 14 (11 and 13 independent; 12 after 11 by sequ
 | **v1.1 — Super-admin governance & accountability** | | | |
 | 11. Permissions & Quick Wins | 3/3 | Complete ✓ | 2026-07-02 |
 | 12. Workflow Extensions | 2/2 | Complete ✓ | 2026-07-02 |
-| 13. Super-Admin Alerts Foundation | 0/3 | Not started | - |
+| 13. Super-Admin Alerts Foundation | 3/3 | Complete ✓ | 2026-07-02 |
 | 14. Escalation Flows | 0/3 | Not started | - |
