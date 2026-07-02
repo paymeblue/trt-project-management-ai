@@ -18,7 +18,7 @@ The build goes foundation-first: lock down auth, the role model, transactional e
 - [ ] **Phase 10: Production Hardening & PDF-Blocked Items** - Mobile/field testing, error boundaries, finalize Issue Log format, deploy
 
 ### Milestone v1.1 — Super-admin governance & accountability
-- [ ] **Phase 11: Permissions & Quick Wins** - Lock checklist authoring to super_admin (REQ-G01), distinct analytics color per project (REQ-G02), map Issue Log to a project (REQ-G03)
+- [x] **Phase 11: Permissions & Quick Wins** - Lock checklist authoring to super_admin (REQ-G01), distinct analytics color per project (REQ-G02), map Issue Log to a project (REQ-G03)
 - [ ] **Phase 12: Workflow Extensions** - New super_admin Sign-Off step 11 after Close Out (REQ-G04) + per-step deadlines set by Operations at creation (REQ-G05)
 - [ ] **Phase 13: Super-Admin Alerts Foundation** - In-app notifications subsystem + alerts panel/header bell + `paused` project status (REQ-G06, REQ-G07)
 - [ ] **Phase 14: Escalation Flows** - Pause/flag→notify+pause (REQ-G08), higher-authority approval to advance without a checklist (REQ-G09), escalate-to-all-super-admins + per-project dispute section (REQ-G10)
@@ -197,9 +197,9 @@ Plans:
 **Plans**: TBD (set at /gsd-plan-phase 11)
 
 Plans:
-- [ ] 11-01: Lock checklist authoring to super_admin (`canEditChecklist`, editor route/actions, hide entry points)
-- [ ] 11-02: Per-project color mapping in analytics-chart.tsx
-- [ ] 11-03: Issue↔project — required projectId, create selector, list filter (+ backfill guard)
+- [x] 11-01: Lock checklist authoring to super_admin (`canEditChecklist`, editor route/actions, hide entry points)
+- [x] 11-02: Per-project color mapping in analytics-chart.tsx
+- [x] 11-03: Issue↔project — required projectId, create selector, list filter (+ backfill guard)
 
 ### Phase 12: Workflow Extensions
 **Goal**: The workflow ends with a super_admin sign-off, and every step carries its own Operations-set deadline for accountability.
@@ -264,7 +264,7 @@ v1.1 phases: 11 → 12 → 13 → 14 (11 and 13 independent; 12 after 11 by sequ
 | 9. Dave Aredo (AI Assistant) | 0/3 | Not started | - |
 | 10. Production Hardening & PDF-Blocked Items | 0/2 | Not started | - |
 | **v1.1 — Super-admin governance & accountability** | | | |
-| 11. Permissions & Quick Wins | 0/3 | Not started | - |
+| 11. Permissions & Quick Wins | 3/3 | Complete ✓ | 2026-07-02 |
 | 12. Workflow Extensions | 0/2 | Not started | - |
 | 13. Super-Admin Alerts Foundation | 0/3 | Not started | - |
 | 14. Escalation Flows | 0/3 | Not started | - |
