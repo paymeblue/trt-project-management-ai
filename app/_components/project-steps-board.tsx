@@ -13,6 +13,7 @@ import {
   type UserRole,
 } from '@/lib/workflow'
 import { completeAckStepAction, type AckStepState } from '@/actions/workflow'
+import { pauseProjectAction, resumeProjectAction, type FlagState } from '@/actions/projects'
 
 export type BoardProject = {
   id: string
@@ -124,6 +125,96 @@ function AckComplete({ projectId, stepN }: { projectId: string; stepN: number })
         {pending ? 'Saving…' : 'Mark step complete'}
       </button>
       {!state.ok && state.message && <p className="text-xs text-error">{state.message}</p>}
+    </div>
+  )
+}
+
+const INITIAL_FLAG: FlagState = { ok: false }
+
+// Pause/flag a project when things aren't ready → notifies super admins (REQ-G08).
+// A super admin sees a Resume control while the project is paused.
+function FlagControls({ project, viewerRole }: { project: BoardProject; viewerRole: UserRole }) {
+  const router = useRouter()
+  const paused = project.status === 'paused'
+  const [pauseState, pauseDispatch, pausePending] = useActionState(pauseProjectAction, INITIAL_FLAG)
+  const [resumeState, resumeDispatch, resumePending] = useActionState(
+    resumeProjectAction,
+    INITIAL_FLAG,
+  )
+  const [showReason, setShowReason] = useState(false)
+  const [reason, setReason] = useState('')
+
+  useEffect(() => {
+    if (pauseState.ok || resumeState.ok) router.refresh()
+  }, [pauseState.ok, resumeState.ok, router])
+
+  if (isProjectComplete(project.currentStep)) return null
+
+  if (paused) {
+    if (viewerRole !== Roles.SuperAdmin) return null // banner already explains; only SA resumes
+    return (
+      <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+        <button
+          type="button"
+          disabled={resumePending}
+          onClick={() => resumeDispatch({ projectId: project.id })}
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
+        >
+          <span className="material-symbols-outlined text-sm">play_arrow</span>
+          {resumePending ? 'Resuming…' : 'Resume project'}
+        </button>
+        {resumeState.message && (
+          <p className={`mt-1 text-xs ${resumeState.ok ? 'text-green-600' : 'text-error'}`}>
+            {resumeState.message}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border border-dashed border-amber-300 bg-amber-50/40 p-3">
+      {!showReason ? (
+        <button
+          type="button"
+          onClick={() => setShowReason(true)}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800 hover:underline"
+        >
+          <span className="material-symbols-outlined text-sm">flag</span>
+          Flag as not ready (pause project)
+        </button>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-amber-800">Flag this project as not ready</p>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={2}
+            placeholder="What isn't ready? (optional — super admins will see this)"
+            className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={pausePending}
+              onClick={() => pauseDispatch({ projectId: project.id, reason })}
+              className="rounded-md bg-amber-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+            >
+              {pausePending ? 'Flagging…' : 'Flag & pause'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowReason(false)}
+              className="text-xs font-medium text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+          {!pauseState.ok && pauseState.message && (
+            <p className="text-xs text-error">{pauseState.message}</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -291,6 +382,9 @@ function StepsModal({
             </div>
           </div>
         )}
+
+        {/* Flag / pause (any actor) + resume (super admin) — REQ-G08 */}
+        <FlagControls project={project} viewerRole={viewerRole} />
       </div>
     </div>
   )
