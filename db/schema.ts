@@ -244,7 +244,7 @@ export const passwordResetTokens = pgTable('password_reset_tokens', {
 // ── Issue Log (Site PM) ───────────────────────────────────────────────────
 export const issues = pgTable('issues', {
   id:          uuid('id').primaryKey().defaultRandom(),
-  projectId:   uuid('project_id').references(() => projects.id),
+  projectId:   uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   title:       text('title').notNull(),
   description: text('description'),
   status:      text('status').default('open').notNull(), // 'open' | 'closed'
