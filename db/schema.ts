@@ -284,6 +284,21 @@ export const readinessForms = pgTable('readiness_forms', {
   createdAt:      timestamp('created_at').defaultNow().notNull(),
 })
 
+// ── Step bypass requests (higher-authority approval, v1.1) ─────────────────
+// An actor asks a super admin to advance a step WITHOUT completing its checklist
+// (REQ-G09). Approval is audited (who requested, who decided, when, why).
+export const stepBypassRequests = pgTable('step_bypass_requests', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  projectId:   uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  stepN:       integer('step_n').notNull(),
+  reason:      text('reason'),
+  status:      text('status').default('pending').notNull(), // 'pending' | 'approved' | 'denied'
+  requestedBy: uuid('requested_by').notNull().references(() => users.id),
+  decidedBy:   uuid('decided_by').references(() => users.id),
+  decidedAt:   timestamp('decided_at'),
+  createdAt:   timestamp('created_at').defaultNow().notNull(),
+})
+
 // ── In-app notifications (super-admin alerts, v1.1) ────────────────────────
 // One row per recipient (fanned out to every super admin) so read state is
 // per-user. `type` is a free string kept flexible for escalation kinds added in

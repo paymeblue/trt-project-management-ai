@@ -14,6 +14,7 @@ import {
 } from '@/lib/workflow'
 import { completeAckStepAction, type AckStepState } from '@/actions/workflow'
 import { pauseProjectAction, resumeProjectAction, type FlagState } from '@/actions/projects'
+import { requestStepBypassAction, type BypassState } from '@/actions/bypass'
 
 export type BoardProject = {
   id: string
@@ -125,6 +126,65 @@ function AckComplete({ projectId, stepN }: { projectId: string; stepN: number })
         {pending ? 'Saving…' : 'Mark step complete'}
       </button>
       {!state.ok && state.message && <p className="text-xs text-error">{state.message}</p>}
+    </div>
+  )
+}
+
+const INITIAL_BYPASS: BypassState = { ok: false }
+
+// Actor asks a super admin for approval to skip the current step's checklist
+// (REQ-G09). Rendered under the current step's action when it's your turn.
+function BypassRequest({ projectId, stepN }: { projectId: string; stepN: number }) {
+  const router = useRouter()
+  const [state, dispatch, pending] = useActionState(requestStepBypassAction, INITIAL_BYPASS)
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState('')
+
+  useEffect(() => {
+    if (state.ok) router.refresh()
+  }, [state.ok, router])
+
+  if (state.ok) return <p className="mt-2 text-xs font-medium text-green-600">{state.message}</p>
+
+  return (
+    <div className="mt-2">
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="text-xs text-gray-500 hover:text-gray-700 hover:underline"
+        >
+          Can&apos;t complete it? Request approval to skip
+        </button>
+      ) : (
+        <div className="space-y-2 rounded-md border border-dashed border-gray-300 p-2">
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={2}
+            placeholder="Why should a super admin let this step be skipped?"
+            className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs focus:border-primary focus:outline-none"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => dispatch({ projectId, stepN, reason })}
+              className="rounded-md border border-primary px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/5 disabled:opacity-60"
+            >
+              {pending ? 'Requesting…' : 'Request approval'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="text-xs font-medium text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+          {!state.ok && state.message && <p className="text-xs text-error">{state.message}</p>}
+        </div>
+      )}
     </div>
   )
 }
@@ -350,6 +410,9 @@ function StepsModal({
                         <span className="material-symbols-outlined text-sm">arrow_forward</span>
                       </a>
                     ) : null}
+                    {mine && (step.kind === 'checklist' || step.kind === 'readiness') && (
+                      <BypassRequest projectId={project.id} stepN={step.n} />
+                    )}
                   </div>
                 )}
               </li>
