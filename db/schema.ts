@@ -259,8 +259,20 @@ export const issues = pgTable('issues', {
   title:       text('title').notNull(),
   description: text('description'),
   status:      text('status').default('open').notNull(), // 'open' | 'closed'
+  escalatedAt: timestamp('escalated_at'),                 // set when escalated to super admins (REQ-G10)
   createdBy:   uuid('created_by').notNull().references(() => users.id),
   createdAt:   timestamp('created_at').defaultNow().notNull(),
+})
+
+// ── Per-project dispute thread (v1.1, REQ-G10) ─────────────────────────────
+// A threaded discussion tied to a project, visible to participants + all super
+// admins, for resolving disputes/escalations.
+export const projectDisputes = pgTable('project_disputes', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  authorId:  uuid('author_id').notNull().references(() => users.id),
+  body:      text('body').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
 // ── Materials / Accessories Readiness Form (Factory PM) ───────────────────

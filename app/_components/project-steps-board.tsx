@@ -448,6 +448,14 @@ function StepsModal({
 
         {/* Flag / pause (any actor) + resume (super admin) — REQ-G08 */}
         <FlagControls project={project} viewerRole={viewerRole} />
+
+        <a
+          href={`/disputes/${project.id}`}
+          className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+        >
+          <span className="material-symbols-outlined text-sm">forum</span>
+          Open project discussion
+        </a>
       </div>
     </div>
   )

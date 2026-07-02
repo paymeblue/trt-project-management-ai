@@ -2,7 +2,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { issues, projects } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
-import { createIssueAction, toggleIssueAction } from '@/actions/issues'
+import { createIssueAction, toggleIssueAction, escalateIssueAction } from '@/actions/issues'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +25,8 @@ export default async function IssueLogPage({
       title: issues.title,
       description: issues.description,
       status: issues.status,
+      escalatedAt: issues.escalatedAt,
+      projectId: issues.projectId,
       createdAt: issues.createdAt,
       projectName: projects.name,
     })
@@ -133,6 +135,7 @@ export default async function IssueLogPage({
                 <th className="px-3 py-2">Description</th>
                 <th className="w-28 px-3 py-2">Logged</th>
                 <th className="w-24 px-3 py-2 text-center">Status</th>
+                <th className="w-40 px-3 py-2 text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -162,6 +165,32 @@ export default async function IssueLogPage({
                           {open ? 'Open' : 'Closed'}
                         </button>
                       </form>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-center gap-2">
+                        {i.escalatedAt ? (
+                          <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-800">
+                            Escalated
+                          </span>
+                        ) : (
+                          <form action={escalateIssueAction}>
+                            <input type="hidden" name="id" value={i.id} />
+                            <button
+                              type="submit"
+                              className="rounded-md border border-amber-300 px-2 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-50"
+                              title="Notify all super admins about this issue"
+                            >
+                              Escalate
+                            </button>
+                          </form>
+                        )}
+                        <a
+                          href={`/disputes/${i.projectId}`}
+                          className="rounded-md border border-gray-300 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50"
+                        >
+                          Discuss
+                        </a>
+                      </div>
                     </td>
                   </tr>
                 )

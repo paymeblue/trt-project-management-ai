@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { markNotificationsReadAction } from '@/actions/notifications'
 
 type Item = {
@@ -27,6 +28,7 @@ function ago(iso: string): string {
 // Super-admin in-app alerts: polls /api/notifications and shows an unread badge
 // with a dropdown panel. Mounted only for super admins (they are the recipients).
 export default function NotificationsBell() {
+  const router = useRouter()
   const [feed, setFeed] = useState<Feed>({ items: [], unread: 0 })
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -65,16 +67,23 @@ export default function NotificationsBell() {
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
 
-  async function markOne(id: string) {
+  async function markOne(item: Item) {
     setFeed((f) => {
-      const wasUnread = f.items.some((i) => i.id === id && !i.read)
+      const wasUnread = f.items.some((i) => i.id === item.id && !i.read)
       return {
-        items: f.items.map((i) => (i.id === id ? { ...i, read: true } : i)),
+        items: f.items.map((i) => (i.id === item.id ? { ...i, read: true } : i)),
         unread: Math.max(0, f.unread - (wasUnread ? 1 : 0)),
       }
     })
-    await markNotificationsReadAction(id)
-    refresh()
+    await markNotificationsReadAction(item.id)
+    // Escalations/flags/bypasses carry a project — land the admin on its
+    // discussion thread so they can act (REQ-G10).
+    if (item.projectId) {
+      setOpen(false)
+      router.push(`/disputes/${item.projectId}`)
+    } else {
+      refresh()
+    }
   }
 
   async function markAll() {
@@ -123,7 +132,7 @@ export default function NotificationsBell() {
                 <button
                   key={n.id}
                   type="button"
-                  onClick={() => markOne(n.id)}
+                  onClick={() => markOne(n)}
                   className={`flex w-full items-start gap-2 border-b border-outline-variant px-3 py-2.5 text-left last:border-0 hover:bg-surface-container-high ${
                     n.read ? '' : 'bg-primary/5'
                   }`}
