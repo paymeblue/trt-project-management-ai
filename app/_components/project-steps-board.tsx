@@ -20,7 +20,7 @@ export type BoardProject = {
   location: string | null
   deliveryDate: string | null // ISO — project-wide fallback deadline
   currentStep: number
-  status: 'delivered' | 'not_delivered'
+  status: 'delivered' | 'not_delivered' | 'paused'
   stepDeadlines?: Record<string, string> // stepN → ISO (REQ-G05)
 }
 
@@ -33,13 +33,30 @@ function deadlineForStep(p: BoardProject, stepN: number): string | null {
 const INITIAL_ACK: AckStepState = { ok: false }
 
 // ── Blinking deadline countdown ────────────────────────────────────────────
-function Countdown({ deadline, complete = false }: { deadline: string | null; complete?: boolean }) {
+function Countdown({
+  deadline,
+  complete = false,
+  paused = false,
+}: {
+  deadline: string | null
+  complete?: boolean
+  paused?: boolean
+}) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    if (complete) return
+    if (complete || paused) return
     const i = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(i)
-  }, [complete])
+  }, [complete, paused])
+
+  // Paused projects hold their clock until a super admin resumes them.
+  if (paused) {
+    return (
+      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+        Paused
+      </span>
+    )
+  }
 
   // Once delivered, the deadline no longer counts down — show a static status.
   if (complete) {
@@ -122,6 +139,7 @@ function StepsModal({
   onClose: () => void
 }) {
   const complete = isProjectComplete(project.currentStep)
+  const paused = project.status === 'paused'
 
   return (
     <div
@@ -149,7 +167,11 @@ function StepsModal({
 
         <div className="mb-4 flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
           <span className="text-xs font-medium text-gray-600">Current step deadline</span>
-          <Countdown deadline={deadlineForStep(project, project.currentStep)} complete={complete} />
+          <Countdown
+            deadline={deadlineForStep(project, project.currentStep)}
+            complete={complete}
+            paused={paused}
+          />
         </div>
 
         {complete && (
@@ -158,11 +180,17 @@ function StepsModal({
           </div>
         )}
 
+        {paused && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+            Paused — flagged as not ready. A super admin must resume it before work continues.
+          </div>
+        )}
+
         <ol className="space-y-2">
           {WORKFLOW_STEPS.map((step) => {
             const done = step.n < project.currentStep
             const current = step.n === project.currentStep
-            const mine = canRoleActOnStep(step.role, viewerRole)
+            const mine = !paused && canRoleActOnStep(step.role, viewerRole)
             const href = current && mine ? stepHref(step, project.id) : null
 
             const tip = done
@@ -313,13 +341,14 @@ export default function ProjectStepsBoard({
   const selected = projects.find((p) => p.id === selectedId) ?? null
 
   function currentStepLabel(p: BoardProject) {
+    if (p.status === 'paused') return 'Paused'
     if (isProjectComplete(p.currentStep)) return 'Delivered'
     const step = WORKFLOW_STEPS.find((s) => s.n === p.currentStep)
     return step ? `${step.label} (${p.currentStep}/${LAST_STEP})` : `Step ${p.currentStep}`
   }
 
   function needsViewer(p: BoardProject) {
-    if (isProjectComplete(p.currentStep)) return false
+    if (p.status === 'paused' || isProjectComplete(p.currentStep)) return false
     const step = WORKFLOW_STEPS.find((s) => s.n === p.currentStep)
     return step ? canRoleActOnStep(step.role, viewerRole) : false
   }
@@ -365,10 +394,16 @@ export default function ProjectStepsBoard({
             >
               <div className="flex w-full items-center justify-between gap-2">
                 <p className="font-semibold text-gray-900">{p.name}</p>
-                {mine && (
-                  <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase text-white">
-                    Needs you
+                {p.status === 'paused' ? (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-800">
+                    Paused
                   </span>
+                ) : (
+                  mine && (
+                    <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase text-white">
+                      Needs you
+                    </span>
+                  )
                 )}
               </div>
               <p className="mt-1 text-xs text-gray-500">{currentStepLabel(p)}</p>
@@ -376,6 +411,7 @@ export default function ProjectStepsBoard({
                 <Countdown
                   deadline={deadlineForStep(p, p.currentStep)}
                   complete={isProjectComplete(p.currentStep)}
+                  paused={p.status === 'paused'}
                 />
               </div>
             </button>

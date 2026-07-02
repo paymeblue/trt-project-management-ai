@@ -20,10 +20,13 @@ export async function getMyWork(role: UserRole): Promise<MyWork> {
       name: projects.name,
       currentStep: projects.currentStep,
       deliveryDate: projects.deliveryDate,
+      status: projects.status,
     })
     .from(projects)
 
-  const active = rows.filter((p) => !isProjectComplete(p.currentStep))
+  // Paused projects are excluded from active work: no forced gate, no header
+  // "Act" until a super admin resumes them (REQ-G07).
+  const active = rows.filter((p) => !isProjectComplete(p.currentStep) && p.status !== 'paused')
 
   // Per-step deadlines (REQ-G05): the deadline shown for a project is the one
   // set for its CURRENT step, falling back to the project-wide delivery date.

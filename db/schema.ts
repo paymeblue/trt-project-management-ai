@@ -12,7 +12,7 @@ import {
 
 // ── Enums ────────────────────────────────────────────────────────────────
 export const roleEnum = pgEnum('role', ['factory_pm', 'site_pm', 'super_admin', 'operations'])
-export const projectStatusEnum = pgEnum('project_status', ['not_delivered', 'delivered'])
+export const projectStatusEnum = pgEnum('project_status', ['not_delivered', 'delivered', 'paused'])
 export const targetRoleEnum = pgEnum('target_role', ['factory_pm', 'site_pm', 'both'])
 export const itemTypeEnum = pgEnum('item_type', ['radio', 'text', 'file'])
 export const responseOptionsEnum = pgEnum('response_options', ['yes_no', 'yes_no_na'])
