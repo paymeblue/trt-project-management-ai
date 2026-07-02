@@ -3,15 +3,9 @@ import { db } from '@/db'
 import { processes } from '@/db/schema'
 import { verifySession, isAdminRole } from '@/lib/dal'
 import ProcessFlowForm from '@/app/_components/process-flow-form'
+import { roleDashboard } from '@/lib/workflow'
 
 export const dynamic = 'force-dynamic'
-
-const DASH: Record<string, string> = {
-  factory_pm: '/factory-pm/dashboard',
-  site_pm: '/site-pm/dashboard',
-  super_admin: '/admin/dashboard',
-  operations: '/admin/dashboard',
-}
 
 export default async function ProcessesPage() {
   const { role } = await verifySession()
@@ -30,7 +24,7 @@ export default async function ProcessesPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-      <a href={DASH[role]} className="text-sm text-primary hover:underline">
+      <a href={roleDashboard(role)} className="text-sm text-primary hover:underline">
         &larr; Dashboard
       </a>
       <h1 className="mb-1 mt-2 text-2xl font-bold text-gray-900">Processes &amp; Flow Charts</h1>

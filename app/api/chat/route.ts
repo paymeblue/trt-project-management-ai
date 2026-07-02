@@ -15,6 +15,8 @@ const ROLE_LABELS: Record<string, string> = {
   site_pm: 'Site Project Manager (manages on-site delivery, verification & installation)',
   super_admin: 'Super Admin (oversees all projects, read-only across roles)',
   operations: 'Operations (Head of Projects — creates projects, sets deadlines, full admin oversight)',
+  design: 'Design department (workflow steps to be configured)',
+  production: 'Production department (workflow steps to be configured)',
 }
 
 /**

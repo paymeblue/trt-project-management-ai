@@ -4,15 +4,9 @@ import { staticContent } from '@/db/schema'
 import { verifySession, isAdminRole } from '@/lib/dal'
 import { updateAboutAction } from '@/actions/content'
 import TrtFlowDiagram from '@/app/_components/trt-flow-diagram'
+import { roleDashboard } from '@/lib/workflow'
 
 export const dynamic = 'force-dynamic'
-
-const DASH: Record<string, string> = {
-  factory_pm: '/factory-pm/dashboard',
-  site_pm: '/site-pm/dashboard',
-  super_admin: '/admin/dashboard',
-  operations: '/admin/dashboard',
-}
 
 const ROLES: { name: string; icon: string; blurb: string }[] = [
   {
@@ -48,7 +42,7 @@ export default async function AboutPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">
-      <a href={DASH[role]} className="text-sm text-primary hover:underline">
+      <a href={roleDashboard(role)} className="text-sm text-primary hover:underline">
         ← Dashboard
       </a>
       <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">About TRT</h1>

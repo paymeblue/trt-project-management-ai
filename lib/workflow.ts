@@ -12,6 +12,12 @@ export const Roles = {
   SitePm: 'site_pm',
   SuperAdmin: 'super_admin',
   Operations: 'operations',
+  // Future departments (v1.1 #7): recognised roles with their own shell so they
+  // keep working once their workflow steps are added. To add another department:
+  // (1) add it here, (2) add it to db `roleEnum`, (3) add a USER_ROLE_LABELS +
+  // ROLE_DASHBOARD entry below, (4) add a sidebar NAV list + a dashboard page.
+  Design: 'design',
+  Production: 'production',
 } as const
 
 export type UserRole = (typeof Roles)[keyof typeof Roles]
@@ -91,6 +97,34 @@ const ROLE_LABELS: Record<WorkflowRole, string> = {
 
 export function workflowRoleLabel(role: WorkflowRole): string {
   return ROLE_LABELS[role]
+}
+
+// Single source of truth for a user role's display label + home dashboard.
+// Centralised so adding a department is a one-place change (see Roles above).
+const USER_ROLE_LABELS: Record<UserRole, string> = {
+  factory_pm: 'Factory PM',
+  site_pm: 'Site PM',
+  super_admin: 'Super Admin',
+  operations: 'Operations',
+  design: 'Design',
+  production: 'Production',
+}
+
+export function userRoleLabel(role: string): string {
+  return USER_ROLE_LABELS[role as UserRole] ?? 'User'
+}
+
+const ROLE_DASHBOARD: Record<UserRole, string> = {
+  factory_pm: '/factory-pm/dashboard',
+  site_pm: '/site-pm/dashboard',
+  super_admin: '/admin/dashboard',
+  operations: '/admin/dashboard',
+  design: '/design/dashboard',
+  production: '/production/dashboard',
+}
+
+export function roleDashboard(role: string): string {
+  return ROLE_DASHBOARD[role as UserRole] ?? '/dashboard'
 }
 
 // Operations steps may also be actioned by a super_admin (full admin rights).
