@@ -31,21 +31,21 @@ A PM on the floor or on-site can complete a structured checklist (with photo evi
 
 ### Validated
 
-(None yet — ship to validate)
+**Milestone v1.1 — Super-admin governance & accountability (2026-07-02)**
+- [x] REQ-G01 — Checklist authoring locked to super_admin (Phase 11)
+- [x] REQ-G02 — Distinct per-project analytics colours (Phase 11)
+- [x] REQ-G03 — Issue Log mapped to a project (Phase 11)
+- [x] REQ-G04 — super_admin Sign-Off step 11 after Close Out (Phase 12)
+- [x] REQ-G05 — Per-step deadlines set by Operations at creation (Phase 12)
+- [x] REQ-G06 — In-app notifications + header bell (Phase 13)
+- [x] REQ-G07 — `paused` project status (Phase 13)
+- [x] REQ-G08 — Pause/flag → notify + pause + resume (Phase 14)
+- [x] REQ-G09 — Higher-authority approval to skip a checklist step (Phase 14)
+- [x] REQ-G10 — Escalate issues to all super admins + per-project dispute thread (Phase 14)
 
 ### Active
 
-**Milestone v1.1 — Super-admin governance & accountability**
-- [ ] REQ-G01 — Only super_admin can create/edit checklist definitions & items (Operations + both PMs can fill/submit, not author)
-- [ ] REQ-G02 — Each project renders with a distinct, stable color across analytics charts
-- [ ] REQ-G03 — Every issue is tied to a project; Issue Log has a project selector on create and a project filter on view
-- [ ] REQ-G04 — A super_admin "Sign Off" step (11) follows Close Out; a project is fully complete only after sign-off
-- [ ] REQ-G05 — Operations sets a deadline per workflow step at creation; each step shows its own countdown/overdue state
-- [ ] REQ-G06 — In-app notifications subsystem: persisted alerts to super admins, alerts panel + header bell with unread count, polled near-real-time (no email)
-- [ ] REQ-G07 — Projects support a `paused` status distinct from not_delivered/delivered
-- [ ] REQ-G08 — Any actor can pause/flag a project or checklist when not ready → notifies all super admins, project paused until a super admin resolves it
-- [ ] REQ-G09 — An actor can request higher-authority approval to advance a step without completing its checklist; a super admin approves/denies (bypass is audited)
-- [ ] REQ-G10 — Issues can be escalated to every super admin; each project has a threaded dispute section tied to it
+**Milestone v1.1 requirements shipped & validated — see the Validated section above.**
 
 **Auth & Roles**
 - [ ] Users can self-serve sign up and select their role (Factory PM or Site PM) without waiting for admin approval

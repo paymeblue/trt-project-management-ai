@@ -192,10 +192,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REQ-G01, REQ-G02, REQ-G03 | Phase 11 | Pending |
-| REQ-G04, REQ-G05 | Phase 12 | Pending |
-| REQ-G06, REQ-G07 | Phase 13 | Pending |
-| REQ-G08, REQ-G09, REQ-G10 | Phase 14 | Pending |
+| REQ-G01, REQ-G02, REQ-G03 | Phase 11 | Complete ✓ |
+| REQ-G04, REQ-G05 | Phase 12 | Complete ✓ |
+| REQ-G06, REQ-G07 | Phase 13 | Complete ✓ |
+| REQ-G08, REQ-G09, REQ-G10 | Phase 14 | Complete ✓ |
 
 **Coverage:**
 - v1.1 requirements: 10 total
