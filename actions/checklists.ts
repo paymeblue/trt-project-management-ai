@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import {
   checklistDefinitions,
@@ -55,7 +55,12 @@ export async function submitChecklistAction(
   const items = await db
     .select()
     .from(checklistTemplateItems)
-    .where(eq(checklistTemplateItems.definitionId, definitionId))
+    .where(
+      and(
+        eq(checklistTemplateItems.definitionId, definitionId),
+        eq(checklistTemplateItems.isActive, true),
+      ),
+    )
 
   if (items.length === 0) return { status: 'error', message: 'This checklist has no items.' }
 
@@ -231,4 +236,260 @@ export async function addChecklistItem(
 
   revalidatePath(`/checklists/${auth.def.slug}`)
   return { status: 'success', message: 'Question added.' }
+}
+
+// ── Full authoring CRUD (super_admin only, REQ-G01) ───────────────────────
+// Deletes are soft (is_active = false): checklist_responses reference template
+// items and checklists reference definitions, and the platform is a permanent
+// record — nothing is ever hard-deleted.
+
+const ITEM_TYPES = ['radio', 'text', 'file'] as const
+const RESPONSE_OPTIONS = ['yes_no', 'yes_no_na'] as const
+const TARGET_ROLES = ['factory_pm', 'site_pm', 'both'] as const
+type ItemType = (typeof ITEM_TYPES)[number]
+type ResponseOptions = (typeof RESPONSE_OPTIONS)[number]
+type TargetRole = (typeof TARGET_ROLES)[number]
+
+const asItemType = (v: unknown): ItemType | null =>
+  ITEM_TYPES.includes(v as ItemType) ? (v as ItemType) : null
+const asResponseOptions = (v: unknown): ResponseOptions | null =>
+  RESPONSE_OPTIONS.includes(v as ResponseOptions) ? (v as ResponseOptions) : null
+const asTargetRole = (v: unknown): TargetRole | null =>
+  TARGET_ROLES.includes(v as TargetRole) ? (v as TargetRole) : null
+
+// Loads a template item and asserts the caller may edit its definition.
+async function authorizeItemEdit(itemId: string) {
+  const [item] = await db
+    .select()
+    .from(checklistTemplateItems)
+    .where(eq(checklistTemplateItems.id, itemId))
+    .limit(1)
+  if (!item) return { error: 'Question not found.' as const }
+  const auth = await authorizeChecklistEdit(item.definitionId)
+  if ('error' in auth) return { error: auth.error }
+  return { item, def: auth.def }
+}
+
+export type DeleteChecklistItemInput = { itemId: string }
+
+export async function deleteChecklistItem(
+  input: DeleteChecklistItemInput,
+): Promise<EditChecklistState> {
+  const itemId = String(input?.itemId ?? '')
+  if (!itemId) return { status: 'error', message: 'Missing item.' }
+  const auth = await authorizeItemEdit(itemId)
+  if ('error' in auth) return { status: 'error', message: auth.error }
+
+  try {
+    await db
+      .update(checklistTemplateItems)
+      .set({ isActive: false })
+      .where(eq(checklistTemplateItems.id, itemId))
+  } catch {
+    return { status: 'error', message: 'Could not delete the question. Please try again.' }
+  }
+
+  revalidatePath(`/checklists/${auth.def.slug}`)
+  revalidatePath('/admin/checklists')
+  return { status: 'success', message: 'Question removed.' }
+}
+
+export type MoveChecklistItemInput = { itemId: string; direction: 'up' | 'down' }
+
+export async function moveChecklistItem(
+  input: MoveChecklistItemInput,
+): Promise<EditChecklistState> {
+  const itemId = String(input?.itemId ?? '')
+  const direction = input?.direction === 'up' ? 'up' : 'down'
+  if (!itemId) return { status: 'error', message: 'Missing item.' }
+  const auth = await authorizeItemEdit(itemId)
+  if ('error' in auth) return { status: 'error', message: auth.error }
+
+  // Swap (step, sort_order) with the adjacent active item so the change is
+  // reflected under the wizard's `order by step, sort_order` read.
+  const items = await db
+    .select()
+    .from(checklistTemplateItems)
+    .where(
+      and(
+        eq(checklistTemplateItems.definitionId, auth.item.definitionId),
+        eq(checklistTemplateItems.isActive, true),
+      ),
+    )
+    .orderBy(asc(checklistTemplateItems.step), asc(checklistTemplateItems.sortOrder))
+
+  const idx = items.findIndex((i) => i.id === itemId)
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+  if (idx === -1 || swapIdx < 0 || swapIdx >= items.length) {
+    return { status: 'error', message: 'That question is already at the edge.' }
+  }
+  const a = items[idx]
+  const b = items[swapIdx]
+
+  try {
+    await db
+      .update(checklistTemplateItems)
+      .set({ step: b.step, sortOrder: b.sortOrder })
+      .where(eq(checklistTemplateItems.id, a.id))
+    await db
+      .update(checklistTemplateItems)
+      .set({ step: a.step, sortOrder: a.sortOrder })
+      .where(eq(checklistTemplateItems.id, b.id))
+  } catch {
+    return { status: 'error', message: 'Could not reorder. Please try again.' }
+  }
+
+  revalidatePath(`/checklists/${auth.def.slug}`)
+  revalidatePath('/admin/checklists')
+  return { status: 'success', message: 'Order updated.' }
+}
+
+export type UpdateChecklistItemFieldsInput = {
+  itemId: string
+  itemType?: string
+  responseOptions?: string
+  isPhotoRequired?: boolean
+}
+
+export async function updateChecklistItemFields(
+  input: UpdateChecklistItemFieldsInput,
+): Promise<EditChecklistState> {
+  const itemId = String(input?.itemId ?? '')
+  if (!itemId) return { status: 'error', message: 'Missing item.' }
+  const auth = await authorizeItemEdit(itemId)
+  if ('error' in auth) return { status: 'error', message: auth.error }
+
+  const itemType = asItemType(input?.itemType) ?? auth.item.itemType
+  const responseOptions = asResponseOptions(input?.responseOptions) ?? auth.item.responseOptions
+  const isPhotoRequired =
+    typeof input?.isPhotoRequired === 'boolean' ? input.isPhotoRequired : auth.item.isPhotoRequired
+
+  try {
+    await db
+      .update(checklistTemplateItems)
+      .set({
+        itemType,
+        responseOptions,
+        isPhotoRequired,
+        // A required photo must also be allowed.
+        isPhotoAllowed: isPhotoRequired ? true : auth.item.isPhotoAllowed,
+      })
+      .where(eq(checklistTemplateItems.id, itemId))
+  } catch {
+    return { status: 'error', message: 'Could not save the change. Please try again.' }
+  }
+
+  revalidatePath(`/checklists/${auth.def.slug}`)
+  revalidatePath('/admin/checklists')
+  return { status: 'success', message: 'Saved.' }
+}
+
+// ── Definition CRUD ────────────────────────────────────────────────────────
+
+export type CreateChecklistDefinitionInput = {
+  name: string
+  slug: string
+  targetRole: string
+}
+
+export async function createChecklistDefinition(
+  input: CreateChecklistDefinitionInput,
+): Promise<EditChecklistState & { slug?: string }> {
+  const { role } = await verifySession()
+  if (!canEditChecklist(role)) {
+    return { status: 'error', message: 'You do not have permission to create checklists.' }
+  }
+
+  const name = String(input?.name ?? '').trim()
+  const slug = String(input?.slug ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  const targetRole = asTargetRole(input?.targetRole)
+
+  if (!name) return { status: 'error', message: 'Name is required.' }
+  if (name.length > MAX_LABEL) return { status: 'error', message: 'That name is too long.' }
+  if (!slug) {
+    return { status: 'error', message: 'A valid slug is required (letters, numbers, underscores).' }
+  }
+  if (!targetRole) return { status: 'error', message: 'Choose who this checklist is for.' }
+
+  const [existing] = await db
+    .select({ id: checklistDefinitions.id })
+    .from(checklistDefinitions)
+    .where(eq(checklistDefinitions.slug, slug))
+    .limit(1)
+  if (existing) return { status: 'error', message: 'A checklist with that slug already exists.' }
+
+  try {
+    await db.insert(checklistDefinitions).values({ name, slug, targetRole })
+  } catch {
+    return { status: 'error', message: 'Could not create the checklist. Please try again.' }
+  }
+
+  revalidatePath('/admin/checklists')
+  return { status: 'success', message: 'Checklist created.', slug }
+}
+
+export type UpdateChecklistDefinitionInput = {
+  definitionId: string
+  name?: string
+  targetRole?: string
+}
+
+export async function updateChecklistDefinition(
+  input: UpdateChecklistDefinitionInput,
+): Promise<EditChecklistState> {
+  const definitionId = String(input?.definitionId ?? '')
+  if (!definitionId) return { status: 'error', message: 'Missing checklist.' }
+  const auth = await authorizeChecklistEdit(definitionId)
+  if ('error' in auth) return { status: 'error', message: auth.error }
+
+  const name = input?.name !== undefined ? String(input.name).trim() : auth.def.name
+  const targetRole = asTargetRole(input?.targetRole) ?? auth.def.targetRole
+
+  if (!name) return { status: 'error', message: 'Name cannot be empty.' }
+  if (name.length > MAX_LABEL) return { status: 'error', message: 'That name is too long.' }
+
+  try {
+    await db
+      .update(checklistDefinitions)
+      .set({ name, targetRole })
+      .where(eq(checklistDefinitions.id, definitionId))
+  } catch {
+    return { status: 'error', message: 'Could not save the change. Please try again.' }
+  }
+
+  revalidatePath('/admin/checklists')
+  revalidatePath(`/checklists/${auth.def.slug}`)
+  return { status: 'success', message: 'Saved.' }
+}
+
+export type SetChecklistDefinitionActiveInput = {
+  definitionId: string
+  isActive: boolean
+}
+
+export async function setChecklistDefinitionActive(
+  input: SetChecklistDefinitionActiveInput,
+): Promise<EditChecklistState> {
+  const definitionId = String(input?.definitionId ?? '')
+  if (!definitionId) return { status: 'error', message: 'Missing checklist.' }
+  const auth = await authorizeChecklistEdit(definitionId)
+  if ('error' in auth) return { status: 'error', message: auth.error }
+
+  const isActive = Boolean(input?.isActive)
+  try {
+    await db
+      .update(checklistDefinitions)
+      .set({ isActive })
+      .where(eq(checklistDefinitions.id, definitionId))
+  } catch {
+    return { status: 'error', message: 'Could not update the checklist. Please try again.' }
+  }
+
+  revalidatePath('/admin/checklists')
+  revalidatePath(`/checklists/${auth.def.slug}`)
+  return { status: 'success', message: isActive ? 'Checklist restored.' : 'Checklist deactivated.' }
 }
