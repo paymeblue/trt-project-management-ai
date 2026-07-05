@@ -85,21 +85,51 @@ export default async function AboutPage() {
       </h2>
       <TrtFlowDiagram />
 
-      {/* Roles on the platform */}
+      {/* Roles on the platform — organogram with Super Admin as the superior */}
       <h2 className="mb-3 mt-10 text-sm font-semibold uppercase tracking-wide text-gray-500">
         Roles on the platform
       </h2>
-      <div className="space-y-3">
-        {ROLES.map((r) => (
-          <div key={r.name} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="mb-1 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">{r.icon}</span>
-              <h3 className="text-base font-semibold text-gray-900">{r.name}</h3>
+      {(() => {
+        const superior = ROLES.find((r) => r.name === 'Super Admin')
+        const subs = ROLES.filter((r) => r.name !== 'Super Admin')
+        return (
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col items-center">
+              {/* Superior */}
+              {superior && (
+                <div className="w-full max-w-md rounded-xl border-2 border-primary bg-primary/5 p-5 text-center shadow-sm">
+                  <div className="mb-1 flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-primary">{superior.icon}</span>
+                    <h3 className="text-base font-bold text-gray-900">{superior.name}</h3>
+                  </div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                    Oversees all roles
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-600">{superior.blurb}</p>
+                </div>
+              )}
+              {/* Connectors */}
+              <div className="h-6 w-px bg-gray-300" />
+              <div className="h-px w-2/3 bg-gray-300" />
+              {/* Subordinates */}
+              <div className="flex w-full flex-col gap-4 sm:flex-row">
+                {subs.map((r) => (
+                  <div key={r.name} className="flex flex-1 flex-col items-center">
+                    <div className="h-4 w-px bg-gray-300" />
+                    <div className="w-full rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary">{r.icon}</span>
+                        <h3 className="text-base font-semibold text-gray-900">{r.name}</h3>
+                      </div>
+                      <p className="text-sm leading-relaxed text-gray-600">{r.blurb}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <p className="text-sm leading-relaxed text-gray-600">{r.blurb}</p>
           </div>
-        ))}
-      </div>
+        )
+      })()}
     </div>
   )
 }
