@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { issues, projects } from '@/db/schema'
-import { verifySession } from '@/lib/dal'
+import { verifySession, requireAdmin } from '@/lib/dal'
 import { notifyAllSuperAdmins } from '@/lib/notifications'
 
 export async function createIssueAction(formData: FormData): Promise<void> {
@@ -32,6 +32,17 @@ export async function toggleIssueAction(formData: FormData): Promise<void> {
   const next = iss.status === 'open' ? 'closed' : 'open'
   await db.update(issues).set({ status: next }).where(eq(issues.id, id))
   revalidatePath('/site-pm/issues')
+}
+
+// Admin-only: open/close ANY issue from the admin issue log (REQ-G10 acting).
+export async function adminToggleIssueAction(formData: FormData): Promise<void> {
+  await requireAdmin()
+  const id = String(formData.get('id') ?? '')
+  const [iss] = await db.select().from(issues).where(eq(issues.id, id)).limit(1)
+  if (!iss) return
+  const next = iss.status === 'open' ? 'closed' : 'open'
+  await db.update(issues).set({ status: next }).where(eq(issues.id, id))
+  revalidatePath('/admin/issues')
 }
 
 // Escalate an issue to every super admin (REQ-G10): marks it escalated and fans

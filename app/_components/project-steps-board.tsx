@@ -380,15 +380,13 @@ function StepsModal({
                     >
                       {step.n}. {step.label}
                     </p>
-                    <p className="text-xs text-gray-400">
-                      {workflowRoleLabel(step.role)}
-                      {project.stepDeadlines?.[String(step.n)] && (
-                        <span className="text-gray-400">
-                          {' · due '}
-                          {new Date(project.stepDeadlines[String(step.n)]).toLocaleDateString()}
-                        </span>
-                      )}
-                    </p>
+                    <p className="text-xs text-gray-400">{workflowRoleLabel(step.role)}</p>
+                    {/* Each step's own deadline, ticking, until it's completed. */}
+                    {!done && !paused && project.stepDeadlines?.[String(step.n)] && (
+                      <div className="mt-1">
+                        <Countdown deadline={project.stepDeadlines[String(step.n)]} />
+                      </div>
+                    )}
                   </div>
                   {done && <span className="text-xs font-medium text-green-600">Done</span>}
                 </div>

@@ -36,6 +36,35 @@ export async function createProjectAction(
   if (Number.isNaN(deliveryDate.getTime()))
     return { status: 'error', message: 'Please enter a valid deadline.' }
 
+  // Parse the per-step deadlines (REQ-G05) up front and validate ORDER before
+  // creating anything: a later step can't be due before an earlier one (#4).
+  const parsedDeadlines: { stepN: number; deadline: Date }[] = []
+  for (const s of WORKFLOW_STEPS) {
+    if (s.n < FIRST_ACTION_STEP) continue // step 1 auto-completes, no deadline
+    const raw = String(formData.get(`deadline_${s.n}`) ?? '').trim()
+    if (!raw) continue
+    const d = new Date(raw)
+    if (Number.isNaN(d.getTime()))
+      return { status: 'error', message: `Please enter a valid deadline for step ${s.n}.` }
+    parsedDeadlines.push({ stepN: s.n, deadline: d })
+  }
+  for (let i = 1; i < parsedDeadlines.length; i++) {
+    if (parsedDeadlines[i].deadline < parsedDeadlines[i - 1].deadline) {
+      return {
+        status: 'error',
+        message: `Step ${parsedDeadlines[i].stepN}'s deadline can't be earlier than step ${parsedDeadlines[i - 1].stepN}'s — later steps must be due on or after earlier ones.`,
+      }
+    }
+  }
+  // The final delivery deadline should not precede the last step deadline either.
+  const lastStepDl = parsedDeadlines[parsedDeadlines.length - 1]?.deadline
+  if (lastStepDl && deliveryDate < lastStepDl) {
+    return {
+      status: 'error',
+      message: 'The final delivery deadline must be on or after the last step deadline.',
+    }
+  }
+
   const [created] = await db
     .insert(projects)
     .values({ name, location, deliveryDate, createdBy: userId, currentStep: FIRST_ACTION_STEP })
@@ -48,18 +77,10 @@ export async function createProjectAction(
     completedBy: userId,
   })
 
-  // Per-step deadlines (REQ-G05): one optional date per actionable step
-  // (form field `deadline_<n>`). Step 1 auto-completes, so it has none.
-  const stepDeadlineRows = WORKFLOW_STEPS.filter((s) => s.n >= FIRST_ACTION_STEP)
-    .map((s) => {
-      const raw = String(formData.get(`deadline_${s.n}`) ?? '').trim()
-      if (!raw) return null
-      const d = new Date(raw)
-      return Number.isNaN(d.getTime()) ? null : { projectId: created.id, stepN: s.n, deadline: d }
-    })
-    .filter((r): r is { projectId: string; stepN: number; deadline: Date } => r !== null)
-  if (stepDeadlineRows.length) {
-    await db.insert(projectStepDeadlines).values(stepDeadlineRows)
+  if (parsedDeadlines.length) {
+    await db
+      .insert(projectStepDeadlines)
+      .values(parsedDeadlines.map((p) => ({ projectId: created.id, stepN: p.stepN, deadline: p.deadline })))
   }
 
   revalidatePath('/admin/timeline')
