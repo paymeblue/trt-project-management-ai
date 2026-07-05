@@ -146,9 +146,22 @@ export default async function ChecklistPage({
 
       {canEdit && (
         <ChecklistEditor
-          definitionId={def.id}
+          definition={{
+            id: def.id,
+            name: def.name,
+            slug: def.slug,
+            targetRole: def.targetRole,
+            isActive: def.isActive,
+          }}
           items={items.map(
-            (i): EditableItem => ({ id: i.id, label: i.label, helpText: i.helpText }),
+            (i): EditableItem => ({
+              id: i.id,
+              label: i.label,
+              helpText: i.helpText,
+              itemType: i.itemType,
+              responseOptions: i.responseOptions,
+              isPhotoRequired: i.isPhotoRequired,
+            }),
           )}
         />
       )}
