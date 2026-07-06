@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server'
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, eq, gt, inArray, ne } from 'drizzle-orm'
 import { db } from '@/db'
-import { conversationParticipants, messages, users } from '@/db/schema'
+import { conversationParticipants, messageReactions, messages, users } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 
 const MAX_ATTACH = 6_000_000 // ~4.4MB once base64-encoded
+const TYPING_WINDOW_MS = 6_000
 
 async function isParticipant(conversationId: string, userId: string) {
   const [p] = await db
@@ -24,7 +25,7 @@ async function isParticipant(conversationId: string, userId: string) {
 export async function GET(req: NextRequest) {
   const { userId } = await verifySession()
   const conversationId = req.nextUrl.searchParams.get('conversationId')
-  if (!conversationId) return Response.json({ messages: [] })
+  if (!conversationId) return Response.json({ messages: [], meId: userId, typers: [] })
   if (!(await isParticipant(conversationId, userId)))
     return Response.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -45,6 +46,52 @@ export async function GET(req: NextRequest) {
     .orderBy(asc(messages.createdAt))
     .limit(500)
 
+  const msgIds = rows.map((r) => r.id)
+  const reactionsByMsg = new Map<string, Map<string, { count: number; mine: boolean }>>()
+  if (msgIds.length > 0) {
+    const reactionRows = await db
+      .select({
+        messageId: messageReactions.messageId,
+        userId: messageReactions.userId,
+        emoji: messageReactions.emoji,
+      })
+      .from(messageReactions)
+      .where(inArray(messageReactions.messageId, msgIds))
+
+    for (const r of reactionRows) {
+      let byEmoji = reactionsByMsg.get(r.messageId)
+      if (!byEmoji) {
+        byEmoji = new Map()
+        reactionsByMsg.set(r.messageId, byEmoji)
+      }
+      const cur = byEmoji.get(r.emoji) ?? { count: 0, mine: false }
+      cur.count += 1
+      if (r.userId === userId) cur.mine = true
+      byEmoji.set(r.emoji, cur)
+    }
+  }
+
+  const messagesWithReactions = rows.map((r) => ({
+    ...r,
+    reactions: Array.from(reactionsByMsg.get(r.id)?.entries() ?? []).map(([emoji, v]) => ({
+      emoji,
+      count: v.count,
+      mine: v.mine,
+    })),
+  }))
+
+  const typers = await db
+    .select({ id: users.id, name: users.name })
+    .from(conversationParticipants)
+    .innerJoin(users, eq(conversationParticipants.userId, users.id))
+    .where(
+      and(
+        eq(conversationParticipants.conversationId, conversationId),
+        ne(conversationParticipants.userId, userId),
+        gt(conversationParticipants.lastTypingAt, new Date(Date.now() - TYPING_WINDOW_MS)),
+      ),
+    )
+
   await db
     .update(conversationParticipants)
     .set({ lastReadAt: new Date() })
@@ -55,7 +102,7 @@ export async function GET(req: NextRequest) {
       ),
     )
 
-  return Response.json({ messages: rows, meId: userId })
+  return Response.json({ messages: messagesWithReactions, meId: userId, typers })
 }
 
 // Send a message (optionally with an attachment).
