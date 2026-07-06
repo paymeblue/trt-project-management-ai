@@ -210,6 +210,8 @@ export const processDiagrams = pgTable('process_diagrams', {
 export const conversations = pgTable('conversations', {
   id:        uuid('id').primaryKey().defaultRandom(),
   createdBy: uuid('created_by').notNull().references(() => users.id),
+  title:     text('title'),                              // group title (null for 1:1)
+  isGroup:   boolean('is_group').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
@@ -218,6 +220,7 @@ export const conversationParticipants = pgTable('conversation_participants', {
   conversationId: uuid('conversation_id').notNull().references(() => conversations.id, { onDelete: 'cascade' }),
   userId:         uuid('user_id').notNull().references(() => users.id),
   lastReadAt:     timestamp('last_read_at'),   // for unread counts
+  lastTypingAt:   timestamp('last_typing_at'), // heartbeat for typing indicator
   createdAt:      timestamp('created_at').defaultNow().notNull(),
 })
 
@@ -232,6 +235,15 @@ export const messages = pgTable('messages', {
   attachmentType: text('attachment_type'),     // MIME type
   createdAt:      timestamp('created_at').defaultNow().notNull(),
 })
+
+// ── Message reactions (quick-260706-bpg — Slack-like reactions) ─────────
+export const messageReactions = pgTable('message_reactions', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  messageId: uuid('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
+  userId:    uuid('user_id').notNull().references(() => users.id),
+  emoji:     text('emoji').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [unique().on(t.messageId, t.userId, t.emoji)])
 
 // ── Auth Tokens (Phase 1 — email verification + password reset) ─────────
 export const verificationTokens = pgTable('verification_tokens', {
