@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Drawer } from 'vaul'
 import { gsap } from 'gsap'
 import { userRoleLabel } from '@/lib/workflow'
@@ -271,6 +272,9 @@ function MessageThread({
   setReactionPickerFor: (id: string | null) => void
   toggleReaction: (messageId: string, emoji: string) => void
 }) {
+  // Flip the reaction picker below the button when the message sits too close
+  // to the top of the scroll area — otherwise the drawer header covers it.
+  const [pickerBelow, setPickerBelow] = useState(false)
   return (
     <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
       {messages.length === 0 && (
@@ -311,14 +315,27 @@ function MessageThread({
               <div className="relative shrink-0 self-center opacity-0 transition group-hover:opacity-100">
                 <button
                   type="button"
-                  onClick={() => setReactionPickerFor(reactionPickerFor === m.id ? null : m.id)}
+                  onClick={(e) => {
+                    if (reactionPickerFor === m.id) {
+                      setReactionPickerFor(null)
+                      return
+                    }
+                    const btnTop = e.currentTarget.getBoundingClientRect().top
+                    const areaTop = scrollRef.current?.getBoundingClientRect().top ?? 0
+                    setPickerBelow(btnTop - areaTop < 110)
+                    setReactionPickerFor(m.id)
+                  }}
                   aria-label="Add reaction"
                   className="flex h-6 w-6 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700"
                 >
                   <span className="material-symbols-outlined text-[16px]">add_reaction</span>
                 </button>
                 {reactionPickerFor === m.id && (
-                  <div className="absolute bottom-full right-0 z-20 mb-1 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
+                  <div
+                    className={`absolute right-0 z-20 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-lg ${
+                      pickerBelow ? 'top-full mt-1' : 'bottom-full mb-1'
+                    }`}
+                  >
                     <div className="grid grid-cols-8 gap-1">
                       {EMOJIS.slice(0, 16).map((e) => (
                         <button
@@ -599,11 +616,23 @@ export default function ChatDrawer() {
       })
       const d: { conversationId?: string } = await r.json()
       if (d.conversationId) {
+        // Optimistic thread header — the polled conversations list catches up later.
+        const title = groupTitle.trim()
+        const members = users.filter((u) => groupSelected.includes(u.id))
         lastMsgId.current = ''
         resetGroupPicker()
         setActiveConvId(d.conversationId)
         setActiveOther(null)
-        setActiveConv(null)
+        setActiveConv({
+          conversationId: d.conversationId,
+          other: members[0],
+          others: members,
+          isGroup: true,
+          title: title || null,
+          name: title || 'Group chat',
+          lastMessage: null,
+          unread: 0,
+        })
         setMessages([])
         setTypers([])
         loadConversations()
@@ -743,7 +772,9 @@ export default function ChatDrawer() {
   // ── Fullscreen Slack-like layout: sidebar (conversation list) + thread ──
 
   if (expanded) {
-    return (
+    // Portal to <body>: the header this component mounts in creates a sticky
+    // stacking context that would otherwise paint page content over the panel.
+    return createPortal(
       <div ref={panelRef} className="fixed inset-0 z-50 flex bg-white" role="dialog" aria-label="Team chat">
         <aside className="hidden w-72 shrink-0 flex-col border-r border-gray-200 bg-gray-50 md:flex">
           <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
@@ -859,7 +890,8 @@ export default function ChatDrawer() {
             </div>
           )}
         </div>
-      </div>
+      </div>,
+      document.body,
     )
   }
 

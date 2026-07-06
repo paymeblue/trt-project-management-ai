@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { and, asc, eq, gt, inArray, ne } from 'drizzle-orm'
+import { and, asc, eq, gt, inArray, ne, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { conversationParticipants, messageReactions, messages, users } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
@@ -88,13 +88,15 @@ export async function GET(req: NextRequest) {
       and(
         eq(conversationParticipants.conversationId, conversationId),
         ne(conversationParticipants.userId, userId),
-        gt(conversationParticipants.lastTypingAt, new Date(Date.now() - TYPING_WINDOW_MS)),
+        // Compare against the DB clock — lastTypingAt is stamped with now() in
+        // the typing route; a JS Date here would be skewed by the server's UTC offset.
+        gt(conversationParticipants.lastTypingAt, sql`now() - interval '${sql.raw(String(TYPING_WINDOW_MS / 1000))} seconds'`),
       ),
     )
 
   await db
     .update(conversationParticipants)
-    .set({ lastReadAt: new Date() })
+    .set({ lastReadAt: sql`now()` })
     .where(
       and(
         eq(conversationParticipants.conversationId, conversationId),
@@ -130,7 +132,7 @@ export async function POST(req: NextRequest) {
 
   await db
     .update(conversationParticipants)
-    .set({ lastReadAt: new Date() })
+    .set({ lastReadAt: sql`now()` })
     .where(
       and(
         eq(conversationParticipants.conversationId, conversationId),
