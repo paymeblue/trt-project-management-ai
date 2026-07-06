@@ -134,3 +134,14 @@ None - no external service configuration required. Schema changes were applied d
 - FOUND commit: 12d83ca (Task 1)
 - FOUND commit: 87fbeb5 (Task 2)
 - FOUND commit: f26253d (Task 3)
+
+## Post-Execution Browser Verification (orchestrator, 2026-07-06)
+
+Live two-session browser test (dev server + agent-browser, seeded Super Admin + Operations accounts). All four features confirmed working end-to-end, after fixing four issues found only in the browser (commit 618ea95):
+
+1. **Typing indicator never displayed** — `lastTypingAt` written with JS `new Date()` landed 1 hour behind the DB clock on this UTC+1 host (naive `timestamp` column), so the 6s freshness window never matched. Fixed by stamping with SQL `now()` and comparing against `now() - interval` in the typers query; `lastReadAt` writes switched to `now()` for the same reason. Verified: "Operations is typing…" renders in the other participant's open thread while typing.
+2. **Fullscreen panel painted underneath page content** — the header the drawer mounts in creates a sticky stacking context. Fixed by rendering the expanded panel via `createPortal(document.body)`. Verified: fullscreen Slack-like layout (sidebar + thread) renders fully opaque; collapse returns to the drawer.
+3. **Reaction picker unclickable for messages near the top of the thread** (opened upward under the drawer header). Fixed by flipping it below the button within 110px of the scroll-area top. Verified: 👍 reaction applied, chip with count renders.
+4. **Freshly created group showed generic "Conversation" header** until the next list poll. Fixed with an optimistic `activeConv` carrying the chosen title.
+
+Also verified live: group creation (Direct/Group tabs, multi-select, name field), group appears in list with icon + unread badge for other participants, emoji picker inserts into composer, message with emoji delivers cross-user. Test conversation removed from the dev DB afterwards. `tsc`, lint (1 pre-existing warning), and 74/74 vitest pass after fixes.
