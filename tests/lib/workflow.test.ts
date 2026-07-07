@@ -125,9 +125,9 @@ describe('misc helpers', () => {
 })
 
 describe('v1.1 governance (REQ-G01, G04, G07)', () => {
-  it('canEditChecklist is super_admin only', () => {
+  it('canEditChecklist allows super_admin and operations, not PM roles', () => {
     expect(canEditChecklist(Roles.SuperAdmin)).toBe(true)
-    expect(canEditChecklist(Roles.Operations)).toBe(false)
+    expect(canEditChecklist(Roles.Operations)).toBe(true)
     expect(canEditChecklist(Roles.FactoryPm)).toBe(false)
     expect(canEditChecklist(Roles.SitePm)).toBe(false)
   })

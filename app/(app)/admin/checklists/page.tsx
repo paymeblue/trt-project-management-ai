@@ -2,7 +2,7 @@ import { and, asc, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { checklistDefinitions, checklistTemplateItems } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
-import { Roles } from '@/lib/workflow'
+import { canEditChecklist, type UserRole } from '@/lib/workflow'
 
 const TARGET_LABEL: Record<string, string> = {
   factory_pm: 'Factory PM',
@@ -17,8 +17,8 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-// Super-admin entry point to author checklist questions (REQ-G01) without needing
-// to navigate into a specific project's step.
+// Admin entry point (Super Admin + Operations) to author checklist questions
+// without needing to navigate into a specific project's step.
 export default async function AdminChecklistsPage({
   searchParams,
 }: {
@@ -27,12 +27,12 @@ export default async function AdminChecklistsPage({
   const { role } = await verifySession()
   const { def: selectedSlug } = await searchParams
 
-  if (role !== Roles.SuperAdmin) {
+  if (!canEditChecklist(role as UserRole)) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-8">
         <h1 className="mb-2 text-2xl font-bold text-gray-900">Checklists</h1>
         <p className="rounded-lg border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-400">
-          Only a super admin can edit checklists.
+          Only a super admin or Operations can edit checklists.
         </p>
       </div>
     )
@@ -75,8 +75,8 @@ export default async function AdminChecklistsPage({
       </a>
       <h1 className="mb-1 mt-2 text-2xl font-bold text-gray-900">Checklists</h1>
       <p className="mb-6 text-sm text-gray-500">
-        Create a checklist, or pick one to edit its questions. Only super admins can author
-        checklists.
+        Create a checklist, or pick one to edit its questions. Only Super Admin and Operations
+        can author checklists.
       </p>
 
       <CreateChecklistForm />
