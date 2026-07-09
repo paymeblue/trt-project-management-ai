@@ -1,18 +1,55 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { WORKFLOW_STEPS } from '@/lib/workflow'
 
-const { dbMock, verifyMock, selectLimitMock, insertValuesMock, setMock, updateWhereMock } =
-  vi.hoisted(() => {
-    const selectLimitMock = vi.fn()
-    const insertValuesMock = vi.fn()
-    const updateWhereMock = vi.fn()
-    const setMock = vi.fn(() => ({ where: updateWhereMock }))
-    const dbMock = {
-      select: () => ({ from: () => ({ where: () => ({ limit: selectLimitMock }) }) }),
-      insert: () => ({ values: insertValuesMock }),
-      update: () => ({ set: setMock }),
-    }
-    return { dbMock, verifyMock: vi.fn(), selectLimitMock, insertValuesMock, setMock, updateWhereMock }
-  })
+// Rows shaped like workflowStepDefinitions.$inferSelect, derived from the
+// legacy WORKFLOW_STEPS array — feeds getLiveWorkflowSteps()'s .orderBy()
+// query (advanceProjectStep now resolves steps via the live graph, plan 17-02).
+const liveStepDefRows = WORKFLOW_STEPS.map((s) => ({
+  id: `stepdef-${s.n}`,
+  graph: 'live',
+  stepKey: s.key,
+  label: s.label,
+  role: s.role,
+  fulfillmentKind: s.kind,
+  checklistSlug: s.slug ?? null,
+  targetRole: null,
+  isOptional: false,
+  orderIndex: s.n,
+}))
+
+const {
+  dbMock,
+  verifyMock,
+  selectLimitMock,
+  selectOrderByMock,
+  insertValuesMock,
+  setMock,
+  updateWhereMock,
+} = vi.hoisted(() => {
+  const selectLimitMock = vi.fn()
+  const selectOrderByMock = vi.fn()
+  const insertValuesMock = vi.fn()
+  const updateWhereMock = vi.fn()
+  const setMock = vi.fn(() => ({ where: updateWhereMock }))
+  const dbMock = {
+    select: () => ({
+      from: () => ({
+        where: () => ({ limit: selectLimitMock, orderBy: selectOrderByMock }),
+      }),
+    }),
+    insert: () => ({ values: insertValuesMock }),
+    update: () => ({ set: setMock }),
+  }
+  return {
+    dbMock,
+    verifyMock: vi.fn(),
+    selectLimitMock,
+    selectOrderByMock,
+    insertValuesMock,
+    setMock,
+    updateWhereMock,
+  }
+})
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/db', () => ({ db: dbMock }))
@@ -24,6 +61,7 @@ beforeEach(() => {
   vi.resetModules()
   insertValuesMock.mockResolvedValue(undefined)
   updateWhereMock.mockResolvedValue(undefined)
+  selectOrderByMock.mockResolvedValue(liveStepDefRows)
 })
 
 describe('advanceProjectStep', () => {
