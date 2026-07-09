@@ -206,15 +206,15 @@
 
 ### Workflow engine (core)
 
-- [ ] **WF-01**: Workflow steps are stored in the database (not the hardcoded `WORKFLOW_STEPS` array in `lib/workflow.ts`), each with an order, key, label, responsible role, and fulfillment kind.
+- [x] **WF-01**: Workflow steps are stored in the database (not the hardcoded `WORKFLOW_STEPS` array in `lib/workflow.ts`), each with an order, key, label, responsible role, and fulfillment kind.
   - *Success:* A `workflow_step_definitions` (or equivalent) table is the single source of truth; `lib/workflow.ts` reads from it instead of a literal array.
 - [ ] **WF-02**: A project's `currentStep` resolves against the DB-defined workflow graph instead of a fixed array index, so reordering/adding/removing steps doesn't require a code deploy.
   - *Success:* Advancing a project's step reads the live graph; a step inserted via the configurator immediately appears in the gate/board/my-work without a redeploy.
-- [ ] **WF-03**: The engine supports fulfillment kinds beyond the current `creation`/`checklist`/`readiness`/`ack`: yes/no with an optional file upload, approval (two-party send/receive), and assignment (actor picks a user of a target role).
+- [x] **WF-03**: The engine supports fulfillment kinds beyond the current `creation`/`checklist`/`readiness`/`ack`: yes/no with an optional file upload, approval (two-party send/receive), and assignment (actor picks a user of a target role).
   - *Success:* Each new kind renders its correct UI (yes/no toggle + optional upload button; send/receive pair; user picker) and gates advancement correctly.
 - [ ] **WF-04**: A step can be marked optional by the super admin; an optional step can be skipped without blocking the project's advancement, while a required step cannot.
   - *Success:* Skipping an optional step advances `currentStep`; attempting to skip a required step is rejected server-side.
-- [ ] **WF-05**: The existing parallel/join pattern (Delivery Project Checklist + Delivery Readiness both feeding into Project Check Report) is representable in the new graph, not just a coincidence of sequential numbering.
+- [x] **WF-05**: The existing parallel/join pattern (Delivery Project Checklist + Delivery Readiness both feeding into Project Check Report) is representable in the new graph, not just a coincidence of sequential numbering.
   - *Success:* Both branch steps must complete before the join step becomes actionable; either can complete first.
 - [ ] **WF-06**: Every existing step from Confirmation through Sign Off is migrated into the new engine unchanged — same key, role, checklist slug, and relative order to each other.
   - *Success:* A project created before this migration and one created after both see identical Confirmation→Sign Off behavior; no existing checklist slug or role assignment changes.

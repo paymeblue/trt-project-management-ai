@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
-status: planning
-last_updated: "2026-07-09T10:12:31.750Z"
+status: executing
+stopped_at: Completed 16-01-PLAN.md (workflow-graph schema pushed live)
+last_updated: "2026-07-09T11:09:54.743Z"
 last_activity: 2026-07-09
 progress:
-  total_phases: 7
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 21
+  completed_phases: 1
+  total_plans: 10
+  completed_plans: 6
+  percent: 5
 ---
 
 # Project State
@@ -20,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-09)
 
 **Core value:** A PM on the floor or on-site can complete a structured checklist (with photo evidence) on their phone and have it permanently recorded — replacing paper, with role-scoped visibility and read-only Super Admin oversight.
-**Current focus:** Milestone v2.0 — Configurable Production Workflow Engine (phases 16-22)
+**Current focus:** Phase 16 — Workflow Engine Core
 
 ## Current Position
 
-Phase: Not started (roadmap created, ready to plan Phase 16)
-Plan: —
-Status: Roadmapped
-Last activity: 2026-07-09 — Milestone v2.0 roadmap created (phases 16-22)
+Phase: 16 (Workflow Engine Core) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-07-09
 
 ## Performance Metrics
 
@@ -44,6 +45,8 @@ Last activity: 2026-07-09 — Milestone v2.0 roadmap created (phases 16-22)
 | - | - | - | - |
 
 ## Accumulated Context
+
+| Phase 16 P01 | 25min | 2 tasks | 1 files |
 
 ### Decisions
 
@@ -63,6 +66,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - MILESTONE v1.1 EXTENSION (Phase 15, 2026-07-09): #7 delivered — `design` and `production` added to `roleEnum`, each with a dashboard shell (nav + landing page) following the existing role pattern; `userRoleLabel`/`roleDashboard` centralized in `lib/workflow.ts`; departments own no workflow steps yet (additive later, now becoming the basis for v2.0's `design`/`ops_factory`/etc. usage).
 - MILESTONE v2.0 (2026-07-09): Configurable Production Workflow Engine. Locked: (1) `WORKFLOW_STEPS` hardcoded array replaced by a DB-driven step graph read by `lib/workflow.ts`; (2) new fulfillment kinds beyond creation/checklist/readiness/ack — yes/no+optional-upload, approval (two-party send/receive), assignment (actor picks a user of a target role); (3) steps can be optional (skippable) vs required, configurable by super admin; (4) the existing parallel/join pair (Delivery Project Checklist + Delivery Readiness → Project Check Report) must be natively representable in the graph, not incidental numbering; (5) every step from Confirmation through Sign Off migrates UNCHANGED (byte-for-byte behavior) — this is the single highest-risk phase (Phase 17), isolated and explicitly verified against pre- and post-migration projects; (6) Workflow Configurator is super-admin-only AND gated behind a separate configuration PIN (default `0000`, changeable, hint shown) — an additional access-control layer on top of super_admin auth, not a replacement; (7) new roles `customer_care`, `ops_factory`, `factory_manager` added to the role enum with dashboard shells following the Phase 15 pattern; super-admin "titles" (Head of Design, MD, ED, COO, CPO, etc.) stay in `users.position`, no new role enum values for them; (8) `projects` gains an independent `paid`/`unpaid` payment status (separate from `not_delivered`/`delivered`/`paused`), with TWO distinct payment gates — initial toggle by Head of Operations gating the design phase, and a second Invoicing checkpoint after Brief Taking gating the Design Stage; (9) 14 new front-of-funnel/production-authorization stages seeded as data in the new engine, split across two phases: Phase 21 (Intake → Design Approval, pre-Confirmation) and Phase 22 (Confirmation2 → Factory Manager QC, inserted ahead of the existing Materials/Accessories Readiness step); (10) reuse existing `checklist_definitions`/`checklist_template_items` tables for checklist-kind step content — only the step *graph* itself becomes data-driven, checklists were already data-driven.
 - Phase numbering for v2.0 continues from 15 (last completed phase): 16, 17, 18, 19, 20, 21, 22.
+- [Phase 16]: Named 3 long FK constraints explicitly (psc_step_def_id_fk, wse_from_step_id_fk, wss_step_def_id_fk) in db/schema.ts to avoid Postgres 63-char identifier truncation causing drizzle-kit push non-idempotency
 
 ### Pending Todos
 
@@ -93,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-09
-Stopped at: Milestone v2.0 roadmapped (Phases 16-22, 30/30 requirements mapped) — ready to plan Phase 16
-Resume file: None (run /gsd:plan-phase 16)
+Last session: 2026-07-09T11:09:54.736Z
+Stopped at: Completed 16-01-PLAN.md (workflow-graph schema pushed live)
+Resume file: None
