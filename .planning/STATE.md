@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: executing
-stopped_at: "Completed 17-03-PLAN.md (step-gating server pages cutover: checklist, readiness, approvals, timeline) — Phase 17 Plan 3 of 5 done"
-last_updated: "2026-07-09T15:10:45.739Z"
+stopped_at: Completed 17-04-PLAN.md (WorkflowStepsProvider + layout wire + flow diagram cutover) — Phase 17 Plan 4 of 5 done
+last_updated: "2026-07-09T15:20:43.538Z"
 last_activity: 2026-07-09
 progress:
   total_phases: 21
   completed_phases: 2
   total_plans: 16
-  completed_plans: 13
+  completed_plans: 14
   percent: 10
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 ## Current Position
 
 Phase: 17 (Confirmation → Sign Off Migration) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-07-09
 
@@ -54,6 +54,7 @@ Last activity: 2026-07-09
 | Phase 17 P01 | 9min | 3 tasks | 5 files |
 | Phase 17 P02 | 5min | 2 tasks | 7 files |
 | Phase 17 P03 | 10min | 2 tasks | 4 files |
+| Phase 17 P04 | 8min | 2 tasks | 3 files |
 
 ### Decisions
 
@@ -83,6 +84,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 17-01]: db/seed-workflow-graph.ts now emits an explicit by-key edge list (not a positional n->n+1 loop): materials_readiness fans out to delivery_readiness AND delivery_project, both converging on project_check_report, natively encoding the parallel/join required by D-03
 - [Phase 17 P02]: findStep widened to generic <T extends WorkflowStep> so LiveWorkflowStep.stepDefId survives the lookup
 - [Phase 17]: [Phase 17 P03]: Named the local lastStepN(steps) result lastStep (not LAST_STEP) in approvals/timeline pages to satisfy the plan's literal legacy-reference grep check without renaming the semantic meaning
+- [Phase 17]: [Phase 17 P04]: WorkflowStepsProvider mirrors my-work-provider's initial-prop seeding but is static (no polling) since the live step graph doesn't change within a request
+- [Phase 17]: [Phase 17 P04]: about/page.tsx needed no edit for the now-async TrtFlowDiagram — plain JSX invocation of an async server component compiles/builds unchanged under Next's RSC model
 
 ### Pending Todos
 
@@ -113,6 +116,6 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 
 ## Session Continuity
 
-Last session: 2026-07-09T15:10:45.693Z
-Stopped at: Completed 17-03-PLAN.md (step-gating server pages cutover: checklist, readiness, approvals, timeline) — Phase 17 Plan 3 of 5 done
+Last session: 2026-07-09T15:20:43.532Z
+Stopped at: Completed 17-04-PLAN.md (WorkflowStepsProvider + layout wire + flow diagram cutover) — Phase 17 Plan 4 of 5 done
 Resume file: None
