@@ -8,6 +8,7 @@ import {
   uuid,
   jsonb,
   unique,
+  foreignKey,
 } from 'drizzle-orm/pg-core'
 
 // ── Enums ────────────────────────────────────────────────────────────────
@@ -56,13 +57,19 @@ export const projectStepCompletions = pgTable('project_step_completions', {
   projectId:   uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   stepKey:     text('step_key').notNull(),               // WorkflowStep.key (legacy live rows)
   stepN:       integer('step_n').notNull(),              // WorkflowStep.n (legacy live rows)
-  stepDefId:   uuid('step_def_id').references(() => workflowStepDefinitions.id, { onDelete: 'cascade' }), // graph-engine rows key by this instead
+  stepDefId:   uuid('step_def_id'),                       // graph-engine rows key by this instead; FK below (explicit short name — default name exceeds Postgres' 63-char identifier limit and gets silently truncated, causing drizzle-kit push to churn it every run)
   graph:       text('graph').default('live').notNull(),  // isolates Phase 16 test graph from the live graph
   skipped:     boolean('skipped').default(false).notNull(), // skipped-optional-step recorded as a satisfied predecessor for join readiness
   completedBy: uuid('completed_by').notNull().references(() => users.id),
   notes:       text('notes'),
   completedAt: timestamp('completed_at').defaultNow().notNull(),
-})
+}, (t) => [
+  foreignKey({
+    columns: [t.stepDefId],
+    foreignColumns: [workflowStepDefinitions.id],
+    name: 'psc_step_def_id_fk',
+  }).onDelete('cascade'),
+])
 
 // ── Workflow Step Definitions (v2.0 — configurable workflow graph, WF-01) ──
 // A single step in a workflow graph: order, key, label, responsible role, and
@@ -89,10 +96,17 @@ export const workflowStepDefinitions = pgTable('workflow_step_definitions', {
 export const workflowStepEdges = pgTable('workflow_step_edges', {
   id:         uuid('id').primaryKey().defaultRandom(),
   graph:      text('graph').default('live').notNull(),
-  fromStepId: uuid('from_step_id').notNull().references(() => workflowStepDefinitions.id, { onDelete: 'cascade' }),
+  fromStepId: uuid('from_step_id').notNull(),             // FK below (explicit short name — default name exceeds Postgres' 63-char identifier limit)
   toStepId:   uuid('to_step_id').notNull().references(() => workflowStepDefinitions.id, { onDelete: 'cascade' }),
   createdAt:  timestamp('created_at').defaultNow().notNull(),
-}, (t) => ({ fromToUq: unique().on(t.fromStepId, t.toStepId) }))
+}, (t) => [
+  unique().on(t.fromStepId, t.toStepId),
+  foreignKey({
+    columns: [t.fromStepId],
+    foreignColumns: [workflowStepDefinitions.id],
+    name: 'wse_from_step_id_fk',
+  }).onDelete('cascade'),
+])
 
 // ── Workflow Step States (v2.0 — per-project runtime state, WF-03) ───────
 // Runtime state for the new fulfillment kinds (yes_no_upload, approval,
@@ -100,7 +114,7 @@ export const workflowStepEdges = pgTable('workflow_step_edges', {
 export const workflowStepStates = pgTable('workflow_step_states', {
   id:             uuid('id').primaryKey().defaultRandom(),
   projectId:      uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
-  stepDefId:      uuid('step_def_id').notNull().references(() => workflowStepDefinitions.id, { onDelete: 'cascade' }),
+  stepDefId:      uuid('step_def_id').notNull(),          // FK below (explicit short name — default name exceeds Postgres' 63-char identifier limit)
   status:         text('status').default('pending').notNull(),   // 'pending' | 'sent' | 'complete'
   answer:         text('answer'),                                 // 'yes' | 'no' for yes_no_upload
   uploadData:     text('upload_data'),                            // base64 data URL, same pattern as checklists.photoData
@@ -110,7 +124,14 @@ export const workflowStepStates = pgTable('workflow_step_states', {
   receivedBy:     uuid('received_by').references(() => users.id),     // approval receive
   actedBy:        uuid('acted_by').references(() => users.id),
   updatedAt:      timestamp('updated_at').defaultNow().notNull(),
-}, (t) => ({ projectStepDefUq: unique().on(t.projectId, t.stepDefId) }))
+}, (t) => [
+  unique().on(t.projectId, t.stepDefId),
+  foreignKey({
+    columns: [t.stepDefId],
+    foreignColumns: [workflowStepDefinitions.id],
+    name: 'wss_step_def_id_fk',
+  }).onDelete('cascade'),
+])
 
 // Per-step deadlines set by Operations at project creation (REQ-G05) so each
 // actor is accountable to their own step, not just one project-wide date.
