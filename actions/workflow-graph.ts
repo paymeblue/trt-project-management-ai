@@ -1,6 +1,9 @@
 'use server'
 
+import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { db } from '@/db'
+import { users } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { canRoleActOnStep } from '@/lib/workflow'
 import {
@@ -38,6 +41,7 @@ const ENGINE_ERROR_MESSAGES: Record<string, string> = {
   'approval-requires-two-parties':
     'You cannot approve your own submission — a different person must receive it.',
   'assignee-role-mismatch': 'The selected user does not have the required role for this step.',
+  'position-mismatch': 'This step is restricted to a specific title, and your account is not set to it.',
 }
 
 function engineErrorMessage(err: unknown): string {
@@ -47,13 +51,23 @@ function engineErrorMessage(err: unknown): string {
 
 type StepAuth = { ok: true; userId: string } | { ok: false; message: string }
 
-// Resolves the step, verifies the session, and gates on role — every action
-// below runs this before touching the write engine (T-16-05).
+// Resolves the step, verifies the session, and gates on role + (if set)
+// exact position — every action below runs this before touching the write
+// engine (T-16-05). Position is fetched fresh from the DB, not the session
+// (v2.0 Phase 19 — `users.position` is not carried in the JWT since it can
+// change post-signup via the self-service profile flow, and a stale claim
+// would silently under- or over-authorize).
 async function authorizeStep(stepDefId: string): Promise<StepAuth> {
   const { userId, role } = await verifySession()
   const step = await getStepById(stepDefId)
   if (!step) return { ok: false, message: 'That step could not be found.' }
   if (!canRoleActOnStep(step.role, role)) return { ok: false, message: 'Not your step.' }
+  if (step.requiredPosition) {
+    const [actingUser] = await db.select({ position: users.position }).from(users).where(eq(users.id, userId)).limit(1)
+    if (actingUser?.position !== step.requiredPosition) {
+      return { ok: false, message: engineErrorMessage(new Error('position-mismatch')) }
+    }
+  }
   return { ok: true, userId }
 }
 

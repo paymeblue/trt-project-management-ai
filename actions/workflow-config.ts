@@ -12,6 +12,7 @@ import {
   updateGraphStep,
   deleteGraphStep,
   moveGraphStep,
+  moveGraphStepToIndex,
 } from '@/lib/workflow-graph'
 
 // ── PIN-gate session cookie (CFG-02) ──────────────────────────────────────
@@ -95,7 +96,8 @@ export type AddStepInput = {
   role: WorkflowRole
   fulfillmentKind: StepKind
   checklistSlug?: string
-  targetRole?: WorkflowRole
+  targetRoles?: WorkflowRole[]
+  requiredPosition?: string
   isOptional?: boolean
 }
 
@@ -111,7 +113,8 @@ export async function addConfigStepAction(input: AddStepInput): Promise<ConfigAc
     role: input.role,
     fulfillmentKind: input.fulfillmentKind,
     checklistSlug: input.checklistSlug || null,
-    targetRole: input.targetRole || null,
+    targetRoles: input.targetRoles?.length ? input.targetRoles : null,
+    requiredPosition: input.requiredPosition?.trim() || null,
     isOptional: input.isOptional ?? false,
   })
   revalidatePath('/admin/workflow-configurator')
@@ -125,7 +128,8 @@ export type UpdateStepInput = {
   role?: WorkflowRole
   fulfillmentKind?: StepKind
   checklistSlug?: string | null
-  targetRole?: WorkflowRole | null
+  targetRoles?: WorkflowRole[] | null
+  requiredPosition?: string | null
   isOptional?: boolean
 }
 
@@ -134,7 +138,10 @@ export async function updateConfigStepAction(input: UpdateStepInput): Promise<Co
   if (input.label !== undefined && !input.label.trim()) {
     return { status: 'error', message: 'Label cannot be empty.' }
   }
-  const res = await updateGraphStep(input)
+  const res = await updateGraphStep({
+    ...input,
+    targetRoles: input.targetRoles?.length ? input.targetRoles : input.targetRoles === null ? null : undefined,
+  })
   revalidatePath('/admin/workflow-configurator')
   revalidatePath('/about')
   return { status: res.ok ? 'success' : 'error', message: res.message }
@@ -155,6 +162,19 @@ export async function moveConfigStepAction(
 ): Promise<ConfigActionState> {
   await requireUnlockedAdmin()
   const res = await moveGraphStep({ graph, stepId, direction })
+  revalidatePath('/admin/workflow-configurator')
+  revalidatePath('/about')
+  return { status: res.ok ? 'success' : 'error', message: res.message }
+}
+
+/** Drag-and-drop reorder: moves stepId to an arbitrary target index. */
+export async function moveConfigStepToIndexAction(
+  graph: string,
+  stepId: string,
+  targetIndex: number,
+): Promise<ConfigActionState> {
+  await requireUnlockedAdmin()
+  const res = await moveGraphStepToIndex({ graph, stepId, targetIndex })
   revalidatePath('/admin/workflow-configurator')
   revalidatePath('/about')
   return { status: res.ok ? 'success' : 'error', message: res.message }

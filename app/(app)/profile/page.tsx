@@ -43,6 +43,13 @@ export default async function ProfilePage() {
             placeholder="e.g. Senior Site Manager"
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
+          <p className="mt-1 text-xs text-gray-400">
+            Some workflow steps are restricted to an exact position — use{' '}
+            <code className="rounded bg-gray-100 px-1">head_designer</code>,{' '}
+            <code className="rounded bg-gray-100 px-1">head_of_operations</code>, or{' '}
+            <code className="rounded bg-gray-100 px-1">chief_production_officer</code> if you hold one of
+            those titles.
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>

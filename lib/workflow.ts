@@ -21,6 +21,19 @@ export const Roles = {
   // v2.0: intake role — creates the Project Intent step (STG-01); owns a
   // workflow step, so it's also part of WorkflowRole below.
   CustomerCare: 'customer_care',
+  // v2.0 Phase 19/21: separated from Design (resolved 2026-07-09) — owns
+  // Design/Architect assignment-pool steps, also part of WorkflowRole.
+  Architect: 'architect',
+} as const
+
+// v2.0 Phase 19 (ad hoc): known `users.position` values that gate a step via
+// `requiredPosition`. Deliberately app-level constants, not a DB enum yet —
+// `users.position` stays free text until formal Phase 19 execution converts
+// it, to avoid migration risk under this ad hoc build (see db/schema.ts).
+export const Positions = {
+  HeadOfOperations: 'head_of_operations',
+  HeadDesigner: 'head_designer',
+  ChiefProductionOfficer: 'chief_production_officer',
 } as const
 
 export type UserRole = (typeof Roles)[keyof typeof Roles]
@@ -30,6 +43,8 @@ export type WorkflowRole =
   | typeof Roles.FactoryPm
   | typeof Roles.SuperAdmin
   | typeof Roles.CustomerCare
+  | typeof Roles.Design
+  | typeof Roles.Architect
 export type StepKind =
   | 'creation'
   | 'checklist'
@@ -76,7 +91,14 @@ export type GraphStep = {
   role: WorkflowRole
   kind: StepKind
   slug?: string | null
-  targetRole?: WorkflowRole | null
+  // Pool of roles an `assignment`-kind step's actor may pick a user from
+  // (v2.0 Phase 19: widened from a single role to a list — e.g. Head
+  // Designer picks from `design` OR `architect`).
+  targetRoles?: WorkflowRole[] | null
+  // v2.0 Phase 19 (ad hoc): narrows this role-gated step to one exact
+  // `users.position` value. null = any user with `role` may act (unchanged
+  // legacy behavior).
+  requiredPosition?: string | null
   isOptional: boolean
   orderIndex: number
 }
@@ -113,6 +135,8 @@ const ROLE_LABELS: Record<WorkflowRole, string> = {
   factory_pm: 'Factory PM',
   super_admin: 'Super Admin',
   customer_care: 'Customer Care',
+  design: 'Design',
+  architect: 'Architect',
 }
 
 export function workflowRoleLabel(role: WorkflowRole): string {
@@ -129,6 +153,7 @@ const USER_ROLE_LABELS: Record<UserRole, string> = {
   design: 'Design',
   production: 'Production',
   customer_care: 'Customer Care',
+  architect: 'Architect',
 }
 
 export function userRoleLabel(role: string): string {
@@ -143,6 +168,7 @@ const ROLE_DASHBOARD: Record<UserRole, string> = {
   design: '/design/dashboard',
   production: '/production/dashboard',
   customer_care: '/customer-care/dashboard',
+  architect: '/architect/dashboard',
 }
 
 export function roleDashboard(role: string): string {
@@ -150,8 +176,14 @@ export function roleDashboard(role: string): string {
 }
 
 // Operations steps may also be actioned by a super_admin (full admin rights).
+// Design steps may also be actioned by an Architect (v2.0 Phase 19/21) — the
+// two roles share a step-acting pool even though Architect is its own role
+// for dashboard/assignment-target purposes (resolved 2026-07-09: a targeted
+// exception here, not a general role hierarchy, mirroring the existing
+// Operations/super_admin special case rather than widening `role` itself).
 export function canRoleActOnStep(stepRole: WorkflowRole, userRole: UserRole): boolean {
   if (stepRole === Roles.Operations) return isAdminRole(userRole)
+  if (stepRole === Roles.Design) return userRole === Roles.Design || userRole === Roles.Architect
   return stepRole === userRole
 }
 
@@ -166,6 +198,14 @@ export function stepHref(step: WorkflowStep, projectId: string): string | null {
   if (step.kind === 'checklist' && step.slug) return `/checklists/${step.slug}${q}`
   if (step.kind === 'readiness') return `/factory-pm/readiness${q}`
   if (step.kind === 'payment_confirmation') return `/admin/payment-confirmation${q}`
+  // v2.0 Phase 21: first LIVE use of these 3 kinds (Phase 17's migrated tail
+  // never used them, only the Phase 16 test graph did) — route through the
+  // same minimal /workflow/step renderer as the test graph, but explicitly
+  // pinned to graph=live (the route defaults to 'test' otherwise) and keyed
+  // by step.key, not step.n (getStepByKey looks up by key).
+  if (step.kind === 'yes_no_upload' || step.kind === 'approval' || step.kind === 'assignment') {
+    return `/workflow/step?projectId=${projectId}&step=${step.key}&graph=live`
+  }
   return null
 }
 

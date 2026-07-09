@@ -24,13 +24,15 @@ function toGraphStep(row: typeof workflowStepDefinitions.$inferSelect): GraphSte
     graph: row.graph,
     key: row.stepKey,
     label: row.label,
-    // `role`/`targetRole` are `roleEnum` at the DB layer (which also carries
-    // the department roles `design`/`production`), but workflow-step roles
-    // are always one of the 4 WorkflowRole values that actually own steps.
+    // `role`/`targetRoles` are `roleEnum` at the DB layer (which also carries
+    // the department roles `design`/`production`/`architect`), but
+    // workflow-step roles are always one of the WorkflowRole values that
+    // actually own steps.
     role: row.role as WorkflowRole,
     kind: row.fulfillmentKind,
     slug: row.checklistSlug,
-    targetRole: row.targetRole as WorkflowRole | null,
+    targetRoles: row.targetRoles as WorkflowRole[] | null,
+    requiredPosition: row.requiredPosition,
     isOptional: row.isOptional,
     orderIndex: row.orderIndex,
   }
@@ -308,7 +310,9 @@ export async function receiveApproval(opts: {
 
 /**
  * Records the assignment for an `assignment` step. Rejects an assignee whose
- * role doesn't match the step's targetRole (T-16-08).
+ * role isn't in the step's targetRoles pool (T-16-08; widened from a single
+ * role to a list in v2.0 Phase 19 so e.g. Head Designer can pick from either
+ * `design` or `architect`).
  */
 export async function assignUser(opts: {
   projectId: string
@@ -324,7 +328,13 @@ export async function assignUser(opts: {
     .from(users)
     .where(eq(users.id, opts.assignedUserId))
     .limit(1)
-  if (!assignee || assignee.role !== step.targetRole) throw new Error('assignee-role-mismatch')
+  // `assignee.role` is the full DB roleEnum (also carries `production`, which
+  // never owns a workflow step); targetRoles is narrower (WorkflowRole[]).
+  // The cast only affects the type checker — `.includes` still does a real
+  // runtime equality check, so a `production` user correctly falls through.
+  if (!assignee || !step.targetRoles?.includes(assignee.role as WorkflowRole)) {
+    throw new Error('assignee-role-mismatch')
+  }
 
   const now = new Date()
   await db
@@ -401,20 +411,20 @@ function edgeAdjacency(edges: { fromStepId: string; toStepId: string }[]) {
   return { incoming, outgoing }
 }
 
-export async function moveGraphStep(opts: {
-  graph: string
-  stepId: string
-  direction: 'up' | 'down'
-}): Promise<{ ok: boolean; message: string }> {
-  const steps = await getGraphSteps(opts.graph)
-  const idx = steps.findIndex((s) => s.id === opts.stepId)
-  if (idx === -1) return { ok: false, message: 'Step not found.' }
-  const swapIdx = opts.direction === 'up' ? idx - 1 : idx + 1
-  if (swapIdx < 0 || swapIdx >= steps.length) {
-    return { ok: false, message: 'That step is already at the edge.' }
-  }
-  const a = steps[idx]
-  const b = steps[swapIdx]
+// Swaps two ADJACENT steps' display order, rewiring their edge between them
+// iff both are "simple" (<=1 incoming/outgoing edge each) — a step that's
+// part of the one existing branch/join only gets its display position
+// changed, connections left untouched (Phase 18 scope trade). Shared by
+// moveGraphStep (single step, one swap) and moveGraphStepToIndex (drag-drop
+// to an arbitrary position, a chain of these same swaps).
+async function swapAdjacentSteps(
+  graph: string,
+  aId: string,
+  bId: string,
+): Promise<{ joinAdjacent: boolean }> {
+  const [a] = await db.select().from(workflowStepDefinitions).where(eq(workflowStepDefinitions.id, aId)).limit(1)
+  const [b] = await db.select().from(workflowStepDefinitions).where(eq(workflowStepDefinitions.id, bId)).limit(1)
+  if (!a || !b) throw new Error('step-not-found')
 
   await db
     .update(workflowStepDefinitions)
@@ -425,14 +435,11 @@ export async function moveGraphStep(opts: {
     .set({ orderIndex: a.orderIndex, updatedAt: new Date() })
     .where(eq(workflowStepDefinitions.id, b.id))
 
-  const edges = await getGraphEdges(opts.graph)
+  const edges = await getGraphEdges(graph)
   const { incoming, outgoing } = edgeAdjacency(edges)
   const isSimple = (id: string) => (incoming.get(id)?.length ?? 0) <= 1 && (outgoing.get(id)?.length ?? 0) <= 1
   if (!isSimple(a.id) || !isSimple(b.id)) {
-    return {
-      ok: true,
-      message: 'Display order updated. One of these steps is part of a branch/join — its connections were left unchanged; verify manually.',
-    }
+    return { joinAdjacent: true }
   }
 
   const forward = edges.find((e) => e.fromStepId === a.id && e.toStepId === b.id)
@@ -448,6 +455,64 @@ export async function moveGraphStep(opts: {
       .set({ fromStepId: a.id, toStepId: b.id })
       .where(and(eq(workflowStepEdges.fromStepId, b.id), eq(workflowStepEdges.toStepId, a.id)))
   }
+  return { joinAdjacent: false }
+}
+
+export async function moveGraphStep(opts: {
+  graph: string
+  stepId: string
+  direction: 'up' | 'down'
+}): Promise<{ ok: boolean; message: string }> {
+  const steps = await getGraphSteps(opts.graph)
+  const idx = steps.findIndex((s) => s.id === opts.stepId)
+  if (idx === -1) return { ok: false, message: 'Step not found.' }
+  const swapIdx = opts.direction === 'up' ? idx - 1 : idx + 1
+  if (swapIdx < 0 || swapIdx >= steps.length) {
+    return { ok: false, message: 'That step is already at the edge.' }
+  }
+  const { joinAdjacent } = await swapAdjacentSteps(opts.graph, steps[idx].id, steps[swapIdx].id)
+  if (joinAdjacent) {
+    return {
+      ok: true,
+      message: 'Display order updated. One of these steps is part of a branch/join — its connections were left unchanged; verify manually.',
+    }
+  }
+  return { ok: true, message: 'Order updated.' }
+}
+
+// Drag-and-drop reorder to an ARBITRARY position (CFG-01): moves stepId from
+// its current index to targetIndex via a chain of adjacent swaps, reusing
+// swapAdjacentSteps' branch/join safety rule on every hop — so a drag across
+// several positions is exactly as safe as doing each swap by hand.
+export async function moveGraphStepToIndex(opts: {
+  graph: string
+  stepId: string
+  targetIndex: number
+}): Promise<{ ok: boolean; message: string }> {
+  const steps = await getGraphSteps(opts.graph)
+  const startIdx = steps.findIndex((s) => s.id === opts.stepId)
+  if (startIdx === -1) return { ok: false, message: 'Step not found.' }
+  const targetIdx = Math.max(0, Math.min(opts.targetIndex, steps.length - 1))
+  if (targetIdx === startIdx) return { ok: true, message: 'Order unchanged.' }
+
+  const direction = targetIdx > startIdx ? 1 : -1
+  let anyJoinAdjacent = false
+  let currentIdx = startIdx
+  const currentIds = steps.map((s) => s.id)
+  while (currentIdx !== targetIdx) {
+    const nextIdx = currentIdx + direction
+    const { joinAdjacent } = await swapAdjacentSteps(opts.graph, currentIds[currentIdx], currentIds[nextIdx])
+    anyJoinAdjacent = anyJoinAdjacent || joinAdjacent
+    ;[currentIds[currentIdx], currentIds[nextIdx]] = [currentIds[nextIdx], currentIds[currentIdx]]
+    currentIdx = nextIdx
+  }
+
+  if (anyJoinAdjacent) {
+    return {
+      ok: true,
+      message: 'Display order updated. This move passed a branch/join step — its connections were left unchanged; verify manually.',
+    }
+  }
   return { ok: true, message: 'Order updated.' }
 }
 
@@ -458,7 +523,8 @@ export async function createGraphStep(opts: {
   role: WorkflowRole
   fulfillmentKind: StepKind
   checklistSlug?: string | null
-  targetRole?: WorkflowRole | null
+  targetRoles?: WorkflowRole[] | null
+  requiredPosition?: string | null
   isOptional?: boolean
 }): Promise<{ ok: boolean; message: string; stepId?: string }> {
   const steps = await getGraphSteps(opts.graph)
@@ -475,7 +541,8 @@ export async function createGraphStep(opts: {
       role: opts.role,
       fulfillmentKind: opts.fulfillmentKind,
       checklistSlug: opts.checklistSlug ?? null,
-      targetRole: opts.targetRole ?? null,
+      targetRoles: opts.targetRoles ?? null,
+      requiredPosition: opts.requiredPosition ?? null,
       isOptional: opts.isOptional ?? false,
       orderIndex: maxOrder + 1,
     })
@@ -518,7 +585,8 @@ export async function updateGraphStep(opts: {
   role?: WorkflowRole
   fulfillmentKind?: StepKind
   checklistSlug?: string | null
-  targetRole?: WorkflowRole | null
+  targetRoles?: WorkflowRole[] | null
+  requiredPosition?: string | null
   isOptional?: boolean
 }): Promise<{ ok: boolean; message: string }> {
   const updates: Record<string, unknown> = { updatedAt: new Date() }
@@ -526,7 +594,8 @@ export async function updateGraphStep(opts: {
   if (opts.role !== undefined) updates.role = opts.role
   if (opts.fulfillmentKind !== undefined) updates.fulfillmentKind = opts.fulfillmentKind
   if (opts.checklistSlug !== undefined) updates.checklistSlug = opts.checklistSlug
-  if (opts.targetRole !== undefined) updates.targetRole = opts.targetRole
+  if (opts.targetRoles !== undefined) updates.targetRoles = opts.targetRoles
+  if (opts.requiredPosition !== undefined) updates.requiredPosition = opts.requiredPosition
   if (opts.isOptional !== undefined) updates.isOptional = opts.isOptional
   await db.update(workflowStepDefinitions).set(updates).where(eq(workflowStepDefinitions.id, opts.stepId))
   return { ok: true, message: 'Step updated.' }

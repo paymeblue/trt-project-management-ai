@@ -12,7 +12,7 @@ import {
 } from 'drizzle-orm/pg-core'
 
 // ── Enums ────────────────────────────────────────────────────────────────
-export const roleEnum = pgEnum('role', ['factory_pm', 'site_pm', 'super_admin', 'operations', 'design', 'production', 'customer_care'])
+export const roleEnum = pgEnum('role', ['factory_pm', 'site_pm', 'super_admin', 'operations', 'design', 'production', 'customer_care', 'architect'])
 export const projectStatusEnum = pgEnum('project_status', ['not_delivered', 'delivered', 'paused'])
 export const paymentStatusEnum = pgEnum('payment_status', ['unpaid', 'paid'])
 export const targetRoleEnum = pgEnum('target_role', ['factory_pm', 'site_pm', 'both'])
@@ -91,7 +91,8 @@ export const workflowStepDefinitions = pgTable('workflow_step_definitions', {
   role:            roleEnum('role').notNull(),
   fulfillmentKind: fulfillmentKindEnum('fulfillment_kind').notNull(),
   checklistSlug:   text('checklist_slug'),               // set only when fulfillmentKind = 'checklist'; mirrors checklist_definitions.slug
-  targetRole:      roleEnum('target_role'),               // set only when fulfillmentKind = 'assignment' — role the actor picks a user from
+  targetRoles:     roleEnum('target_role').array(),       // set only when fulfillmentKind = 'assignment' — pool of roles the actor may pick a user from (v2.0 Phase 19: was a single role, widened to a list so e.g. Head Designer can pick from design OR architect)
+  requiredPosition: text('required_position'),            // v2.0 Phase 19 (ad hoc, pre-formal-enum): narrows a role-gated step to one exact users.position value (e.g. 'head_designer'). null = today's behavior unchanged (any user with the step's role may act). Deliberately left as free text for now, not a DB enum — converting users.position to a real Postgres enum is deferred to formal Phase 19 execution to avoid migration risk under this ad hoc build.
   isOptional:      boolean('is_optional').default(false).notNull(),
   orderIndex:      integer('order_index').notNull(),      // display/default ordering only — adjacency lives in workflow_step_edges
   createdAt:       timestamp('created_at').defaultNow().notNull(),

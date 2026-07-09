@@ -14,12 +14,21 @@ const ROLE_COLOR: Record<WorkflowRole, string> = {
   factory_pm: '#f97316', // orange
   super_admin: '#059669', // emerald
   customer_care: '#d946ef', // fuchsia
+  design: '#e11d48', // rose
+  architect: '#a855f7', // purple
 }
 
 // Short, role-accurate blurbs keyed by the canonical step key.
 const DETAIL: Record<string, string> = {
   new_project: 'Customer Care captures the client\'s intent and creates the project (unpaid by default).',
   payment_confirmation: 'Operations confirms payment and sets the delivery timeline for every remaining step.',
+  assign_designer_brief: 'Head Designer assigns a Designer or Architect to take the client\'s brief.',
+  kickoff_meeting: 'The assigned designer holds the kickoff meeting with the client.',
+  design_meeting: 'The assigned designer gathers materials, colors, and other project details.',
+  brief_taking: 'The assigned designer records the brief taken from the client.',
+  design_initiation:
+    'Head Designer assigns a designer to begin actual design work — a second, distinct assignment.',
+  design_stage: 'The assigned designer produces the drawing and records the client\'s approval.',
   confirmation: 'Site PM confirms the project details to start the workflow.',
   materials_readiness:
     'Factory PM confirms materials & accessories are complete — sign digitally or upload the signed form.',
@@ -34,7 +43,15 @@ const DETAIL: Record<string, string> = {
   sign_off: 'Super Admin gives the final sign-off — the project is complete only after this.',
 }
 
-const ROLES: WorkflowRole[] = ['customer_care', 'operations', 'site_pm', 'factory_pm', 'super_admin']
+const ROLES: WorkflowRole[] = [
+  'customer_care',
+  'operations',
+  'design',
+  'architect',
+  'site_pm',
+  'factory_pm',
+  'super_admin',
+]
 
 export default async function TrtFlowDiagram() {
   const steps = await getLiveWorkflowSteps()

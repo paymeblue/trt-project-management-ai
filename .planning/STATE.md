@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: executing
-stopped_at: Phase 18 (Workflow Configurator) COMPLETE — PIN-gated step CRUD (add/remove/reorder/edit) implemented directly and verified end-to-end via browser automation against the real live graph
-last_updated: "2026-07-09T20:45:00.000Z"
-last_activity: 2026-07-09 -- Phase 18 complete
+stopped_at: Phase 18 (Workflow Configurator) COMPLETE — PIN-gated step CRUD (add/remove/reorder/edit) implemented directly and verified end-to-end via browser automation against the real live graph. Ad hoc post-Phase-18 commit f72573d additionally shipped STG-01/PAY-01/PAY-02(partial)/PAY-03 directly to the live graph (Project Intent + Payment Confirmation & Timeline as live steps 1-2, customer_care role + dashboard) ahead of formal Phase 19/20/21 execution.
+last_updated: "2026-07-09T22:18:30.000Z"
+last_activity: 2026-07-09 -- reconciled roadmap/requirements with ad hoc commit f72573d; Phase 19/20/21 scope updated accordingly
 progress:
   total_phases: 21
   completed_phases: 4
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-09)
 
 **Core value:** A PM on the floor or on-site can complete a structured checklist (with photo evidence) on their phone and have it permanently recorded — replacing paper, with role-scoped visibility and read-only Super Admin oversight.
-**Current focus:** Phase 19 — New Roles & Assignment (next)
+**Current focus:** Phase 19 -- New Roles & Assignment (next; ops_factory/factory_manager roles + position-enum/requiredPosition gating still pending)
 
 ## Current Position
 
@@ -97,6 +97,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 18]: Reorder (moveGraphStep) swaps orderIndex always, but only rewires workflow_step_edges when both swapped steps have <=1 incoming and <=1 outgoing edge each ("simple") — guarantees the one existing branch/join (Delivery Project Checklist + Delivery Readiness -> Project Check Report) can never be corrupted by a reorder; a join-adjacent step only gets its display position changed, with a message telling the admin to verify connections manually. This is a deliberate, bounded scope choice instead of a full DAG editor.
 - [Phase 18]: Reorder UI uses up/down buttons (mirroring checklist-editor.tsx), not drag-and-drop as CFG-01 literally said — same reasoning as the checklist-authoring CRUD precedent; documented as a scope trade in REQUIREMENTS.md.
 - [Phase 18]: End-to-end verified live via browser automation: signed in, unlocked with default PIN 0000, reordered two real steps and reverted, added+deleted a throwaway step, then re-ran verify:live-workflow (PARITY 12/12, both JOIN orders 4/4) to confirm the live graph was untouched.
+- [Ad hoc, post-Phase-18, commit f72573d]: Shipped directly (outside plan-phase/execute-phase) ahead of formal Phase 19/20/21: `customer_care` role + dashboard; live graph grew 11→12 steps via `scripts/migrate-insert-payment-confirmation-step.ts`, an additive in-place migration (shifts existing step definitions' orderIndex and real projects' currentStep/deadlines/completions, same ids throughout — not a delete+recreate reseed, so real `project_step_completions` weren't orphaned); new step 1 "Project Intent" (renamed from "New Project", role `customer_care`, kind `creation`, unpaid by default = STG-01/PAY-01); new step 2 "Payment Confirmation & Timeline" (role `operations`, new kind `payment_confirmation`, gated via `requireAdmin()` i.e. any `operations` OR `super_admin` user — NOT yet narrowed to a specific "Head of Operations" position, and NOT yet extended to `customer_care` per the user's 2026-07-09 answer that Customer Care should also be able to toggle paid) — toggles `unpaid`→`paid` and sets a per-step deadline for every remaining step (= PAY-02 partial + PAY-03). Verified: parity + both join orders still pass after migration; real in-flight projects (Usuma, Test) advanced to the same conceptual step. Also fixed a bug from the same session: the Workflow Configurator's role/kind dropdowns were missing `customer_care`/`payment_confirmation` and silently fell back to the first option.
+- [Reconciliation, 2026-07-09]: Phase 20 and Phase 21 in ROADMAP.md/REQUIREMENTS.md updated to reflect the above as already-shipped (STG-01, PAY-01, PAY-03 marked complete; PAY-02 marked partial pending Phase 19's position-enum/requiredPosition work + extending the toggle to `customer_care`), so /gsd-plan-phase 20 and /gsd-plan-phase 21 don't re-plan work that's already live.
 
 ### Pending Todos
 

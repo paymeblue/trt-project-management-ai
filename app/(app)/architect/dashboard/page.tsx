@@ -3,11 +3,10 @@ import DashboardShell, { type Tile } from '@/app/_components/dashboard-shell'
 
 export const dynamic = 'force-dynamic'
 
-// Design department shell (v1.1 #7 extensibility). Since v2.0 Phase 21,
-// Design owns real workflow steps (designer assignment, Kickoff Meeting,
-// Design Meeting, Brief Taking, Design Initiation, Design Stage) — these
-// surface via the header switcher / pending-work gate, same as every other
-// role, not through a dedicated tile here.
+// Architect department shell (v2.0 Phase 19/21) — separated from Design as
+// its own role so Head Designer's assignment steps can target a pool
+// spanning both design and architect. Follows the same shell pattern as
+// design/production (Phase 15).
 const TILES: Tile[] = [
   { title: 'Project flows', description: 'Kickoff, Design Meeting, Brief Taking and Design Stage appear in your pending work above once assigned.', status: 'ready' },
   { title: 'Processes & Flow Charts', description: 'Company processes and flowcharts.', href: '/processes', status: 'ready' },
@@ -15,7 +14,7 @@ const TILES: Tile[] = [
   { title: 'About TRT', description: 'Company info, policies and management.', href: '/about', status: 'ready' },
 ]
 
-export default async function DesignDashboardPage() {
+export default async function ArchitectDashboardPage() {
   const session = await auth()
-  return <DashboardShell userName={session?.user?.name ?? 'Design'} role="design" tiles={TILES} />
+  return <DashboardShell userName={session?.user?.name ?? 'Architect'} role="architect" tiles={TILES} />
 }

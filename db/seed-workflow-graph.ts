@@ -46,9 +46,18 @@ async function main() {
   await db.delete(workflowStepDefinitions).where(eq(workflowStepDefinitions.graph, GRAPH))
   console.log(`  Cleared existing "${GRAPH}" graph rows.`)
 
-  // Insert the 11 step definitions as a 1:1 structural copy of LIVE_WORKFLOW_STEPS.
+  // The two assignment-kind steps (v2.0 Phase 19/21) need their target pool +
+  // required position seeded too — WorkflowStep itself doesn't carry those
+  // fields, so they're keyed here by stepKey rather than added to the type.
+  const ASSIGNMENT_STEP_CONFIG: Record<string, { targetRoles: ('design' | 'architect')[]; requiredPosition: string }> = {
+    assign_designer_brief: { targetRoles: ['design', 'architect'], requiredPosition: 'head_designer' },
+    design_initiation: { targetRoles: ['design', 'architect'], requiredPosition: 'head_designer' },
+  }
+
+  // Insert the 18 step definitions as a 1:1 structural copy of LIVE_WORKFLOW_STEPS.
   const idByStepN = new Map<number, string>()
   for (const step of LIVE_WORKFLOW_STEPS) {
+    const assignmentConfig = ASSIGNMENT_STEP_CONFIG[step.key]
     const [inserted] = await db
       .insert(workflowStepDefinitions)
       .values({
@@ -58,7 +67,8 @@ async function main() {
         role: step.role,
         fulfillmentKind: step.kind,
         checklistSlug: step.slug ?? null,
-        targetRole: null,
+        targetRoles: assignmentConfig?.targetRoles ?? null,
+        requiredPosition: assignmentConfig?.requiredPosition ?? null,
         isOptional: false,
         orderIndex: step.n,
       })
@@ -78,7 +88,14 @@ async function main() {
   }
 
   const EDGES: [string, string][] = [
-    ['new_project', 'confirmation'],
+    ['new_project', 'payment_confirmation'],
+    ['payment_confirmation', 'assign_designer_brief'],
+    ['assign_designer_brief', 'kickoff_meeting'],
+    ['kickoff_meeting', 'design_meeting'],
+    ['design_meeting', 'brief_taking'],
+    ['brief_taking', 'design_initiation'],
+    ['design_initiation', 'design_stage'],
+    ['design_stage', 'confirmation'],
     ['confirmation', 'materials_readiness'],
     ['materials_readiness', 'delivery_readiness'],
     ['materials_readiness', 'delivery_project'],

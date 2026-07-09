@@ -36,7 +36,7 @@ type TestStepDef = {
   role: 'operations' | 'site_pm' | 'factory_pm' | 'super_admin'
   kind: (typeof schema.fulfillmentKindEnum.enumValues)[number]
   checklistSlug?: string
-  targetRole?: 'factory_pm' | 'site_pm' | 'super_admin' | 'operations'
+  targetRoles?: ('factory_pm' | 'site_pm' | 'super_admin' | 'operations')[]
   isOptional?: boolean
   orderIndex: number
 }
@@ -46,7 +46,7 @@ const TEST_STEPS: TestStepDef[] = [
   { key: 'test_yesno', label: 'Test Yes/No + Upload', role: 'site_pm', kind: 'yes_no_upload', orderIndex: 2 },
   { key: 'test_optional', label: 'Test Optional Ack', role: 'site_pm', kind: 'ack', isOptional: true, orderIndex: 3 },
   { key: 'test_approval', label: 'Test Approval', role: 'operations', kind: 'approval', orderIndex: 4 },
-  { key: 'test_assign', label: 'Test Assignment', role: 'operations', kind: 'assignment', targetRole: 'factory_pm', orderIndex: 5 },
+  { key: 'test_assign', label: 'Test Assignment', role: 'operations', kind: 'assignment', targetRoles: ['factory_pm'], orderIndex: 5 },
   { key: 'test_branch_a', label: 'Test Branch A (checklist)', role: 'site_pm', kind: 'checklist', checklistSlug: 'sorting', orderIndex: 6 },
   { key: 'test_branch_b', label: 'Test Branch B (readiness)', role: 'factory_pm', kind: 'readiness', orderIndex: 7 },
   { key: 'test_join', label: 'Test Join', role: 'super_admin', kind: 'ack', orderIndex: 8 },
@@ -84,7 +84,7 @@ async function main() {
         role: step.role,
         fulfillmentKind: step.kind,
         checklistSlug: step.checklistSlug ?? null,
-        targetRole: step.targetRole ?? null,
+        targetRoles: step.targetRoles ?? null,
         isOptional: step.isOptional ?? false,
         orderIndex: step.orderIndex,
       })

@@ -5,19 +5,21 @@ import { assignUserAction, completeStepAction } from '@/actions/workflow-graph'
 import type { WorkflowRole } from '@/lib/workflow'
 
 // Minimal renderer for the `assignment` fulfillment kind (WF-03): a picker
-// of users filtered (server-side, in the page) to the step's targetRole.
-// Correctness over polish — proves the kind renders and submits through
-// the plan 03 action (which re-checks the role match server-side).
+// of users filtered (server-side, in the page) to the step's targetRoles
+// pool (v2.0 Phase 19: widened from a single role to a list — e.g. Head
+// Designer picks from either `design` or `architect`). Correctness over
+// polish — proves the kind renders and submits through the action (which
+// re-checks the role-pool match server-side).
 export default function AssignmentStep({
   projectId,
   stepDefId,
-  targetRole,
+  targetRoles,
   candidates,
 }: {
   projectId: string
   stepDefId: string
-  targetRole: WorkflowRole | null | undefined
-  candidates: { id: string; name: string }[]
+  targetRoles: WorkflowRole[] | null | undefined
+  candidates: { id: string; name: string; role: string }[]
 }) {
   const [pending, startTransition] = useTransition()
   const [selected, setSelected] = useState<string>(candidates[0]?.id ?? '')
@@ -47,7 +49,7 @@ export default function AssignmentStep({
     <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div>
         <p className="mb-1 text-xs font-medium text-gray-600">
-          Assign a user{targetRole ? ` (${targetRole})` : ''}
+          Assign a user{targetRoles?.length ? ` (${targetRoles.join(' or ')})` : ''}
         </p>
         {candidates.length === 0 ? (
           <p className="text-sm text-gray-500">No users with the required role were found.</p>
@@ -60,7 +62,7 @@ export default function AssignmentStep({
           >
             {candidates.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name}
+                {c.name} ({c.role})
               </option>
             ))}
           </select>

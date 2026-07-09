@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
@@ -21,7 +21,7 @@ export default async function WorkflowStepPage({
   searchParams: Promise<{ projectId?: string; step?: string; graph?: string }>
 }) {
   const sp = await searchParams
-  const { role } = await verifySession()
+  const { userId, role } = await verifySession()
 
   const projectId = typeof sp.projectId === 'string' ? sp.projectId : null
   const stepKey = typeof sp.step === 'string' ? sp.step : null
@@ -63,6 +63,26 @@ export default async function WorkflowStepPage({
     )
   }
 
+  // v2.0 Phase 19: a step may additionally be narrowed to one exact
+  // users.position value (e.g. only the Head Designer, not any Design/
+  // Architect user). Fetched fresh, not from the session, since position
+  // can change post-signup via the self-service profile flow.
+  if (step.requiredPosition) {
+    const [actingUser] = await db.select({ position: users.position }).from(users).where(eq(users.id, userId)).limit(1)
+    if (actingUser?.position !== step.requiredPosition) {
+      return (
+        <div className="mx-auto max-w-2xl px-6 py-8">
+          <a href={dashboard} className="text-sm text-primary hover:underline">
+            ← Dashboard
+          </a>
+          <p className="mt-6 text-gray-500">
+            This step is restricted to a specific title, and your account is not set to it.
+          </p>
+        </div>
+      )
+    }
+  }
+
   let body: React.ReactNode
   switch (step.kind) {
     case 'yes_no_upload':
@@ -72,17 +92,17 @@ export default async function WorkflowStepPage({
       body = <ApprovalStep projectId={projectId} stepDefId={step.id} />
       break
     case 'assignment': {
-      const candidates = step.targetRole
+      const candidates = step.targetRoles?.length
         ? await db
-            .select({ id: users.id, name: users.name })
+            .select({ id: users.id, name: users.name, role: users.role })
             .from(users)
-            .where(eq(users.role, step.targetRole))
+            .where(inArray(users.role, step.targetRoles))
         : []
       body = (
         <AssignmentStep
           projectId={projectId}
           stepDefId={step.id}
-          targetRole={step.targetRole}
+          targetRoles={step.targetRoles}
           candidates={candidates}
         />
       )

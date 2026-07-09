@@ -34,11 +34,12 @@ Milestone v2.0 (phases 16-22) replaces the hardcoded 11-step `WORKFLOW_STEPS` ar
 ### Milestone v2.0 — Configurable Production Workflow Engine
 - [x] **Phase 16: Workflow Engine Core** - DB-backed step graph replaces the hardcoded `WORKFLOW_STEPS` array; new fulfillment kinds (yes/no+upload, approval, assignment), optional/skip logic, and parallel/join branching all representable (WF-01, WF-02, WF-03, WF-04, WF-05) (completed 2026-07-09)
 - [x] **Phase 17: Confirmation → Sign Off Migration** - The existing 10-step tail (Confirmation through Sign Off) cut over onto the new engine with explicit zero-regression verification (WF-06) (completed 2026-07-09)
-- [ ] **Phase 18: Workflow Configurator** - Super-admin-only, separately PIN-gated screen to add/remove/reorder/edit steps in the live graph (CFG-01, CFG-02, CFG-03)
-- [ ] **Phase 19: New Roles & Assignment** - `customer_care`, `ops_factory`, `factory_manager` roles with dashboards; assignment-kind steps notify a picked user; super-admin titles stay in `users.position` (ROLE-01, ROLE-02, ROLE-03)
-- [ ] **Phase 20: Payment & Timeline Gating** - `paid`/`unpaid` project status with two independent payment gates; per-step deadlines extend to every new step (PAY-01, PAY-02, PAY-03, PAY-04)
-- [ ] **Phase 21: Front-of-Funnel Stages — Intake Through Design Approval** - Customer Care intake, designer assignment, Kickoff/Design Meeting/Brief Taking, Invoicing, Design Stage — arriving at the existing Confirmation step unchanged (STG-01..07)
-- [ ] **Phase 22: Production-Authorization Insert — Confirmation2 Through Factory Manager QC** - Re-confirmation, correction, internal approval, production authorization, and QC inserted ahead of the existing Materials/Accessories Readiness step (STG-08..14)
+- [x] **Phase 18: Workflow Configurator** - Super-admin-only, separately PIN-gated screen to add/remove/reorder/edit steps in the live graph (CFG-01, CFG-02, CFG-03) (completed 2026-07-09)
+- [ ] **Phase 18.1: Composable Fulfillment Kinds** (INSERTED) - Super Admin composes a step's fulfillment from building-block primitives (text/upload, yes/no, checklist ref, assignment) instead of a fixed enum
+- [ ] **Phase 19: New Roles & Assignment** - `ops_factory`/`factory_manager`/`architect` roles with dashboards (`customer_care` already shipped); `users.position` becomes a DB-enforced enum with an optional `requiredPosition` step gate; self-service position entry post-signup; assignment steps can target a multi-role pool (ROLE-01..07)
+- [ ] **Phase 20: Payment & Timeline Gating** - `paid`/`unpaid` toggle + per-step deadlines — PAY-01/PAY-03 already shipped ad hoc, PAY-02 partial pending Phase 19 (PAY-01, PAY-02, PAY-03)
+- [ ] **Phase 21: Front-of-Funnel Stages — Designer Assignment Through Design Approval** - Two distinct designer-assignment moments, Kickoff/Design Meeting/Brief Taking, Design Stage — arriving at the existing Confirmation step unchanged (Project Intent/STG-01 already shipped ad hoc) (STG-02..07)
+- [ ] **Phase 22: Production-Authorization Insert — Site Confirmation Assignment Through Quality Control** - Site PM confirmation assignment (before Confirmation), correction, internal approval, production authorization, and QC inserted ahead of the existing Materials/Accessories Readiness step (STG-08..14)
 
 ## Phase Details
 
@@ -323,50 +324,78 @@ Plans:
 **UI hint**: yes
 **Status**: Complete ✓ (2026-07-09) — reorder shipped as up/down buttons (matching the existing checklist-authoring CRUD pattern) rather than drag-and-drop; verified end-to-end (PIN gate, unlock, add/edit/reorder/delete a step) against the real `graph='live'` data via browser automation, with `verify:live-workflow` passing before and after.
 
-### Phase 19: New Roles & Assignment
-**Goal**: The three new front-of-funnel roles have working dashboards, and any step can hand a task to a specific person by role.
-**Depends on**: Phase 16 (assignment fulfillment kind), Phase 15 (dashboard-shell pattern)
-**Requirements**: ROLE-01, ROLE-02, ROLE-03
+### Phase 18.1: Composable Fulfillment Kinds (INSERTED)
+**Goal**: Super Admin can compose a step's fulfillment out of building-block primitives (text/upload, yes/no, checklist reference, assignment) inside the Workflow Configurator, instead of being limited to the fixed `fulfillment_kind` Postgres enum.
+**Depends on**: Phase 18 (Workflow Configurator)
+**Requirements**: TBD (set at /gsd-plan-phase 18.1)
 **Success Criteria** (what must be TRUE):
-  1. A user created with role `customer_care`, `ops_factory`, or `factory_manager` lands on a role-appropriate dashboard and nav, seeing only their own flows — following the Phase 15 pattern
-  2. An assignment-kind step lets its actor (e.g., Head of Design) pick a user of a target role (e.g., a `design`-role user); the pick is recorded against the project/step and the assignee receives a notification
-  3. Super-admin titles (Head of Design, Head of Projects, MD, ED, COO, Chief Production Officer) continue to live in `users.position` with no new role-enum values added; the UI can display the title where relevant while permission checks still key off `role = super_admin`
+  1. A step can be defined as a composed set of one or more primitive blocks rather than a single fixed `fulfillment_kind` value
+  2. The step-completion page renders a generic composed-block form driven by that step's block configuration — no new hardcoded per-kind renderer required for future block combinations
+  3. The 12 existing live steps, and any steps added in Phase 21/22, continue to render exactly as before — composed blocks are additive, not a replacement requiring migration of existing steps
+  4. Super Admin builds/edits the block composition for a step from the same PIN-gated Workflow Configurator screen
+**Plans**: TBD (set at /gsd-plan-phase 18.1)
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 18.1 to break down)
+
+### Phase 19: New Roles & Assignment
+**Goal**: The new front-of-funnel roles have working dashboards, and any step can hand a task to one specific person — by title as well as role, and to a pool spanning more than one role where the work requires it.
+**Depends on**: Phase 16 (assignment fulfillment kind), Phase 15 (dashboard-shell pattern)
+**Requirements**: ROLE-01, ROLE-02, ROLE-03, ROLE-04, ROLE-05, ROLE-06, ROLE-07
+**Locked decisions** (resolved with the user 2026-07-09, closing a real gap: `users.position` (`db/schema.ts:34`) is free text today with zero gating logic anywhere in `lib/workflow.ts`/`lib/workflow-graph.ts` — every step-ownership check filters by `role` only):
+  - `users.position` converts from free text to a Postgres enum (DB-enforced) covering known titles: `head_of_operations`, `head_designer` (or `head_of_design`), `chief_production_officer`, plus existing super-admin titles in use (MD, ED, COO, CPO, etc.) — enumerate exact values at plan time from both currently-seeded users and the Phase 21/22 stage list.
+  - Step/graph definitions gain an optional `requiredPosition` field (nullable, references the position enum). `null` = today's behavior unchanged (any user with the step's `role` may act). Set = only users whose `role` AND `position` both match may act. The 12 existing live steps must all keep `requiredPosition = null`.
+  - `customer_care` remains its own top-level role — not nested under or derived from `super_admin`.
+  - Position is NOT collected at account creation (signup or admin-created-user flow); users are created with `role` only. Position is entered by the user themselves afterward via a self-service flow (profile completion / settings) — this UI entry point does not exist yet and is in scope for this phase.
+  - **Architect is separated from Designer as its own role-enum value** (resolved 2026-07-09, overturning the earlier draft assumption that `design` covers Head Designer/Designer/Architect via `position` alone) — new `architect` role, with its own dashboard shell following the Phase 15 pattern. Head Designer (`design` role + `requiredPosition = head_designer`) is the one who assigns into either pool.
+  - `workflow_step_definitions.targetRole` (currently a single `roleEnum` column, shipped in Phase 16) **changes from one role to a list of allowed roles** — resolved 2026-07-09 to let Stage 3/7's "Assign Designer/Architect" step target a pool spanning both `design` and `architect`, not just one. Backward compatible: existing single-role assignment steps (if any exist yet in live data) just carry a 1-item list. This is a retroactive schema change to already-shipped Phase 16 structure — needs the same careful, additive, idempotent migration discipline as Phase 17's cutover (no orphaned `project_step_completions`), not a drop/recreate.
+**Success Criteria** (what must be TRUE):
+  1. A user created with role `customer_care`, `ops_factory`, `factory_manager`, or `architect` lands on a role-appropriate dashboard and nav, seeing only their own flows — following the Phase 15 pattern
+  2. An assignment-kind step lets its actor pick a user from a target pool spanning one or more roles (e.g., a step targeting `[design, architect]` lets Head Designer pick from either); the pick is recorded against the project/step and the assignee receives a notification
+  3. A step with `requiredPosition` set (e.g. `head_of_operations`, `head_designer`) is only actionable by a user matching both `role` and `position` — any other user of the same `role` but wrong/no `position` is rejected server-side
+  4. A newly created user is not asked for a position at creation; they can later set their own position from a self-service profile screen, constrained to the position enum's valid values
+  5. Super-admin titles (Head of Operations, MD, ED, COO, Chief Production Officer) continue to live in `users.position` with no new role-enum values added for them; permission checks still key off `role = super_admin` (narrowed by `requiredPosition` where a step requires it). Head of Design is a `design`-role position (`head_designer`), not a super-admin title.
 **Plans**: TBD (set at /gsd-plan-phase 19)
 **UI hint**: yes
 
 ### Phase 20: Payment & Timeline Gating
-**Goal**: Every project carries an independent payment status that gates progress at two distinct checkpoints, and per-step deadlines cover the entire expanded workflow.
-**Depends on**: Phase 16 (engine to attach gates to), Phase 19 (sequencing)
-**Requirements**: PAY-01, PAY-02, PAY-03, PAY-04
+**Goal**: Every project carries a payment status that gates progress into the design phase, settable by whoever learns of payment first, and per-step deadlines cover the entire expanded workflow.
+**Depends on**: Phase 16 (engine to attach gates to), Phase 19 (position gating)
+**Requirements**: PAY-01, PAY-02, PAY-03
+**Status**: Mostly delivered ad hoc ahead of schedule (commit f72573d, 2026-07-09) — PAY-01 and PAY-03 complete; PAY-02 partial. What's left is narrow, not a full phase's worth of work.
 **Success Criteria** (what must be TRUE):
-  1. A new project defaults to `unpaid`; Head of Operations (`operations` role) can toggle it to `paid`
-  2. While `unpaid`, acting on the brief-taking step (or anything gated on the design phase) is rejected server-side; toggling `paid` unblocks it
-  3. A second, independent invoicing gate exists after Brief Taking — satisfying the initial paid toggle does not satisfy it, and the Design Stage step cannot proceed until this invoice gate is separately cleared
-  4. Operations can set a per-step deadline for any step in the expanded graph (not just the original 11) at project creation; board, countdown, and my-work read it the same way they already do for existing steps
-**Plans**: TBD (set at /gsd-plan-phase 20)
+  1. ✓ A new project defaults to `unpaid` — delivered
+  2. ~ Either Customer Care or Head of Operations can toggle `unpaid` → `paid` — the toggle exists and works, but is currently gated to any `operations`-or-`super_admin` user via `requireAdmin()`, not narrowed to `requiredPosition = head_of_operations`, and `customer_care` cannot yet trigger it directly. Both remain open, blocked on Phase 19's position-enum/`requiredPosition` work landing first.
+  3. While `unpaid`, acting on the designer-assignment or brief-taking steps is rejected server-side; toggling `paid` unblocks it (verify once Phase 21's designer-assignment/brief-taking steps exist to test against — the gate itself doesn't need new code, just needs those steps to check `paymentStatus`)
+  4. ✓ Operations can set a per-step deadline for any step in the expanded graph at project creation — delivered (live step 2 already sets deadlines for every remaining step)
+**No second invoicing gate**: the earlier-drafted independent invoicing checkpoint after Brief Taking was cut from the finalized 18-stage flow (confirmed 2026-07-09) — one payment gate is sufficient, do not build a second.
+**Plans**: TBD (set at /gsd-plan-phase 20) — scope is now just: (a) narrow PAY-02's gate with `requiredPosition`, (b) extend PAY-02 toggle access to `customer_care`, (c) wire criterion 3's check into Phase 21's new steps when they're built.
 
-### Phase 21: Front-of-Funnel Stages — Intake Through Design Approval
-**Goal**: A project can be created and carried by Customer Care and Design through payment, designer assignment, and client design approval, arriving at the existing Confirmation step in exactly the state it already expects.
+### Phase 21: Front-of-Funnel Stages — Designer Assignment Through Design Approval
+**Goal**: A project can be carried by Design through two distinct designer-assignment moments, kickoff/brief/meeting, and client design approval, arriving at the existing Confirmation step in exactly the state it already expects. (Project Intent itself — STG-01 — already shipped ad hoc; this phase covers STG-02 through STG-07.)
 **Depends on**: Phase 16, Phase 18, Phase 19, Phase 20
-**Requirements**: STG-01, STG-02, STG-03, STG-04, STG-05, STG-06, STG-07
+**Requirements**: STG-02, STG-03, STG-04, STG-05, STG-06, STG-07
+**Status**: STG-01 (Project Intent) already delivered ad hoc (commit f72573d) as live step 1 — not part of this phase's remaining scope.
 **Success Criteria** (what must be TRUE):
-  1. Customer Care can create a project via an intake form (customer name, email, phone, location, scope), starting `unpaid`
-  2. Head of Design assigns one `design`-role user, who then completes Kickoff Meeting, Design Meeting, and Brief Taking (each yes/no with an optional upload) as the same designer throughout — no re-assignment step exists
-  3. The Invoicing checkpoint after Brief Taking is satisfied independently of the initial paid toggle, and only once cleared can Design Stage (client design approval, yes/no with optional upload of the approved drawing) proceed
+  1. Head Designer (`design` role + `requiredPosition = head_designer`) assigns one user from the `design`-or-`architect` pool (STG-02, ROLE-06/ROLE-07) who completes Kickoff Meeting, Design Meeting, and Brief Taking (each yes/no with an optional upload)
+  2. Head Designer separately assigns (STG-06, Design Initiation) a person from the same pool — possibly a different one than STG-02's assignee — to begin actual design work. **These are two distinct assignment moments, not one continuous assignment** — this reverses an earlier draft assumption ("same designer throughout, no re-assignment") that the user explicitly overturned when finalizing the 18-stage plan. Also note: Architect is a separate role from Designer (not a `position` within `design`) — resolved 2026-07-09, overturning yet another earlier draft assumption
+  3. The STG-06 assignee completes Design Stage: produces the drawing, presents to the client, and marks client approval (yes/no) with an optional upload of the approved drawing
   4. Completing Design Stage hands the project to the existing Confirmation step with no change to Confirmation's own behavior
+**No Invoicing stage**: cut from the finalized flow (see Phase 20) — do not seed one.
 **Plans**: TBD (set at /gsd-plan-phase 21)
 **UI hint**: yes
 
-### Phase 22: Production-Authorization Insert — Confirmation2 Through Factory Manager QC
-**Goal**: After the existing Confirmation step, a project passes through re-confirmation, correction, internal approval, and production authorization before reaching the existing Materials/Accessories Readiness step exactly as that step already expects.
+### Phase 22: Production-Authorization Insert — Site Confirmation Assignment Through Quality Control
+**Goal**: Immediately around and after the existing Confirmation step, a project passes through confirmation assignment, correction, internal approval, and production authorization before reaching the existing Materials/Accessories Readiness step exactly as that step already expects.
 **Depends on**: Phase 17, Phase 19
 **Requirements**: STG-08, STG-09, STG-10, STG-11, STG-12, STG-13, STG-14
 **Success Criteria** (what must be TRUE):
-  1. Immediately after Confirmation, Site PM completes Confirmation 2 (re-confirmation), then the assigned designer records Confirmation Correction (yes/no with an optional upload of the corrected drawing)
-  2. Ops Admin routes the drawing through Internal Approval (Head of Design checks/approves and returns it) and then Send for Production, an approval/two-sided-ack step with the CPO (`super_admin`)
-  3. The CPO completes Project Review & Authorization (yes/no) before `ops_factory` completes the Production Process checklist (optimization document upload, then cutting/edging/edging-concluded/upholstery-concluded/glass/accessories-sorted, each yes/no)
-  4. `factory_manager` approves QC immediately before the existing Materials/Accessories Readiness step, which then proceeds completely unchanged
-  5. A project walking through all 14 new stages (Phase 21 + this phase) arrives at Materials/Accessories Readiness in exactly the state that step already expects today — no regression to the tail verified in Phase 17
+  1. Immediately **before** the existing Confirmation step, an operational Super Admin assigns a Site PM by email (STG-08, Site Personnel Confirmation Assignment) — this is a new assignment step, not a duplicate "Confirmation 2"; the existing Confirmation step itself runs unchanged, once, at its current position
+  2. Immediately **after** Confirmation, the assigned designer records Confirmation Correction (STG-09, yes/no with an optional upload of the corrected drawing)
+  3. An operational Super Admin routes the drawing through Internal Approval (STG-10, Head Designer checks/approves and returns it) and then Send for Production (STG-11), an approval/two-sided-ack step with the CPO (`super_admin` + `requiredPosition = chief_production_officer`)
+  4. The CPO completes Project Review & Authorization (STG-12, yes/no) before `ops_factory` completes the Production Process checklist (STG-13: optimization document upload, then cutting/edging/edging-concluded/upholstery-concluded/glass/accessories-sorted, each yes/no)
+  5. `factory_manager` completes Quality Control (STG-14: uploads 3 readiness forms — Material, Accessories, Upholstery) immediately before the existing Materials/Accessories Readiness step, which then proceeds completely unchanged
+  6. A project walking through all 14 new stages (Phase 21 + this phase) arrives at Materials/Accessories Readiness in exactly the state that step already expects today — no regression to the tail verified in Phase 17
 **Plans**: TBD (set at /gsd-plan-phase 22)
 
 ## Progress
