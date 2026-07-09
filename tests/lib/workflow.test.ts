@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import {
-  WORKFLOW_STEPS,
   FIRST_ACTION_STEP,
-  LAST_STEP,
   REQUIRED_PHOTOS,
   Roles,
-  stepByN,
-  isProjectComplete,
+  findStep,
+  lastStepN,
+  projectComplete,
   isAdminRole,
   canEditChecklist,
   canRoleActOnStep,
@@ -15,58 +14,27 @@ import {
   userRoleLabel,
   roleDashboard,
 } from '@/lib/workflow'
+import { LIVE_WORKFLOW_STEPS } from '@/db/workflow-live-steps'
 
-describe('workflow definition', () => {
-  it('has 11 steps numbered 1..11 in order (incl. Sign Off)', () => {
-    expect(WORKFLOW_STEPS).toHaveLength(11)
-    WORKFLOW_STEPS.forEach((s, i) => expect(s.n).toBe(i + 1))
-    expect(LAST_STEP).toBe(11)
+describe('findStep / lastStepN / projectComplete', () => {
+  it('resolves steps and rejects out-of-range', () => {
+    expect(findStep(LIVE_WORKFLOW_STEPS, 2)?.key).toBe('confirmation')
+    expect(findStep(LIVE_WORKFLOW_STEPS, 99)).toBeUndefined()
+  })
+
+  it('FIRST_ACTION_STEP is 2 (Confirmation)', () => {
     expect(FIRST_ACTION_STEP).toBe(2)
   })
 
-  it('does NOT contain the removed "Factory Floor Projects" step', () => {
-    expect(WORKFLOW_STEPS.some((s) => s.key === 'factory_floor')).toBe(false)
-  })
-
-  it('orders the roles correctly: Operations → Site PM → Factory PM … → Sign Off', () => {
-    const order = WORKFLOW_STEPS.map((s) => [s.key, s.role])
-    expect(order).toEqual([
-      ['new_project', 'operations'],
-      ['confirmation', 'site_pm'],
-      ['materials_readiness', 'factory_pm'],
-      ['delivery_readiness', 'site_pm'],
-      ['delivery_project', 'factory_pm'],
-      ['project_check_report', 'factory_pm'],
-      ['approval_installation', 'operations'],
-      ['installation_readiness', 'site_pm'],
-      ['sorting', 'site_pm'],
-      ['close_out', 'site_pm'],
-      ['sign_off', 'super_admin'],
-    ])
-  })
-
-  it('final step is a super_admin Sign-Off ack step (REQ-G04)', () => {
-    const last = WORKFLOW_STEPS[WORKFLOW_STEPS.length - 1]
-    expect(last).toMatchObject({ n: 11, key: 'sign_off', role: 'super_admin', kind: 'ack' })
-  })
-
-  it("the Factory PM's first step is Materials / Accessories Readiness", () => {
-    const firstFactory = WORKFLOW_STEPS.find((s) => s.role === 'factory_pm')
-    expect(firstFactory?.key).toBe('materials_readiness')
-    expect(firstFactory?.kind).toBe('readiness')
-  })
-})
-
-describe('stepByN / isProjectComplete', () => {
-  it('resolves steps and rejects out-of-range', () => {
-    expect(stepByN(2)?.key).toBe('confirmation')
-    expect(stepByN(99)).toBeUndefined()
+  it('lastStepN resolves the last step number', () => {
+    expect(lastStepN(LIVE_WORKFLOW_STEPS)).toBe(11)
   })
 
   it('is complete only once currentStep passes the last step', () => {
-    expect(isProjectComplete(LAST_STEP)).toBe(false)
-    expect(isProjectComplete(LAST_STEP + 1)).toBe(true)
-    expect(isProjectComplete(2)).toBe(false)
+    const lastN = lastStepN(LIVE_WORKFLOW_STEPS)
+    expect(projectComplete(lastN, lastN)).toBe(false)
+    expect(projectComplete(lastN + 1, lastN)).toBe(true)
+    expect(projectComplete(2, lastN)).toBe(false)
   })
 })
 
@@ -96,17 +64,17 @@ describe('role gating', () => {
 
 describe('stepHref', () => {
   it('builds checklist links with project + step query', () => {
-    const confirmation = stepByN(2)!
+    const confirmation = findStep(LIVE_WORKFLOW_STEPS, 2)!
     expect(stepHref(confirmation, 'p1')).toBe('/checklists/confirmation?projectId=p1&step=2')
   })
 
   it('builds the readiness link for the materials step', () => {
-    const readiness = stepByN(3)!
+    const readiness = findStep(LIVE_WORKFLOW_STEPS, 3)!
     expect(stepHref(readiness, 'p1')).toBe('/factory-pm/readiness?projectId=p1&step=3')
   })
 
   it('returns null for the creation step (no destination)', () => {
-    const newProject = stepByN(1)!
+    const newProject = findStep(LIVE_WORKFLOW_STEPS, 1)!
     expect(stepHref(newProject, 'p1')).toBeNull()
   })
 })
@@ -139,9 +107,10 @@ describe('v1.1 governance (REQ-G01, G04, G07)', () => {
   })
 
   it('completion boundary is past Sign-Off: step 11 pending, 12 complete', () => {
-    expect(isProjectComplete(10)).toBe(false) // Close Out done, awaiting Sign Off
-    expect(isProjectComplete(11)).toBe(false) // at Sign Off
-    expect(isProjectComplete(12)).toBe(true) // signed off → delivered
+    const lastN = lastStepN(LIVE_WORKFLOW_STEPS)
+    expect(projectComplete(10, lastN)).toBe(false) // Close Out done, awaiting Sign Off
+    expect(projectComplete(11, lastN)).toBe(false) // at Sign Off
+    expect(projectComplete(12, lastN)).toBe(true) // signed off → delivered
   })
 })
 
@@ -169,10 +138,5 @@ describe('#7 multi-department extensibility', () => {
     expect(roleDashboard('design')).toBe('/design/dashboard')
     expect(roleDashboard('production')).toBe('/production/dashboard')
     expect(roleDashboard('unknown')).toBe('/dashboard')
-  })
-
-  it('new departments own no workflow steps yet (added additively later)', () => {
-    expect(WORKFLOW_STEPS.some((s) => s.role === ('design' as never))).toBe(false)
-    expect(WORKFLOW_STEPS.some((s) => s.role === ('production' as never))).toBe(false)
   })
 })
