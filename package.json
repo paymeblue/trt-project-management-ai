@@ -16,6 +16,7 @@
     "db:seed-operations": "tsx db/seed-operations.ts",
     "db:seed-workflow-checklists": "tsx db/seed-workflow-checklists.ts",
     "db:seed-workflow-graph": "tsx db/seed-workflow-graph.ts",
+    "db:seed-workflow-test-graph": "tsx db/seed-workflow-test-graph.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
