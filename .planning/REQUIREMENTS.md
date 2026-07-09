@@ -202,6 +202,83 @@
 - Mapped to phases: 10
 - Unmapped: 0 ✓
 
+## v2.0 Requirements
+
+### Workflow engine (core)
+
+- [ ] **WF-01**: Workflow steps are stored in the database (not the hardcoded `WORKFLOW_STEPS` array in `lib/workflow.ts`), each with an order, key, label, responsible role, and fulfillment kind.
+  - *Success:* A `workflow_step_definitions` (or equivalent) table is the single source of truth; `lib/workflow.ts` reads from it instead of a literal array.
+- [ ] **WF-02**: A project's `currentStep` resolves against the DB-defined workflow graph instead of a fixed array index, so reordering/adding/removing steps doesn't require a code deploy.
+  - *Success:* Advancing a project's step reads the live graph; a step inserted via the configurator immediately appears in the gate/board/my-work without a redeploy.
+- [ ] **WF-03**: The engine supports fulfillment kinds beyond the current `creation`/`checklist`/`readiness`/`ack`: yes/no with an optional file upload, approval (two-party send/receive), and assignment (actor picks a user of a target role).
+  - *Success:* Each new kind renders its correct UI (yes/no toggle + optional upload button; send/receive pair; user picker) and gates advancement correctly.
+- [ ] **WF-04**: A step can be marked optional by the super admin; an optional step can be skipped without blocking the project's advancement, while a required step cannot.
+  - *Success:* Skipping an optional step advances `currentStep`; attempting to skip a required step is rejected server-side.
+- [ ] **WF-05**: The existing parallel/join pattern (Delivery Project Checklist + Delivery Readiness both feeding into Project Check Report) is representable in the new graph, not just a coincidence of sequential numbering.
+  - *Success:* Both branch steps must complete before the join step becomes actionable; either can complete first.
+- [ ] **WF-06**: Every existing step from Confirmation through Sign Off is migrated into the new engine unchanged — same key, role, checklist slug, and relative order to each other.
+  - *Success:* A project created before this migration and one created after both see identical Confirmation→Sign Off behavior; no existing checklist slug or role assignment changes.
+
+### Configurator & access control
+
+- [ ] **CFG-01**: A super-admin-only "Workflow Configurator" screen lists all steps in order and supports add, remove, reorder (drag-and-drop), and editing each step's label/text/role/upload-requirement/optional flag.
+  - *Success:* Reordering persists; adding a step inserts it into the live graph; removing a step (with confirmation) takes it out of new projects' paths.
+- [ ] **CFG-02**: Reaching the configurator requires a separate PIN, distinct from normal login — defaults to `0000` with a visible hint, so it isn't casually reachable by everyone with super_admin access.
+  - *Success:* Navigating to the configurator prompts for the PIN before rendering the screen; wrong PIN blocks entry; the hint is shown on the prompt.
+- [ ] **CFG-03**: The super admin can change the configuration PIN from within the configurator itself.
+  - *Success:* Changing the PIN persists (hashed) and the old PIN no longer grants access; the hint updates alongside it.
+
+### Roles & assignment
+
+- [ ] **ROLE-01**: New roles `customer_care`, `ops_factory`, and `factory_manager` exist in the role enum, each with their own dashboard shell (nav + landing page), following the pattern established for `design`/`production` in Phase 15.
+  - *Success:* A user created with each new role lands on a role-appropriate dashboard and only sees their own nav.
+- [ ] **ROLE-02**: An "assignment" step lets its actor (e.g., Head of Design) pick a user of a target role (e.g., a `design`-role user) and notifies that user they've been assigned.
+  - *Success:* Picking a user records the assignment against the project/step and fires a notification to the assignee.
+- [ ] **ROLE-03**: `users.position` (existing free-text field) continues to carry super-admin "titles" — Head of Design, Head of Projects, MD, ED, COO, Chief Production Officer — with no new enum roles for these; permissions stay governed by `role = super_admin`.
+  - *Success:* No new role enum values added for any super_admin title; UI can display the title from `position` where relevant (e.g., CPO review step).
+
+### Payment & timeline
+
+- [ ] **PAY-01**: Projects have a `paid`/`unpaid` payment status, defaulting to `unpaid` when Customer Care creates the project.
+  - *Success:* New projects created via the Customer Care intake step start `unpaid`.
+- [ ] **PAY-02**: Head of Operations (role `operations`) toggles a project from `unpaid` to `paid`, and this gates progress into the design phase (architect assignment / brief taking cannot start while `unpaid`).
+  - *Success:* Attempting to act on the brief-taking step while `unpaid` is rejected server-side; toggling `paid` unblocks it.
+- [ ] **PAY-03**: A second, distinct invoicing checkpoint exists after Brief Taking — Customer Care prompts Ops to create and send an invoice, and the project cannot proceed to Kickoff until the client has paid it. This is separate from PAY-01/02's initial paid toggle.
+  - *Success:* Two independent gates exist in the data model; satisfying one does not satisfy the other.
+- [ ] **PAY-04**: Per-step deadlines (existing `project_step_deadlines` mechanism from v1.1) extend to cover every new step in the expanded workflow, not just the original 11.
+  - *Success:* Operations can set a deadline for any new step at project creation; board/countdown/my-work read it the same way they do for existing steps.
+
+### New stage content (seeded default workflow, ahead of existing Confirmation)
+
+- [ ] **STG-01**: Project Intent — Customer Care creates a project capturing customer name, email, phone, location, and scope.
+- [ ] **STG-02**: Assign Architect for Brief — Head of Design assigns a `design`-role user as the architect for this project's brief.
+- [ ] **STG-03**: Brief Taking — architect/designer marks the brief taken (yes/no) with an optional file upload.
+- [ ] **STG-04**: Invoicing — Customer Care/Ops marks the client-paid invoice checkpoint (yes/no) — see PAY-03.
+- [ ] **STG-05**: Assign Designer for Kickoff — Head of Design assigns a `design`-role user to run kickoff/design (may differ from STG-02's architect).
+- [ ] **STG-06**: Kickoff Meeting — designer marks kickoff held (yes/no) with an optional upload.
+- [ ] **STG-07**: Design Meeting — designer marks materials/colors gathered (yes/no) with an optional upload.
+- [ ] **STG-08**: Design Stage — designer marks client design approval (yes/no) with an optional upload of the approved drawing.
+- [ ] **STG-09**: Confirmation 2 / re-confirmation — Site PM re-confirms on-site, inserted immediately after the existing Confirmation step.
+- [ ] **STG-10**: Confirmation Correction — designer inputs site corrections into the design (yes/no) with an optional upload of the corrected drawing.
+- [ ] **STG-11**: Internal Approval — Ops Admin routes the drawing to Head of Design to check/approve and receives it back; upload of the approved drawing.
+- [ ] **STG-12**: Send for Production — Ops Admin sends, Chief Production Officer (super_admin) receives (approval/two-sided-ack fulfillment kind).
+- [ ] **STG-13**: Project Review and Authorization — CPO reviews and approves (yes/no) after internal team review.
+- [ ] **STG-14**: Production Process — `ops_factory` role completes a checklist: optimization document upload, then cutting/edging/edging-concluded/upholstery-concluded/glass/accessories-sorted, each yes/no.
+- [ ] **STG-15**: Factory Manager Approval / QC — `factory_manager` role approves (yes/no), inserted immediately before the existing Materials/Accessories Readiness step.
+  - *Success (STG-01…15 as a set):* A new project walks through all 15 stages in order, each gated on its predecessor (or its parallel-branch partner where applicable), and arrives at the existing Confirmation step in exactly the state today's Confirmation step already expects.
+
+### v2.0 Out of Scope
+
+| Deferred | Reason |
+|----------|--------|
+| Redesigning any step from Confirmation through Sign Off | Explicitly locked — those steps ship unchanged, only wrapped by the new engine |
+| Branching/conditional logic beyond the single existing parallel/join pair | Not requested; the configurator reorders/edits a linear-with-one-join graph, not arbitrary DAGs |
+| Multi-PIN / per-admin configuration passwords | Single shared configuration PIN requested, not per-user |
+
+## v2.0 Traceability
+
+*(filled by roadmapper)*
+
 ---
 *Requirements defined: 2026-06-18*
-*Last updated: 2026-07-02 — v1.1 milestone requirements added*
+*Last updated: 2026-07-09 — v2.0 milestone requirements added*
