@@ -32,7 +32,7 @@ Milestone v2.0 (phases 16-22) replaces the hardcoded 11-step `WORKFLOW_STEPS` ar
 - [x] **Phase 15: Multi-department extensibility (#7)** - Design & Production as first-class roles with a working shell (nav, dashboards, admin assignment); centralized userRoleLabel/roleDashboard helpers; departments own no workflow steps yet (additive later)
 
 ### Milestone v2.0 — Configurable Production Workflow Engine
-- [ ] **Phase 16: Workflow Engine Core** - DB-backed step graph replaces the hardcoded `WORKFLOW_STEPS` array; new fulfillment kinds (yes/no+upload, approval, assignment), optional/skip logic, and parallel/join branching all representable (WF-01, WF-02, WF-03, WF-04, WF-05)
+- [x] **Phase 16: Workflow Engine Core** - DB-backed step graph replaces the hardcoded `WORKFLOW_STEPS` array; new fulfillment kinds (yes/no+upload, approval, assignment), optional/skip logic, and parallel/join branching all representable (WF-01, WF-02, WF-03, WF-04, WF-05) (completed 2026-07-09)
 - [ ] **Phase 17: Confirmation → Sign Off Migration** - The existing 10-step tail (Confirmation through Sign Off) cut over onto the new engine with explicit zero-regression verification (WF-06)
 - [ ] **Phase 18: Workflow Configurator** - Super-admin-only, separately PIN-gated screen to add/remove/reorder/edit steps in the live graph (CFG-01, CFG-02, CFG-03)
 - [ ] **Phase 19: New Roles & Assignment** - `customer_care`, `ops_factory`, `factory_manager` roles with dashboards; assignment-kind steps notify a picked user; super-admin titles stay in `users.position` (ROLE-01, ROLE-02, ROLE-03)
@@ -285,7 +285,7 @@ Plans:
 - [x] 16-02-PLAN.md — Read engine (lib/workflow-graph.ts) + extend lib/workflow.ts types (client-safe) + seed the 11 current steps as the 'live' graph [Wave 2]
 - [x] 16-03-PLAN.md — Write engine: completeGraphStep + optional/required skip enforcement + 3 new-kind handlers + gated server actions [Wave 3]
 - [x] 16-04-PLAN.md — Test-graph seed (all 4 kinds + optional + parallel/join) + CLI verification harness proving WF-03/04/05 [Wave 4]
-- [ ] 16-05-PLAN.md — Minimal renderers for the 3 new kinds + /workflow/step route (WF-03 UI at test-graph fidelity) [Wave 4]
+- [x] 16-05-PLAN.md — Minimal renderers for the 3 new kinds + /workflow/step route (WF-03 UI at test-graph fidelity) [Wave 4]
 
 ### Phase 17: Confirmation → Sign Off Migration
 **Goal**: Every existing production step from Confirmation through Sign Off runs on the new engine with zero behavior change for any project, past or future — the single highest-risk cutover in this milestone, verified explicitly.
@@ -381,7 +381,7 @@ v2.0 phases execute in numeric order: 16 → 17 → 18 → 19 → 20 → 21 → 
 | 14. Escalation Flows | 3/3 | Complete ✓ | 2026-07-02 |
 | 15. Multi-department extensibility (#7) | -/- | Complete ✓ | 2026-07-09 |
 | **v2.0 — Configurable Production Workflow Engine** | | | |
-| 16. Workflow Engine Core | 4/5 | In Progress|  |
+| 16. Workflow Engine Core | 5/5 | Complete   | 2026-07-09 |
 | 17. Confirmation → Sign Off Migration | 0/? | Not started | - |
 | 18. Workflow Configurator | 0/? | Not started | - |
 | 19. New Roles & Assignment | 0/? | Not started | - |

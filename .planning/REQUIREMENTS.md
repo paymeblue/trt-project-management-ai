@@ -278,7 +278,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| WF-01, WF-02, WF-03, WF-04, WF-05 | Phase 16 | Pending |
+| WF-01, WF-02, WF-03, WF-04, WF-05 | Phase 16 | Complete ✓ |
 | WF-06 | Phase 17 | Pending |
 | CFG-01, CFG-02, CFG-03 | Phase 18 | Pending |
 | ROLE-01, ROLE-02, ROLE-03 | Phase 19 | Pending |
