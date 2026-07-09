@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: executing
-stopped_at: Phase 18 (Workflow Configurator) COMPLETE — PIN-gated step CRUD (add/remove/reorder/edit) implemented directly and verified end-to-end via browser automation against the real live graph. Ad hoc post-Phase-18 commit f72573d additionally shipped STG-01/PAY-01/PAY-02(partial)/PAY-03 directly to the live graph (Project Intent + Payment Confirmation & Timeline as live steps 1-2, customer_care role + dashboard) ahead of formal Phase 19/20/21 execution.
-last_updated: "2026-07-09T22:18:30.000Z"
-last_activity: 2026-07-09 -- reconciled roadmap/requirements with ad hoc commit f72573d; Phase 19/20/21 scope updated accordingly
+stopped_at: Phase 18 (Workflow Configurator) COMPLETE. Ad hoc post-Phase-18 work additionally shipped directly to the live graph, ahead of formal Phase 19/20/21/22 execution: commit f72573d (Project Intent + Payment Confirmation & Timeline, STG-01/PAY-01/PAY-02-partial/PAY-03) and commit 0d8bacd (full Design pipeline STG-02..07 — designer/architect assignment with position gating, Configurator rebuilt with drag-and-drop for non-technical self-service). See Decisions log for both. Demo-ready and pushed to origin/main.
+last_updated: "2026-07-10T02:30:00.000Z"
+last_activity: 2026-07-10 -- shipped Design pipeline (STG-02..07) + Configurator drag-and-drop rebuild ahead of Phase 19/21 execution; verified (PARITY 19/19, design-pipeline harness 15/15, tsc+lint clean) and pushed
 progress:
   total_phases: 21
   completed_phases: 4
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-09)
 
 **Core value:** A PM on the floor or on-site can complete a structured checklist (with photo evidence) on their phone and have it permanently recorded — replacing paper, with role-scoped visibility and read-only Super Admin oversight.
-**Current focus:** Phase 19 -- New Roles & Assignment (next; ops_factory/factory_manager roles + position-enum/requiredPosition gating still pending)
+**Current focus:** Phase 19 -- New Roles & Assignment (next; ops_factory/factory_manager roles + position-enum/requiredPosition gating still pending; architect role + target_roles-array + required_position column already shipped ad hoc, see Decisions log)
 
 ## Current Position
 
-Phase: 18 (Workflow Configurator) — COMPLETE
+Phase: 18 (Workflow Configurator) — COMPLETE. Design pipeline (Phase 21 core, STG-02..07) also shipped ad hoc — see Decisions log.
 Plan: 1 of 1
-Status: Phase complete — ready for Phase 19
-Last activity: 2026-07-09 -- Phase 18 complete
+Status: Phase complete — ready for Phase 19 (formal plan-phase should account for what's already ad hoc-shipped, not re-plan it)
+Last activity: 2026-07-10 -- Design pipeline + Configurator drag-and-drop rebuild shipped and pushed
 
 ## Performance Metrics
 
@@ -99,6 +99,13 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 18]: End-to-end verified live via browser automation: signed in, unlocked with default PIN 0000, reordered two real steps and reverted, added+deleted a throwaway step, then re-ran verify:live-workflow (PARITY 12/12, both JOIN orders 4/4) to confirm the live graph was untouched.
 - [Ad hoc, post-Phase-18, commit f72573d]: Shipped directly (outside plan-phase/execute-phase) ahead of formal Phase 19/20/21: `customer_care` role + dashboard; live graph grew 11→12 steps via `scripts/migrate-insert-payment-confirmation-step.ts`, an additive in-place migration (shifts existing step definitions' orderIndex and real projects' currentStep/deadlines/completions, same ids throughout — not a delete+recreate reseed, so real `project_step_completions` weren't orphaned); new step 1 "Project Intent" (renamed from "New Project", role `customer_care`, kind `creation`, unpaid by default = STG-01/PAY-01); new step 2 "Payment Confirmation & Timeline" (role `operations`, new kind `payment_confirmation`, gated via `requireAdmin()` i.e. any `operations` OR `super_admin` user — NOT yet narrowed to a specific "Head of Operations" position, and NOT yet extended to `customer_care` per the user's 2026-07-09 answer that Customer Care should also be able to toggle paid) — toggles `unpaid`→`paid` and sets a per-step deadline for every remaining step (= PAY-02 partial + PAY-03). Verified: parity + both join orders still pass after migration; real in-flight projects (Usuma, Test) advanced to the same conceptual step. Also fixed a bug from the same session: the Workflow Configurator's role/kind dropdowns were missing `customer_care`/`payment_confirmation` and silently fell back to the first option.
 - [Reconciliation, 2026-07-09]: Phase 20 and Phase 21 in ROADMAP.md/REQUIREMENTS.md updated to reflect the above as already-shipped (STG-01, PAY-01, PAY-03 marked complete; PAY-02 marked partial pending Phase 19's position-enum/requiredPosition work + extending the toggle to `customer_care`), so /gsd-plan-phase 20 and /gsd-plan-phase 21 don't re-plan work that's already live.
+- [Ad hoc, 2026-07-10, commit 0d8bacd]: Shipped the full Design pipeline directly (STG-02..07, same "build directly" precedent as Phase 18/f72573d), ahead of formal Phase 19/21 plan-phase/execute-phase — demo-driven, live graph grew 12→18 steps via `scripts/migrate-insert-design-stages.ts` (additive, same-ids migration, no real project orphaned). Order: `assign_designer_brief` → `brief_taking` → `design_initiation` → `kickoff_meeting` → `design_meeting` → `design_stage` → `confirmation` (unchanged) — this order was corrected mid-session to match the user's original handwritten process notes (brief taken immediately after the first assignment; second assignment right before kickoff), which differs from an earlier typed summary of the same plan that this session initially built against.
+  - `architect` added as its own role (NOT a `design`-role position) — resolved decision overturning an earlier draft assumption. Has its own Phase-15-pattern dashboard shell.
+  - `workflow_step_definitions.target_role` (single role) widened to `target_roles` (role array) — retroactive schema change to already-shipped Phase 16 structure — so an assignment step can target a pool spanning multiple roles (Head Designer picks from `design` OR `architect`). `assignUser` in lib/workflow-graph.ts checks pool membership, not equality.
+  - New `required_position` column (free text, not yet a DB enum — deferred to formal Phase 19 to avoid migration risk under this ad hoc build) narrows a role-gated step to one exact `users.position` value; checked in `actions/workflow-graph.ts`'s `authorizeStep`, fetched fresh from the DB per-request (not the session/JWT) since position can change post-signup.
+  - Workflow Configurator rebuilt for real non-technical self-service per explicit user request: native HTML5 drag-and-drop reorder (`moveGraphStepToIndex`, a chain of the existing adjacent-swap logic, no new dependency — an external suggestion to adopt React Flow was considered and declined as too risky/slow for the demo timeline), large step-number badges, plain-language fulfillment-kind descriptions, one-click known-position buttons + custom fallback, assignee-pool toggle chips.
+  - Verified: `scripts/verify-live-workflow.ts` (PARITY 19/19, both JOIN orders 4/4) and new `scripts/verify-design-pipeline.ts` (multi-role assignment pool + two independent assignments + lands on existing Confirmation, 15/15). `tsc --noEmit` and lint clean. Demo accounts seeded via `scripts/seed-demo-design-users.ts` (head.designer@trtarredo.demo has position `head_designer`; designer@/architect@trtarredo.demo do not — proves the position gate).
+  - Not done tonight (explicitly out of scope, still Phase 19/22 work): position isn't a DB enum yet; Stage 9 (Site Personnel Confirmation Assignment) and Phase 22's post-Confirmation stages; extending the Stage-2 payment toggle to `customer_care` or narrowing it to `head_of_operations`.
 
 ### Pending Todos
 
