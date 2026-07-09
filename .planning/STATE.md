@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: executing
-stopped_at: Completed 17-05-PLAN.md (client consumer cutover — board, header switcher, pending gate, new-project form) — Phase 17 Plan 5 of 6 done
-last_updated: "2026-07-09T16:30:00.000Z"
+stopped_at: 17-06-PLAN.md Tasks 1-2 complete (literal retired, seed data relocated, tests retargeted) — Task 3 blocking human-verify checkpoint pending (dev-server before/after check)
+last_updated: "2026-07-09T16:45:00.000Z"
 last_activity: 2026-07-09
 progress:
   total_phases: 21
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 
 Phase: 17 (Confirmation → Sign Off Migration) — EXECUTING
 Plan: 6 of 6
-Status: Ready to execute
+Status: Tasks 1-2 complete; Task 3 (blocking human-verify checkpoint) pending
 Last activity: 2026-07-09
 
 ## Performance Metrics
@@ -89,6 +89,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 17]: [Phase 17 P04]: about/page.tsx needed no edit for the now-async TrtFlowDiagram — plain JSX invocation of an async server component compiles/builds unchanged under Next's RSC model
 - [Phase 17]: [Phase 17 P05]: Phase 17 grew from 5 to 6 plans — a 6th plan (17-06, literal retirement + before/after checkpoint) was added after earlier plans' docs were written; progress counts updated to reflect 6 total plans in this phase
 - [Phase 17]: [Phase 17 P05]: Client components (board, header switcher, pending gate, new-project form) cut over to useWorkflowSteps(); re-ran npm run verify:live-workflow post-cutover (PARITY 12/12, both JOIN orders 4/4) to confirm the DB-sourced steps these components now render from remain byte-identical to the legacy WORKFLOW_STEPS array
+- [Phase 17 P06]: Retired WORKFLOW_STEPS/LAST_STEP/stepByN/isProjectComplete from lib/workflow.ts; canonical 11-step data relocated verbatim to db/workflow-live-steps.ts (LIVE_WORKFLOW_STEPS), consumed only by the seed script and verify-live-workflow.ts. tests/actions/workflow.test.ts (not in the plan's file list) also depended on the literal — retargeted as a Rule 3 blocking fix. Tasks 1-2 committed (1188663, 23da515); Task 3 (dev-server before/after human verification of real projects at currentStep 3/5/12) is a blocking checkpoint still pending.
 
 ### Pending Todos
 
@@ -119,6 +120,6 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 
 ## Session Continuity
 
-Last session: 2026-07-09T16:30:00.000Z
-Stopped at: Completed 17-05-PLAN.md (client consumer cutover — board, header switcher, pending gate, new-project form) — Phase 17 Plan 5 of 6 done
-Resume file: None
+Last session: 2026-07-09T16:45:00.000Z
+Stopped at: 17-06-PLAN.md Tasks 1-2 complete (literal retired, seed data relocated, tests retargeted); Task 3 blocking human-verify checkpoint pending — dev server before/after check of real projects at currentStep 3/5/12 across timeline/board/gate/switcher/flow-diagram/new-project-form
+Resume file: .planning/phases/17-confirmation-sign-off-migration/17-06-PLAN.md (Task 3)
