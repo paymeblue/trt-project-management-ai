@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: executing
-stopped_at: "Completed 17-01-PLAN.md (migration foundation: adapter + corrected edges + verification) — Phase 17 Plan 1 of 5 done"
-last_updated: "2026-07-09T14:40:13.686Z"
+stopped_at: "Completed 17-02-PLAN.md (server actions/libs cutover to live graph: my-work, advance, bypass, projects, analytics) — Phase 17 Plan 2 of 5 done"
+last_updated: "2026-07-09T14:58:18.886Z"
 last_activity: 2026-07-09
 progress:
   total_phases: 21
   completed_phases: 2
   total_plans: 16
-  completed_plans: 11
+  completed_plans: 12
   percent: 10
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 ## Current Position
 
 Phase: 17 (Confirmation → Sign Off Migration) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-07-09
 
@@ -52,6 +52,7 @@ Last activity: 2026-07-09
 | Phase 16 P04 | 35min | 2 tasks | 3 files |
 | Phase 16 P05 | 6min | 2 tasks | 4 files |
 | Phase 17 P01 | 9min | 3 tasks | 5 files |
+| Phase 17 P02 | 5min | 2 tasks | 7 files |
 
 ### Decisions
 
@@ -79,6 +80,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 16 P05]: graphStepHref's /workflow/step destination implemented as a minimal server route + 3 client kind renderers using the existing useTransition server-action pattern; graph defaults to 'test' via an explicit searchParam (not hardcoded) so Phase 17 can point live steps at 'live' without touching this route
 - [Phase 17-01]: Verified the 25 pre-existing graph='live' project_step_completions rows have stepDefId=null (legacy stepKey/stepN-keyed audit rows) before reseeding workflow_step_definitions, confirming the cascade delete could not affect real project data
 - [Phase 17-01]: db/seed-workflow-graph.ts now emits an explicit by-key edge list (not a positional n->n+1 loop): materials_readiness fans out to delivery_readiness AND delivery_project, both converging on project_check_report, natively encoding the parallel/join required by D-03
+- [Phase 17 P02]: findStep widened to generic <T extends WorkflowStep> so LiveWorkflowStep.stepDefId survives the lookup
 
 ### Pending Todos
 
@@ -109,6 +111,6 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 
 ## Session Continuity
 
-Last session: 2026-07-09T14:40:13.677Z
-Stopped at: Completed 17-01-PLAN.md (migration foundation: adapter + corrected edges + verification) — Phase 17 Plan 1 of 5 done
+Last session: 2026-07-09T14:58:18.878Z
+Stopped at: Completed 17-02-PLAN.md (server actions/libs cutover to live graph: my-work, advance, bypass, projects, analytics) — Phase 17 Plan 2 of 5 done
 Resume file: None
