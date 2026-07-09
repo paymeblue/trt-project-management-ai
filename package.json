@@ -18,6 +18,7 @@
     "db:seed-workflow-graph": "tsx db/seed-workflow-graph.ts",
     "db:seed-workflow-test-graph": "tsx db/seed-workflow-test-graph.ts",
     "verify:workflow-engine": "tsx scripts/verify-workflow-engine.ts",
+    "verify:live-workflow": "tsx scripts/verify-live-workflow.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
