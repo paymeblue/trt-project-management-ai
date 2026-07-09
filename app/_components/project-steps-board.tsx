@@ -3,15 +3,16 @@
 import { useActionState, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  WORKFLOW_STEPS,
-  LAST_STEP,
   Roles,
   canRoleActOnStep,
   workflowRoleLabel,
   stepHref,
-  isProjectComplete,
+  findStep,
+  lastStepN,
+  projectComplete,
   type UserRole,
 } from '@/lib/workflow'
+import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
 import { completeAckStepAction, type AckStepState } from '@/actions/workflow'
 import { pauseProjectAction, resumeProjectAction, type FlagState } from '@/actions/projects'
 import { requestStepBypassAction, type BypassState } from '@/actions/bypass'
@@ -195,6 +196,7 @@ const INITIAL_FLAG: FlagState = { ok: false }
 // A super admin sees a Resume control while the project is paused.
 function FlagControls({ project, viewerRole }: { project: BoardProject; viewerRole: UserRole }) {
   const router = useRouter()
+  const steps = useWorkflowSteps()
   const paused = project.status === 'paused'
   const [pauseState, pauseDispatch, pausePending] = useActionState(pauseProjectAction, INITIAL_FLAG)
   const [resumeState, resumeDispatch, resumePending] = useActionState(
@@ -208,7 +210,7 @@ function FlagControls({ project, viewerRole }: { project: BoardProject; viewerRo
     if (pauseState.ok || resumeState.ok) router.refresh()
   }, [pauseState.ok, resumeState.ok, router])
 
-  if (isProjectComplete(project.currentStep)) return null
+  if (projectComplete(project.currentStep, lastStepN(steps))) return null
 
   if (paused) {
     if (viewerRole !== Roles.SuperAdmin) return null // banner already explains; only SA resumes
@@ -289,7 +291,9 @@ function StepsModal({
   viewerRole: UserRole
   onClose: () => void
 }) {
-  const complete = isProjectComplete(project.currentStep)
+  const steps = useWorkflowSteps()
+  const lastN = lastStepN(steps)
+  const complete = projectComplete(project.currentStep, lastN)
   const paused = project.status === 'paused'
 
   return (
@@ -338,7 +342,7 @@ function StepsModal({
         )}
 
         <ol className="space-y-2">
-          {WORKFLOW_STEPS.map((step) => {
+          {steps.map((step) => {
             const done = step.n < project.currentStep
             const current = step.n === project.currentStep
             const mine = !paused && canRoleActOnStep(step.role, viewerRole)
@@ -473,6 +477,8 @@ export default function ProjectStepsBoard({
   // created projects and step advances appear without a manual refresh. The
   // poll keeps state current, so there's no need to sync the prop back in.
   const [projects, setProjects] = useState<BoardProject[]>(initialProjects)
+  const steps = useWorkflowSteps()
+  const lastN = lastStepN(steps)
 
   useEffect(() => {
     let cancelled = false
@@ -505,14 +511,14 @@ export default function ProjectStepsBoard({
 
   function currentStepLabel(p: BoardProject) {
     if (p.status === 'paused') return 'Paused'
-    if (isProjectComplete(p.currentStep)) return 'Delivered'
-    const step = WORKFLOW_STEPS.find((s) => s.n === p.currentStep)
-    return step ? `${step.label} (${p.currentStep}/${LAST_STEP})` : `Step ${p.currentStep}`
+    if (projectComplete(p.currentStep, lastN)) return 'Delivered'
+    const step = findStep(steps, p.currentStep)
+    return step ? `${step.label} (${p.currentStep}/${lastN})` : `Step ${p.currentStep}`
   }
 
   function needsViewer(p: BoardProject) {
-    if (p.status === 'paused' || isProjectComplete(p.currentStep)) return false
-    const step = WORKFLOW_STEPS.find((s) => s.n === p.currentStep)
+    if (p.status === 'paused' || projectComplete(p.currentStep, lastN)) return false
+    const step = findStep(steps, p.currentStep)
     return step ? canRoleActOnStep(step.role, viewerRole) : false
   }
 
@@ -573,7 +579,7 @@ export default function ProjectStepsBoard({
               <div className="mt-3">
                 <Countdown
                   deadline={deadlineForStep(p, p.currentStep)}
-                  complete={isProjectComplete(p.currentStep)}
+                  complete={projectComplete(p.currentStep, lastN)}
                   paused={p.status === 'paused'}
                 />
               </div>
