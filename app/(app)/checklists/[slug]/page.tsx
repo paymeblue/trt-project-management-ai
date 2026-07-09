@@ -11,11 +11,12 @@ import ChecklistWizard, { type WizardItem } from '@/app/_components/checklist-wi
 import ChecklistEditor, { type EditableItem } from '@/app/_components/checklist-editor'
 import {
   REQUIRED_PHOTOS,
-  stepByN,
+  findStep,
   canRoleActOnStep,
   canEditChecklist,
   type UserRole,
 } from '@/lib/workflow'
+import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,7 +56,8 @@ export default async function ChecklistPage({
 
   if (projectId && stepN) {
     const [proj] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
-    const step = stepByN(stepN)
+    const steps = await getLiveWorkflowSteps()
+    const step = findStep(steps, stepN)
     if (!proj || !step) {
       workflowNotice = 'This project step could not be found.'
     } else if (step.slug !== slug) {

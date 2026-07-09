@@ -3,7 +3,8 @@ import { db } from '@/db'
 import { readinessForms, projects } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import ReadinessForm from '@/app/_components/readiness-form'
-import { stepByN, canRoleActOnStep, type UserRole } from '@/lib/workflow'
+import { findStep, canRoleActOnStep, type UserRole } from '@/lib/workflow'
+import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +26,8 @@ export default async function ReadinessPage({
 
   if (projectId && stepN) {
     const [proj] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
-    const step = stepByN(stepN)
+    const steps = await getLiveWorkflowSteps()
+    const step = findStep(steps, stepN)
     if (!proj || !step || step.kind !== 'readiness') {
       workflowNotice = 'This project step could not be found.'
     } else if (proj.currentStep !== stepN) {
