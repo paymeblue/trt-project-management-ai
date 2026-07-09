@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: executing
-stopped_at: Completed 16-02-PLAN.md (workflow graph read engine + seed)
-last_updated: "2026-07-09T11:21:02.874Z"
+stopped_at: Completed 16-03-PLAN.md (workflow graph write engine + server actions)
+last_updated: "2026-07-09T11:28:33.349Z"
 last_activity: 2026-07-09
 progress:
   total_phases: 21
   completed_phases: 1
   total_plans: 10
-  completed_plans: 7
+  completed_plans: 8
   percent: 5
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 ## Current Position
 
 Phase: 16 (Workflow Engine Core) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-07-09
 
@@ -48,6 +48,7 @@ Last activity: 2026-07-09
 
 | Phase 16 P01 | 25min | 2 tasks | 1 files |
 | Phase 16 P02 | 15min | 3 tasks | 4 files |
+| Phase 16 P03 | 12min | 2 tasks | 2 files |
 
 ### Decisions
 
@@ -69,6 +70,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - Phase numbering for v2.0 continues from 15 (last completed phase): 16, 17, 18, 19, 20, 21, 22.
 - [Phase 16]: Named 3 long FK constraints explicitly (psc_step_def_id_fk, wse_from_step_id_fk, wss_step_def_id_fk) in db/schema.ts to avoid Postgres 63-char identifier truncation causing drizzle-kit push non-idempotency
 - [Phase 16 P02]: GraphStep.role/targetRole cast from DB roleEnum (6 values) to WorkflowRole (4 values) in lib/workflow-graph.ts's row mapper — workflow steps only ever assign the 4 roles that own steps; avoids widening WorkflowRole itself, which existing consumers depend on
+- [Phase 16 P03]: completeGraphStep gates non-skip completions of the 3 new fulfillment kinds (yes_no_upload/approval/assignment) on a workflow_step_states row already being status 'complete', throwing step-not-fulfilled otherwise; legacy kinds are trusted as already validated upstream
+- [Phase 16 P03]: skip enforcement (required-step-cannot-be-skipped) lives entirely server-side inside completeGraphStep, so a forged skip=true on a required step is rejected before any row is written
 
 ### Pending Todos
 
@@ -99,6 +102,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-09T11:21:02.867Z
-Stopped at: Completed 16-02-PLAN.md (workflow graph read engine + seed)
+Last session: 2026-07-09T11:28:33.343Z
+Stopped at: Completed 16-03-PLAN.md (workflow graph write engine + server actions)
 Resume file: None

@@ -283,7 +283,7 @@ Plans:
 Plans:
 - [x] 16-01-PLAN.md — Schema: fulfillment_kind enum + workflow_step_definitions/edges/states tables + extend project_step_completions; drizzle-kit push [Wave 1]
 - [x] 16-02-PLAN.md — Read engine (lib/workflow-graph.ts) + extend lib/workflow.ts types (client-safe) + seed the 11 current steps as the 'live' graph [Wave 2]
-- [ ] 16-03-PLAN.md — Write engine: completeGraphStep + optional/required skip enforcement + 3 new-kind handlers + gated server actions [Wave 3]
+- [x] 16-03-PLAN.md — Write engine: completeGraphStep + optional/required skip enforcement + 3 new-kind handlers + gated server actions [Wave 3]
 - [ ] 16-04-PLAN.md — Test-graph seed (all 4 kinds + optional + parallel/join) + CLI verification harness proving WF-03/04/05 [Wave 4]
 - [ ] 16-05-PLAN.md — Minimal renderers for the 3 new kinds + /workflow/step route (WF-03 UI at test-graph fidelity) [Wave 4]
 
@@ -381,7 +381,7 @@ v2.0 phases execute in numeric order: 16 → 17 → 18 → 19 → 20 → 21 → 
 | 14. Escalation Flows | 3/3 | Complete ✓ | 2026-07-02 |
 | 15. Multi-department extensibility (#7) | -/- | Complete ✓ | 2026-07-09 |
 | **v2.0 — Configurable Production Workflow Engine** | | | |
-| 16. Workflow Engine Core | 2/5 | In Progress|  |
+| 16. Workflow Engine Core | 3/5 | In Progress|  |
 | 17. Confirmation → Sign Off Migration | 0/? | Not started | - |
 | 18. Workflow Configurator | 0/? | Not started | - |
 | 19. New Roles & Assignment | 0/? | Not started | - |

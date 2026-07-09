@@ -212,7 +212,7 @@
   - *Success:* Advancing a project's step reads the live graph; a step inserted via the configurator immediately appears in the gate/board/my-work without a redeploy.
 - [x] **WF-03**: The engine supports fulfillment kinds beyond the current `creation`/`checklist`/`readiness`/`ack`: yes/no with an optional file upload, approval (two-party send/receive), and assignment (actor picks a user of a target role).
   - *Success:* Each new kind renders its correct UI (yes/no toggle + optional upload button; send/receive pair; user picker) and gates advancement correctly.
-- [ ] **WF-04**: A step can be marked optional by the super admin; an optional step can be skipped without blocking the project's advancement, while a required step cannot.
+- [x] **WF-04**: A step can be marked optional by the super admin; an optional step can be skipped without blocking the project's advancement, while a required step cannot.
   - *Success:* Skipping an optional step advances `currentStep`; attempting to skip a required step is rejected server-side.
 - [x] **WF-05**: The existing parallel/join pattern (Delivery Project Checklist + Delivery Readiness both feeding into Project Check Report) is representable in the new graph, not just a coincidence of sequential numbering.
   - *Success:* Both branch steps must complete before the join step becomes actionable; either can complete first.
