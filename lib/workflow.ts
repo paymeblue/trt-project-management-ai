@@ -76,26 +76,9 @@ export type GraphStep = {
   orderIndex: number
 }
 
-export const WORKFLOW_STEPS: WorkflowStep[] = [
-  { n: 1, key: 'new_project', label: 'New Project', role: 'operations', kind: 'creation' },
-  { n: 2, key: 'confirmation', label: 'Confirmation', role: 'site_pm', kind: 'checklist', slug: 'confirmation' },
-  { n: 3, key: 'materials_readiness', label: 'Materials / Accessories Readiness', role: 'factory_pm', kind: 'readiness' },
-  { n: 4, key: 'delivery_readiness', label: 'Delivery Readiness', role: 'site_pm', kind: 'checklist', slug: 'delivery_site_readiness' },
-  { n: 5, key: 'delivery_project', label: 'Delivery Project Checklist', role: 'factory_pm', kind: 'checklist', slug: 'delivery_project' },
-  { n: 6, key: 'project_check_report', label: 'Project Check Report', role: 'factory_pm', kind: 'checklist', slug: 'project_check_report' },
-  { n: 7, key: 'approval_installation', label: 'Approval to Commence Installation', role: 'operations', kind: 'checklist', slug: 'approval_to_commence_installation' },
-  { n: 8, key: 'installation_readiness', label: 'Installation Readiness', role: 'site_pm', kind: 'checklist', slug: 'installation_readiness' },
-  { n: 9, key: 'sorting', label: 'Sorting', role: 'site_pm', kind: 'checklist', slug: 'sorting' },
-  { n: 10, key: 'close_out', label: 'Close Out', role: 'site_pm', kind: 'checklist', slug: 'close_out' },
-  { n: 11, key: 'sign_off', label: 'Sign Off', role: 'super_admin', kind: 'ack' },
-]
-
 // New projects begin awaiting the first actionable step (Confirmation); step 1
 // (New Project) is completed by Operations at creation time.
 export const FIRST_ACTION_STEP = 2
-// Final step is the super_admin Sign Off (11); a project is only complete once it
-// advances PAST it (currentStep 12). See isProjectComplete.
-export const LAST_STEP = WORKFLOW_STEPS[WORKFLOW_STEPS.length - 1].n // 11
 
 // Shapes shared between the layout, the /api/my-work endpoint and the client
 // provider that drives the header switcher + forcing gate.
@@ -103,20 +86,10 @@ export type ActiveProject = { id: string; name: string; stepN: number; deadline:
 export type PendingWork = { projectId: string; name: string; stepN: number; deadline: string | null }
 export type MyWork = { activeProjects: ActiveProject[]; pending: PendingWork[] }
 
-export function stepByN(n: number): WorkflowStep | undefined {
-  return WORKFLOW_STEPS.find((s) => s.n === n)
-}
-
-export function isProjectComplete(currentStep: number): boolean {
-  return currentStep > LAST_STEP
-}
-
 // ── Pure, array-argument helpers (Phase 17, WF-06) ────────────────────────
-// Additive variants of stepByN/isProjectComplete that take a steps array
-// instead of closing over the legacy WORKFLOW_STEPS module-level constant —
-// they work identically whether given WORKFLOW_STEPS or a future
-// getLiveWorkflowSteps() result. Legacy stepByN/isProjectComplete are left
-// untouched above; callers migrate to these only when ready.
+// Take a steps array instead of closing over a module-level constant, so they
+// work identically whether given the seed data (db/workflow-live-steps.ts) or
+// a getLiveWorkflowSteps() result.
 export function findStep<T extends WorkflowStep>(steps: T[], n: number): T | undefined {
   return steps.find((s) => s.n === n)
 }

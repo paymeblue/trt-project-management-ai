@@ -45,10 +45,9 @@ export async function getGraphSteps(graph = 'live'): Promise<GraphStep[]> {
 
 // A GraphStep from the 'live' graph, projected into the legacy WorkflowStep
 // shape (Phase 17, WF-06) — the migration adapter that lets DB-driven steps
-// stand in for the hardcoded WORKFLOW_STEPS array without changing its
+// stand in for the array-based WorkflowStep shape without changing its
 // consumers' expected shape. `stepDefId` is carried alongside so a caller can
-// still resolve back to the DB row (e.g. for completeGraphStep) once callers
-// migrate off the legacy array.
+// still resolve back to the DB row (e.g. for completeGraphStep).
 export type LiveWorkflowStep = WorkflowStep & { stepDefId: string }
 
 export async function getLiveWorkflowSteps(): Promise<LiveWorkflowStep[]> {

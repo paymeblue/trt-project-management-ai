@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { WORKFLOW_STEPS } from '@/lib/workflow'
+import { LIVE_WORKFLOW_STEPS } from '@/db/workflow-live-steps'
 
 // Rows shaped like workflowStepDefinitions.$inferSelect, derived from the
-// legacy WORKFLOW_STEPS array — feeds getLiveWorkflowSteps()'s .orderBy()
+// canonical LIVE_WORKFLOW_STEPS array — feeds getLiveWorkflowSteps()'s .orderBy()
 // query (advanceProjectStep now resolves steps via the live graph, plan 17-02).
-const liveStepDefRows = WORKFLOW_STEPS.map((s) => ({
+const liveStepDefRows = LIVE_WORKFLOW_STEPS.map((s) => ({
   id: `stepdef-${s.n}`,
   graph: 'live',
   stepKey: s.key,

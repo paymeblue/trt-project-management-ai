@@ -4,7 +4,7 @@
  * graph (not a synthetic test graph) — no mocks:
  *
  * - PARITY: getLiveWorkflowSteps() (lib/workflow-graph.ts) deep-equals the
- *   legacy WORKFLOW_STEPS array (lib/workflow.ts) on n/key/label/role/kind/
+ *   canonical LIVE_WORKFLOW_STEPS array (db/workflow-live-steps.ts) on n/key/label/role/kind/
  *   slug, for all 11 steps, in order. This is the proof that the DB is a
  *   faithful copy of the hardcoded array before ANY caller is cut over to it.
  * - JOIN: the live graph's delivery_readiness + delivery_project ->
@@ -50,7 +50,7 @@ import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import { eq } from 'drizzle-orm'
 import * as schema from '../db/schema'
-import { WORKFLOW_STEPS } from '../lib/workflow'
+import { LIVE_WORKFLOW_STEPS } from '../db/workflow-live-steps'
 
 const sql = neon(process.env.DATABASE_URL!)
 const db = drizzle(sql, { schema })
@@ -142,21 +142,21 @@ async function main() {
   const createdProjectIds: string[] = []
 
   try {
-    // ── PARITY: adapter deep-equals the legacy WORKFLOW_STEPS array ───────
-    startGroup('PARITY: getLiveWorkflowSteps() == WORKFLOW_STEPS')
+    // ── PARITY: adapter deep-equals the canonical LIVE_WORKFLOW_STEPS array ─
+    startGroup('PARITY: getLiveWorkflowSteps() == LIVE_WORKFLOW_STEPS')
     const liveSteps = await wg.getLiveWorkflowSteps()
 
-    if (liveSteps.length !== WORKFLOW_STEPS.length) {
+    if (liveSteps.length !== LIVE_WORKFLOW_STEPS.length) {
       recordFail(
-        `step count mismatch (expected ${WORKFLOW_STEPS.length}, got ${liveSteps.length})`,
+        `step count mismatch (expected ${LIVE_WORKFLOW_STEPS.length}, got ${liveSteps.length})`,
       )
     } else {
       recordPass(`step count matches (${liveSteps.length})`)
     }
 
-    const compareLen = Math.min(liveSteps.length, WORKFLOW_STEPS.length)
+    const compareLen = Math.min(liveSteps.length, LIVE_WORKFLOW_STEPS.length)
     for (let i = 0; i < compareLen; i++) {
-      const expected = WORKFLOW_STEPS[i]
+      const expected = LIVE_WORKFLOW_STEPS[i]
       const actual = liveSteps[i]
       const fields: (keyof typeof expected)[] = ['n', 'key', 'label', 'role', 'kind', 'slug']
       const mismatches = fields.filter((f) => actual[f] !== expected[f])

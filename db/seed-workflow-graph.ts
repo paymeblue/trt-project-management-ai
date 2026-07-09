@@ -1,5 +1,5 @@
 /**
- * Structural seed: copy the current 11 live WORKFLOW_STEPS (lib/workflow.ts)
+ * Structural seed: copy the canonical 11 live steps (db/workflow-live-steps.ts)
  * 1:1 into the workflow_step_definitions / workflow_step_edges tables under
  * graph='live'.
  *
@@ -12,8 +12,7 @@
  * getActionableSteps). This is a STRUCTURAL/behavioral seed only — it
  * mirrors the existing steps' shape and gating so the read engine
  * (lib/workflow-graph.ts) has real data to query, proven byte-identical to
- * WORKFLOW_STEPS by scripts/verify-live-workflow.ts. It is NOT the Phase 17
- * caller-cutover (later plans in this phase).
+ * LIVE_WORKFLOW_STEPS by scripts/verify-live-workflow.ts.
  *
  * Run via: npm run db:seed-workflow-graph
  *
@@ -27,7 +26,7 @@ import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import { eq } from 'drizzle-orm'
 import * as schema from './schema'
-import { WORKFLOW_STEPS } from '../lib/workflow'
+import { LIVE_WORKFLOW_STEPS } from './workflow-live-steps'
 
 config({ path: '.env.local' })
 
@@ -39,7 +38,7 @@ const { workflowStepDefinitions, workflowStepEdges } = schema
 const GRAPH = 'live'
 
 async function main() {
-  console.log(`Seeding workflow graph "${GRAPH}" from WORKFLOW_STEPS...`)
+  console.log(`Seeding workflow graph "${GRAPH}" from LIVE_WORKFLOW_STEPS...`)
 
   // Delete existing rows for this graph first (edges before definitions to
   // respect the FK), so re-running the seed is idempotent.
@@ -47,9 +46,9 @@ async function main() {
   await db.delete(workflowStepDefinitions).where(eq(workflowStepDefinitions.graph, GRAPH))
   console.log(`  Cleared existing "${GRAPH}" graph rows.`)
 
-  // Insert the 11 step definitions as a 1:1 structural copy of WORKFLOW_STEPS.
+  // Insert the 11 step definitions as a 1:1 structural copy of LIVE_WORKFLOW_STEPS.
   const idByStepN = new Map<number, string>()
-  for (const step of WORKFLOW_STEPS) {
+  for (const step of LIVE_WORKFLOW_STEPS) {
     const [inserted] = await db
       .insert(workflowStepDefinitions)
       .values({
@@ -74,7 +73,7 @@ async function main() {
   // converging on project_check_report (the parallel/join this milestone
   // requires to be natively modeled, not incidental numbering).
   const idByKey = new Map<string, string>()
-  for (const step of WORKFLOW_STEPS) {
+  for (const step of LIVE_WORKFLOW_STEPS) {
     idByKey.set(step.key, idByStepN.get(step.n)!)
   }
 
