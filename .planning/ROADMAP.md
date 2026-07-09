@@ -308,7 +308,7 @@ Plans:
 - [x] 17-02-PLAN.md — Cut over server actions/libs (my-work, advance, bypass, projects, analytics) + stepDefId dual-write (Wave 2)
 - [x] 17-03-PLAN.md — Cut over step-gating server pages (checklist, readiness, approvals, timeline) (Wave 2)
 - [x] 17-04-PLAN.md — WorkflowStepsProvider + layout wire + flow diagram on the DB (Wave 2)
-- [ ] 17-05-PLAN.md — Cut over client consumers (board, header switcher, pending gate, new-project form) to useWorkflowSteps() (Wave 3)
+- [x] 17-05-PLAN.md — Cut over client consumers (board, header switcher, pending gate, new-project form) to useWorkflowSteps() (Wave 3)
 - [ ] 17-06-PLAN.md — Retire the literal + relocate seed data + tests + before/after human verification (Wave 4)
 
 ### Phase 18: Workflow Configurator
@@ -395,7 +395,7 @@ v2.0 phases execute in numeric order: 16 → 17 → 18 → 19 → 20 → 21 → 
 | 15. Multi-department extensibility (#7) | -/- | Complete ✓ | 2026-07-09 |
 | **v2.0 — Configurable Production Workflow Engine** | | | |
 | 16. Workflow Engine Core | 5/5 | Complete   | 2026-07-09 |
-| 17. Confirmation → Sign Off Migration | 4/6 | In Progress|  |
+| 17. Confirmation → Sign Off Migration | 5/6 | In Progress|  |
 | 18. Workflow Configurator | 0/? | Not started | - |
 | 19. New Roles & Assignment | 0/? | Not started | - |
 | 20. Payment & Timeline Gating | 0/? | Not started | - |
