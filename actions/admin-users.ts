@@ -18,6 +18,7 @@ const ASSIGNABLE_ROLES: UserRole[] = [
   Roles.Operations,
   Roles.Design,
   Roles.Production,
+  Roles.CustomerCare,
 ]
 
 // Roles an admin may create from the UI. PMs + the future departments; the
@@ -27,6 +28,7 @@ const CREATABLE_ROLES: UserRole[] = [
   Roles.SitePm,
   Roles.Design,
   Roles.Production,
+  Roles.CustomerCare,
 ]
 
 type ActionResult = { ok: boolean; error?: string }
@@ -109,6 +111,49 @@ export async function updateUserRoleAction(userId: string, newRole: string): Pro
     .where(eq(users.id, userId))
   revalidatePath('/admin/users')
   return { ok: true }
+}
+
+type ResetPasswordResult = ActionResult & { tempPassword?: string; emailed?: boolean }
+
+/**
+ * Admin-only: set a NEW password for an existing user and return it once so
+ * the admin can share it. There is no way to recover a user's ORIGINAL
+ * password — passwords are bcrypt-hashed (one-way) by design, same as every
+ * other credential in this app; storing them recoverably would be a serious
+ * vulnerability (one DB breach exposes every real password). This resets to
+ * a fresh temp password instead, covering the actual need (a locked-out
+ * user) without that risk.
+ */
+export async function resetUserPasswordAction(userId: string): Promise<ResetPasswordResult> {
+  const { userId: meId } = await requireAdmin()
+
+  const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+  if (!target) return { ok: false, error: 'User not found.' }
+  if (isAdminRole(target.role as UserRole) && target.id !== meId) {
+    return { ok: false, error: 'You cannot reset another administrator\'s password.' }
+  }
+
+  const tempPassword = generatePassword()
+  const hashed = await bcrypt.hash(tempPassword, 10)
+  await db.update(users).set({ hashedPassword: hashed, updatedAt: new Date() }).where(eq(users.id, userId))
+
+  const loginUrl = `${process.env.APP_URL ?? 'http://localhost:3000'}/sign-in`
+  let emailed = true
+  try {
+    const { subject, html, text } = credentialsEmail({
+      name: target.name,
+      email: target.email,
+      password: tempPassword,
+      roleLabel: userRoleLabel(target.role as UserRole),
+      loginUrl,
+    })
+    await sendEmail({ to: target.email, subject, html, text })
+  } catch {
+    emailed = false
+  }
+
+  revalidatePath('/admin/users')
+  return { ok: true, tempPassword, emailed }
 }
 
 /** Delete a user, with guards against removing administrators or yourself. */

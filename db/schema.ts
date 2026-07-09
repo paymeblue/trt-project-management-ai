@@ -12,15 +12,16 @@ import {
 } from 'drizzle-orm/pg-core'
 
 // ── Enums ────────────────────────────────────────────────────────────────
-export const roleEnum = pgEnum('role', ['factory_pm', 'site_pm', 'super_admin', 'operations', 'design', 'production'])
+export const roleEnum = pgEnum('role', ['factory_pm', 'site_pm', 'super_admin', 'operations', 'design', 'production', 'customer_care'])
 export const projectStatusEnum = pgEnum('project_status', ['not_delivered', 'delivered', 'paused'])
+export const paymentStatusEnum = pgEnum('payment_status', ['unpaid', 'paid'])
 export const targetRoleEnum = pgEnum('target_role', ['factory_pm', 'site_pm', 'both'])
 export const itemTypeEnum = pgEnum('item_type', ['radio', 'text', 'file'])
 export const responseOptionsEnum = pgEnum('response_options', ['yes_no', 'yes_no_na'])
 export const checklistStatusEnum = pgEnum('checklist_status', ['draft', 'submitted'])
 export const responseValueEnum = pgEnum('response_value', ['yes', 'no', 'na'])
 export const chatRoleEnum = pgEnum('chat_role', ['user', 'assistant'])
-export const fulfillmentKindEnum = pgEnum('fulfillment_kind', ['creation', 'checklist', 'readiness', 'ack', 'yes_no_upload', 'approval', 'assignment'])
+export const fulfillmentKindEnum = pgEnum('fulfillment_kind', ['creation', 'checklist', 'readiness', 'ack', 'yes_no_upload', 'approval', 'assignment', 'payment_confirmation'])
 
 // ── Users (NextAuth Credentials — bcrypt verified in auth.ts authorize()) ──
 export const users = pgTable('users', {
@@ -40,15 +41,23 @@ export const users = pgTable('users', {
 
 // ── Projects ─────────────────────────────────────────────────────────────
 export const projects = pgTable('projects', {
-  id:           uuid('id').primaryKey().defaultRandom(),
-  name:         text('name').notNull(),
-  location:     text('location'),
-  deliveryDate: timestamp('delivery_date'),                 // doubles as the deadline (Operations sets it)
-  status:       projectStatusEnum('status').default('not_delivered').notNull(),
-  currentStep:  integer('current_step').default(2).notNull(), // workflow step awaiting action (see lib/workflow.ts)
-  createdBy:    uuid('created_by').notNull().references(() => users.id),
-  createdAt:    timestamp('created_at').defaultNow().notNull(),
-  updatedAt:    timestamp('updated_at').defaultNow().notNull(),
+  id:            uuid('id').primaryKey().defaultRandom(),
+  name:          text('name').notNull(),
+  location:      text('location'),
+  deliveryDate:  timestamp('delivery_date'),                 // doubles as the deadline (Operations sets it)
+  status:        projectStatusEnum('status').default('not_delivered').notNull(),
+  currentStep:   integer('current_step').default(2).notNull(), // workflow step awaiting action (see lib/workflow.ts)
+  createdBy:     uuid('created_by').notNull().references(() => users.id),
+  createdAt:     timestamp('created_at').defaultNow().notNull(),
+  updatedAt:     timestamp('updated_at').defaultNow().notNull(),
+  // ── Customer Care intake (v2.0, STG-01/PAY-01) ──────────────────────────
+  customerName:  text('customer_name'),
+  customerEmail: text('customer_email'),
+  customerPhone: text('customer_phone'),
+  scope:         text('scope'),
+  // Independent of `status` (not_delivered/delivered/paused) — gates progress
+  // past the new Payment Confirmation & Timeline step (PAY-01/PAY-02).
+  paymentStatus: paymentStatusEnum('payment_status').default('unpaid').notNull(),
 })
 
 // ── Project Step Completions (workflow audit trail / timeline) ────────────

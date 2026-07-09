@@ -10,10 +10,16 @@ export const dynamic = 'force-dynamic'
 
 const ROLES: { name: string; icon: string; blurb: string }[] = [
   {
+    name: 'Customer Care',
+    icon: 'support_agent',
+    blurb:
+      'First point of contact. Captures a client\'s intent from the intake call and creates their project (unpaid by default) — the very first step in the workflow.',
+  },
+  {
     name: 'Operations',
     icon: 'settings',
     blurb:
-      'Opens each project and sets its delivery timeline, then approves commencement of on-site installation once the factory side is ready. Full admin rights alongside Super Admin.',
+      'Confirms payment and sets the delivery timeline right after Customer Care creates a project, then approves commencement of on-site installation once the factory side is ready. Full admin rights alongside Super Admin.',
   },
   {
     name: 'Factory PM',

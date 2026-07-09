@@ -81,6 +81,13 @@ const NAV: Record<string, Entry[]> = {
     { href: '/profile', icon: 'person', label: 'Profile' },
     { href: '/about', icon: 'info', label: 'About TRT' },
   ],
+  customer_care: [
+    { href: '/customer-care/dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { href: '/customer-care/projects/new', icon: 'add_box', label: 'New Project' },
+    { href: '/processes', icon: 'account_tree', label: 'Processes' },
+    { href: '/profile', icon: 'person', label: 'Profile' },
+    { href: '/about', icon: 'info', label: 'About TRT' },
+  ],
 }
 
 export default function SidebarNav({ role }: { role: string }) {

@@ -9,6 +9,7 @@ const ROLES = [
   { value: 'site_pm', label: 'Site PM' },
   { value: 'design', label: 'Design' },
   { value: 'production', label: 'Production' },
+  { value: 'customer_care', label: 'Customer Care' },
 ]
 
 export default function AdminCreateUser() {

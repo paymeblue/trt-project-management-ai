@@ -13,11 +13,13 @@ const ROLE_COLOR: Record<WorkflowRole, string> = {
   site_pm: '#0ea5e9', // sky
   factory_pm: '#f97316', // orange
   super_admin: '#059669', // emerald
+  customer_care: '#d946ef', // fuchsia
 }
 
 // Short, role-accurate blurbs keyed by the canonical step key.
 const DETAIL: Record<string, string> = {
-  new_project: 'Operations opens the project and sets its delivery timeline.',
+  new_project: 'Customer Care captures the client\'s intent and creates the project (unpaid by default).',
+  payment_confirmation: 'Operations confirms payment and sets the delivery timeline for every remaining step.',
   confirmation: 'Site PM confirms the project details to start the workflow.',
   materials_readiness:
     'Factory PM confirms materials & accessories are complete — sign digitally or upload the signed form.',
@@ -32,7 +34,7 @@ const DETAIL: Record<string, string> = {
   sign_off: 'Super Admin gives the final sign-off — the project is complete only after this.',
 }
 
-const ROLES: WorkflowRole[] = ['operations', 'site_pm', 'factory_pm', 'super_admin']
+const ROLES: WorkflowRole[] = ['customer_care', 'operations', 'site_pm', 'factory_pm', 'super_admin']
 
 export default async function TrtFlowDiagram() {
   const steps = await getLiveWorkflowSteps()

@@ -17,6 +17,7 @@ const ROLE_OPTIONS: { value: WorkflowRole; label: string }[] = [
   { value: 'site_pm', label: 'Site PM' },
   { value: 'factory_pm', label: 'Factory PM' },
   { value: 'super_admin', label: 'Super Admin' },
+  { value: 'customer_care', label: 'Customer Care' },
 ]
 
 const KIND_OPTIONS: { value: StepKind; label: string }[] = [
@@ -24,6 +25,7 @@ const KIND_OPTIONS: { value: StepKind; label: string }[] = [
   { value: 'checklist', label: 'Checklist' },
   { value: 'readiness', label: 'Readiness form' },
   { value: 'ack', label: 'Acknowledge' },
+  { value: 'payment_confirmation', label: 'Payment confirmation & timeline' },
   { value: 'yes_no_upload', label: 'Yes/No + optional upload' },
   { value: 'approval', label: 'Approval (send/receive)' },
   { value: 'assignment', label: 'Assignment' },

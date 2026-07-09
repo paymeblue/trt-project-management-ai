@@ -18,6 +18,9 @@ export const Roles = {
   // ROLE_DASHBOARD entry below, (4) add a sidebar NAV list + a dashboard page.
   Design: 'design',
   Production: 'production',
+  // v2.0: intake role — creates the Project Intent step (STG-01); owns a
+  // workflow step, so it's also part of WorkflowRole below.
+  CustomerCare: 'customer_care',
 } as const
 
 export type UserRole = (typeof Roles)[keyof typeof Roles]
@@ -26,6 +29,7 @@ export type WorkflowRole =
   | typeof Roles.SitePm
   | typeof Roles.FactoryPm
   | typeof Roles.SuperAdmin
+  | typeof Roles.CustomerCare
 export type StepKind =
   | 'creation'
   | 'checklist'
@@ -34,6 +38,7 @@ export type StepKind =
   | 'yes_no_upload'
   | 'approval'
   | 'assignment'
+  | 'payment_confirmation'
 
 // True for roles with full admin rights (admin area, project creation, timeline).
 export function isAdminRole(role: UserRole): boolean {
@@ -107,6 +112,7 @@ const ROLE_LABELS: Record<WorkflowRole, string> = {
   site_pm: 'Site PM',
   factory_pm: 'Factory PM',
   super_admin: 'Super Admin',
+  customer_care: 'Customer Care',
 }
 
 export function workflowRoleLabel(role: WorkflowRole): string {
@@ -122,6 +128,7 @@ const USER_ROLE_LABELS: Record<UserRole, string> = {
   operations: 'Operations',
   design: 'Design',
   production: 'Production',
+  customer_care: 'Customer Care',
 }
 
 export function userRoleLabel(role: string): string {
@@ -135,6 +142,7 @@ const ROLE_DASHBOARD: Record<UserRole, string> = {
   operations: '/admin/dashboard',
   design: '/design/dashboard',
   production: '/production/dashboard',
+  customer_care: '/customer-care/dashboard',
 }
 
 export function roleDashboard(role: string): string {
@@ -157,6 +165,7 @@ export function stepHref(step: WorkflowStep, projectId: string): string | null {
   const q = `?projectId=${projectId}&step=${step.n}`
   if (step.kind === 'checklist' && step.slug) return `/checklists/${step.slug}${q}`
   if (step.kind === 'readiness') return `/factory-pm/readiness${q}`
+  if (step.kind === 'payment_confirmation') return `/admin/payment-confirmation${q}`
   return null
 }
 
