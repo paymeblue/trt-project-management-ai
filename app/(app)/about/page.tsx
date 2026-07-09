@@ -37,7 +37,13 @@ const ROLES: { name: string; icon: string; blurb: string }[] = [
     name: 'Design',
     icon: 'design_services',
     blurb:
-      'Design department shell is live; its workflow steps (briefs, kickoff, client design approval) are being rolled out and will appear here once configured.',
+      'The Head Designer assigns a Designer or Architect to take the client\'s brief, then again — a second, independent assignment — to begin the actual design work. The assigned person runs the Kickoff Meeting, Design Meeting, and Brief Taking, then produces the drawing and records the client\'s approval at Design Stage, handing off to Confirmation.',
+  },
+  {
+    name: 'Architect',
+    icon: 'architecture',
+    blurb:
+      'Sits in the same assignment pool as Design — the Head Designer can hand either a brief or the design work itself to an Architect just as they would a Designer. Own dashboard and nav, same as every other role.',
   },
   {
     name: 'Production',
