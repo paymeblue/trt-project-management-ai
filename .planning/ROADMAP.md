@@ -4,6 +4,10 @@
 
 The build goes foundation-first: lock down auth, the role model, transactional email, and a complete data-driven schema with server-side authorization before any feature exists, because RBAC mistakes here are contagious. The schema is laid in full up front (including chat and diagram tables) so later features don't churn migrations. Next comes the shared shell and the S3 upload pattern, then a single generic checklist wizard engine that all nine checklist types configure. Role-specific flows (Factory PM, then Site PM) and read-only Super Admin oversight follow. Two collaboration features come next — a real-time collaborative Processes diagram editor (React Flow + Mermaid) and dashboard chat — both powered by Supabase Realtime as a pure transport over Neon-persisted data. Dave Aredo (the AI assistant) is built last among features. A final phase handles production hardening and the items blocked on source PDFs.
 
+Milestone v1.1 (phases 11-15) added super-admin governance, accountability, and multi-department extensibility on top of the shipped v1.0 base.
+
+Milestone v2.0 (phases 16-22) replaces the hardcoded 11-step `WORKFLOW_STEPS` array with a DB-driven, super-admin-configurable workflow graph, then uses that graph to insert the full front-of-funnel pipeline (Customer Care intake through production authorization) ahead of and interleaved with the existing Confirmation→Sign Off tail, which ships byte-for-byte unchanged. The build goes engine-first (schema + graph capabilities), then the highest-risk step — migrating the existing tail onto the new engine with zero behavior change — gets its own tightly-scoped phase before any new capability is layered on. Configurator UI, new roles, and payment gating come next as prerequisites, and the new stage content is seeded last, split into a front-of-funnel phase (pre-Confirmation) and a production-authorization insert (interleaved into the existing tail).
+
 ## Phases
 
 - [x] **Phase 1: Foundation — Auth, Roles, Email, Schema, DAL** - Self-serve signup, role gating, Resend email, full template-driven schema, server-side authorization
@@ -26,6 +30,15 @@ The build goes foundation-first: lock down auth, the role model, transactional e
 
 ### Milestone v1.1 (extension)
 - [x] **Phase 15: Multi-department extensibility (#7)** - Design & Production as first-class roles with a working shell (nav, dashboards, admin assignment); centralized userRoleLabel/roleDashboard helpers; departments own no workflow steps yet (additive later)
+
+### Milestone v2.0 — Configurable Production Workflow Engine
+- [ ] **Phase 16: Workflow Engine Core** - DB-backed step graph replaces the hardcoded `WORKFLOW_STEPS` array; new fulfillment kinds (yes/no+upload, approval, assignment), optional/skip logic, and parallel/join branching all representable (WF-01, WF-02, WF-03, WF-04, WF-05)
+- [ ] **Phase 17: Confirmation → Sign Off Migration** - The existing 10-step tail (Confirmation through Sign Off) cut over onto the new engine with explicit zero-regression verification (WF-06)
+- [ ] **Phase 18: Workflow Configurator** - Super-admin-only, separately PIN-gated screen to add/remove/reorder/edit steps in the live graph (CFG-01, CFG-02, CFG-03)
+- [ ] **Phase 19: New Roles & Assignment** - `customer_care`, `ops_factory`, `factory_manager` roles with dashboards; assignment-kind steps notify a picked user; super-admin titles stay in `users.position` (ROLE-01, ROLE-02, ROLE-03)
+- [ ] **Phase 20: Payment & Timeline Gating** - `paid`/`unpaid` project status with two independent payment gates; per-step deadlines extend to every new step (PAY-01, PAY-02, PAY-03, PAY-04)
+- [ ] **Phase 21: Front-of-Funnel Stages — Intake Through Design Approval** - Customer Care intake, designer assignment, Kickoff/Design Meeting/Brief Taking, Invoicing, Design Stage — arriving at the existing Confirmation step unchanged (STG-01..07)
+- [ ] **Phase 22: Production-Authorization Insert — Confirmation2 Through Factory Manager QC** - Re-confirmation, correction, internal approval, production authorization, and QC inserted ahead of the existing Materials/Accessories Readiness step (STG-08..14)
 
 ## Phase Details
 
@@ -249,11 +262,97 @@ Plans:
 - [x] 14-02: Higher-authority bypass request → approve/deny + audit + advance
 - [x] 14-03: Escalate issue to all super admins + per-project dispute thread
 
+---
+
+## Phase Details — Milestone v2.0
+
+### Phase 16: Workflow Engine Core
+**Goal**: Project workflow state is driven by a database-backed step graph instead of the hardcoded `WORKFLOW_STEPS` array, and the graph natively supports every fulfillment pattern and branching shape the rest of v2.0 will need.
+**Depends on**: Phase 15 (existing role/dashboard pattern), nothing else outstanding
+**Requirements**: WF-01, WF-02, WF-03, WF-04, WF-05
+**Success Criteria** (what must be TRUE):
+  1. Step data (order, key, label, responsible role, fulfillment kind, optional flag) lives in DB tables that `lib/workflow.ts` reads from; no step data remains in a literal array
+  2. A project's current-step resolution and advancement read the live graph — a step added directly to the data is reflected in gate/board/my-work without a redeploy
+  3. Each of the four fulfillment kinds — checklist, yes/no with optional upload, approval (two-party send/receive), and assignment (actor picks a user of a target role) — renders its correct interface and gates advancement correctly on a test graph
+  4. An optional step can be skipped (project advances); a required step cannot be skipped (rejected server-side)
+  5. Two steps can be modeled as parallel branches feeding one join step; the join only becomes actionable once both branches are complete, regardless of completion order
+**Plans**: TBD (set at /gsd-plan-phase 16)
+**UI hint**: yes
+
+### Phase 17: Confirmation → Sign Off Migration
+**Goal**: Every existing production step from Confirmation through Sign Off runs on the new engine with zero behavior change for any project, past or future — the single highest-risk cutover in this milestone, verified explicitly.
+**Depends on**: Phase 16
+**Requirements**: WF-06
+**Success Criteria** (what must be TRUE):
+  1. Confirmation, Materials/Accessories Readiness, Delivery Readiness, Delivery Project Checklist, Project Check Report, Approval to Commence Installation, Installation Readiness, Sorting, Close Out, and Sign Off all exist in the new graph with the same key, role, checklist slug, and relative order as today
+  2. The Delivery Project Checklist + Delivery Readiness → Project Check Report parallel/join relationship is modeled natively in the graph, not inferred from sequential numbering
+  3. A project created before the cutover and one created after both progress through Confirmation→Sign Off identically — same role gates, same checklist slugs, same completion boundary
+  4. The old hardcoded `WORKFLOW_STEPS` array is retired in favor of the DB graph with no regression anywhere it was previously read from (board, gate, my-work, flow diagram)
+**Plans**: TBD (set at /gsd-plan-phase 17)
+
+### Phase 18: Workflow Configurator
+**Goal**: The super admin can reshape the live workflow graph — add, remove, reorder, and edit steps — from a dedicated, separately PIN-gated screen, without a code change or redeploy.
+**Depends on**: Phase 16, Phase 17
+**Requirements**: CFG-01, CFG-02, CFG-03
+**Success Criteria** (what must be TRUE):
+  1. Opening the Workflow Configurator prompts for a configuration PIN (default `0000`, hint visible) before rendering; a wrong PIN blocks entry
+  2. The configurator lists every step in order and supports add, remove, drag-and-drop reorder, and editing label/text/role/upload-requirement/optional flag, all persisting immediately to the live graph
+  3. The super admin can change the PIN from inside the configurator; the new PIN is stored hashed, the old PIN stops working, and the hint updates alongside it
+**Plans**: TBD (set at /gsd-plan-phase 18)
+**UI hint**: yes
+
+### Phase 19: New Roles & Assignment
+**Goal**: The three new front-of-funnel roles have working dashboards, and any step can hand a task to a specific person by role.
+**Depends on**: Phase 16 (assignment fulfillment kind), Phase 15 (dashboard-shell pattern)
+**Requirements**: ROLE-01, ROLE-02, ROLE-03
+**Success Criteria** (what must be TRUE):
+  1. A user created with role `customer_care`, `ops_factory`, or `factory_manager` lands on a role-appropriate dashboard and nav, seeing only their own flows — following the Phase 15 pattern
+  2. An assignment-kind step lets its actor (e.g., Head of Design) pick a user of a target role (e.g., a `design`-role user); the pick is recorded against the project/step and the assignee receives a notification
+  3. Super-admin titles (Head of Design, Head of Projects, MD, ED, COO, Chief Production Officer) continue to live in `users.position` with no new role-enum values added; the UI can display the title where relevant while permission checks still key off `role = super_admin`
+**Plans**: TBD (set at /gsd-plan-phase 19)
+**UI hint**: yes
+
+### Phase 20: Payment & Timeline Gating
+**Goal**: Every project carries an independent payment status that gates progress at two distinct checkpoints, and per-step deadlines cover the entire expanded workflow.
+**Depends on**: Phase 16 (engine to attach gates to), Phase 19 (sequencing)
+**Requirements**: PAY-01, PAY-02, PAY-03, PAY-04
+**Success Criteria** (what must be TRUE):
+  1. A new project defaults to `unpaid`; Head of Operations (`operations` role) can toggle it to `paid`
+  2. While `unpaid`, acting on the brief-taking step (or anything gated on the design phase) is rejected server-side; toggling `paid` unblocks it
+  3. A second, independent invoicing gate exists after Brief Taking — satisfying the initial paid toggle does not satisfy it, and the Design Stage step cannot proceed until this invoice gate is separately cleared
+  4. Operations can set a per-step deadline for any step in the expanded graph (not just the original 11) at project creation; board, countdown, and my-work read it the same way they already do for existing steps
+**Plans**: TBD (set at /gsd-plan-phase 20)
+
+### Phase 21: Front-of-Funnel Stages — Intake Through Design Approval
+**Goal**: A project can be created and carried by Customer Care and Design through payment, designer assignment, and client design approval, arriving at the existing Confirmation step in exactly the state it already expects.
+**Depends on**: Phase 16, Phase 18, Phase 19, Phase 20
+**Requirements**: STG-01, STG-02, STG-03, STG-04, STG-05, STG-06, STG-07
+**Success Criteria** (what must be TRUE):
+  1. Customer Care can create a project via an intake form (customer name, email, phone, location, scope), starting `unpaid`
+  2. Head of Design assigns one `design`-role user, who then completes Kickoff Meeting, Design Meeting, and Brief Taking (each yes/no with an optional upload) as the same designer throughout — no re-assignment step exists
+  3. The Invoicing checkpoint after Brief Taking is satisfied independently of the initial paid toggle, and only once cleared can Design Stage (client design approval, yes/no with optional upload of the approved drawing) proceed
+  4. Completing Design Stage hands the project to the existing Confirmation step with no change to Confirmation's own behavior
+**Plans**: TBD (set at /gsd-plan-phase 21)
+**UI hint**: yes
+
+### Phase 22: Production-Authorization Insert — Confirmation2 Through Factory Manager QC
+**Goal**: After the existing Confirmation step, a project passes through re-confirmation, correction, internal approval, and production authorization before reaching the existing Materials/Accessories Readiness step exactly as that step already expects.
+**Depends on**: Phase 17, Phase 19
+**Requirements**: STG-08, STG-09, STG-10, STG-11, STG-12, STG-13, STG-14
+**Success Criteria** (what must be TRUE):
+  1. Immediately after Confirmation, Site PM completes Confirmation 2 (re-confirmation), then the assigned designer records Confirmation Correction (yes/no with an optional upload of the corrected drawing)
+  2. Ops Admin routes the drawing through Internal Approval (Head of Design checks/approves and returns it) and then Send for Production, an approval/two-sided-ack step with the CPO (`super_admin`)
+  3. The CPO completes Project Review & Authorization (yes/no) before `ops_factory` completes the Production Process checklist (optimization document upload, then cutting/edging/edging-concluded/upholstery-concluded/glass/accessories-sorted, each yes/no)
+  4. `factory_manager` approves QC immediately before the existing Materials/Accessories Readiness step, which then proceeds completely unchanged
+  5. A project walking through all 14 new stages (Phase 21 + this phase) arrives at Materials/Accessories Readiness in exactly the state that step already expects today — no regression to the tail verified in Phase 17
+**Plans**: TBD (set at /gsd-plan-phase 22)
+
 ## Progress
 
 **Execution Order:**
 v1.0 phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10
 v1.1 phases: 11 → 12 → 13 → 14 (11 and 13 independent; 12 after 11 by sequencing; 14 after 13)
+v2.0 phases execute in numeric order: 16 → 17 → 18 → 19 → 20 → 21 → 22 (16 first — engine core; 17 is the isolated, tightly-verified migration; 18-20 are prerequisites for the new stage content; 21 and 22 seed the new stages, front-of-funnel then the production-authorization insert)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -272,3 +371,12 @@ v1.1 phases: 11 → 12 → 13 → 14 (11 and 13 independent; 12 after 11 by sequ
 | 12. Workflow Extensions | 2/2 | Complete ✓ | 2026-07-02 |
 | 13. Super-Admin Alerts Foundation | 3/3 | Complete ✓ | 2026-07-02 |
 | 14. Escalation Flows | 3/3 | Complete ✓ | 2026-07-02 |
+| 15. Multi-department extensibility (#7) | -/- | Complete ✓ | 2026-07-09 |
+| **v2.0 — Configurable Production Workflow Engine** | | | |
+| 16. Workflow Engine Core | 0/? | Not started | - |
+| 17. Confirmation → Sign Off Migration | 0/? | Not started | - |
+| 18. Workflow Configurator | 0/? | Not started | - |
+| 19. New Roles & Assignment | 0/? | Not started | - |
+| 20. Payment & Timeline Gating | 0/? | Not started | - |
+| 21. Front-of-Funnel Stages — Intake Through Design Approval | 0/? | Not started | - |
+| 22. Production-Authorization Insert — Confirmation2 Through Factory Manager QC | 0/? | Not started | - |

@@ -6,7 +6,7 @@ status: planning
 last_updated: "2026-07-09T10:12:31.750Z"
 last_activity: 2026-07-09
 progress:
-  total_phases: 0
+  total_phases: 7
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,17 +17,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-02)
+See: .planning/PROJECT.md (updated 2026-07-09)
 
 **Core value:** A PM on the floor or on-site can complete a structured checklist (with photo evidence) on their phone and have it permanently recorded — replacing paper, with role-scoped visibility and read-only Super Admin oversight.
-**Current focus:** Milestone v1.1 — Super-admin governance & accountability (phases 11–14)
+**Current focus:** Milestone v2.0 — Configurable Production Workflow Engine (phases 16-22)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Not started (roadmap created, ready to plan Phase 16)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-09 — Milestone v2.0 started
+Status: Roadmapped
+Last activity: 2026-07-09 — Milestone v2.0 roadmap created (phases 16-22)
 
 ## Performance Metrics
 
@@ -60,6 +60,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - Collaborative diagram editing = shared, last-write-wins per element for v1 (not CRDT)
 - Phase 1 schema now lays ALL tables (incl. conversations, messages, process_diagrams, ai_usage) up front to avoid migration churn; EMAIL-01/02 (Resend) added to Phase 1
 - MILESTONE v1.1 (2026-07-02): super-admin governance & accountability. Locked: (1) checklist authoring → super_admin ONLY (tighten `canEditChecklist`/gating in lib/workflow.ts, actions/checklists.ts, checklists/[slug]/page.tsx, checklist-editor.tsx); (2) super-admin alerts IN-APP ONLY (notifications table + panel + header bell + 4s poll like my-work-provider; no Resend); (3) new Sign-Off step 11 by super_admin after Close Out — mind `isProjectComplete` boundary (delivered rows sit at currentStep 11 today); (4) per-step deadlines by Operations at creation (new schema, replace single projects.deliveryDate reads); new `paused` project status. #7 (Design/Production departments) deferred.
+- MILESTONE v1.1 EXTENSION (Phase 15, 2026-07-09): #7 delivered — `design` and `production` added to `roleEnum`, each with a dashboard shell (nav + landing page) following the existing role pattern; `userRoleLabel`/`roleDashboard` centralized in `lib/workflow.ts`; departments own no workflow steps yet (additive later, now becoming the basis for v2.0's `design`/`ops_factory`/etc. usage).
+- MILESTONE v2.0 (2026-07-09): Configurable Production Workflow Engine. Locked: (1) `WORKFLOW_STEPS` hardcoded array replaced by a DB-driven step graph read by `lib/workflow.ts`; (2) new fulfillment kinds beyond creation/checklist/readiness/ack — yes/no+optional-upload, approval (two-party send/receive), assignment (actor picks a user of a target role); (3) steps can be optional (skippable) vs required, configurable by super admin; (4) the existing parallel/join pair (Delivery Project Checklist + Delivery Readiness → Project Check Report) must be natively representable in the graph, not incidental numbering; (5) every step from Confirmation through Sign Off migrates UNCHANGED (byte-for-byte behavior) — this is the single highest-risk phase (Phase 17), isolated and explicitly verified against pre- and post-migration projects; (6) Workflow Configurator is super-admin-only AND gated behind a separate configuration PIN (default `0000`, changeable, hint shown) — an additional access-control layer on top of super_admin auth, not a replacement; (7) new roles `customer_care`, `ops_factory`, `factory_manager` added to the role enum with dashboard shells following the Phase 15 pattern; super-admin "titles" (Head of Design, MD, ED, COO, CPO, etc.) stay in `users.position`, no new role enum values for them; (8) `projects` gains an independent `paid`/`unpaid` payment status (separate from `not_delivered`/`delivered`/`paused`), with TWO distinct payment gates — initial toggle by Head of Operations gating the design phase, and a second Invoicing checkpoint after Brief Taking gating the Design Stage; (9) 14 new front-of-funnel/production-authorization stages seeded as data in the new engine, split across two phases: Phase 21 (Intake → Design Approval, pre-Confirmation) and Phase 22 (Confirmation2 → Factory Manager QC, inserted ahead of the existing Materials/Accessories Readiness step); (10) reuse existing `checklist_definitions`/`checklist_template_items` tables for checklist-kind step content — only the step *graph* itself becomes data-driven, checklists were already data-driven.
+- Phase numbering for v2.0 continues from 15 (last completed phase): 16, 17, 18, 19, 20, 21, 22.
 
 ### Pending Todos
 
@@ -67,10 +70,10 @@ None yet.
 
 ### Blockers/Concerns
 
-- Source PDFs for the ~9 checklists' exact line items are not yet delivered. Mitigated by template-driven schema; Phases 1–3 proceed without them; final content loads in Phase 4/5/10.
-- Open product decisions to confirm with stakeholder: Confirmation→Verification rename (platform-wide?), Yes/No vs Yes/No/N/A items (schema supports tri-state regardless), final Dave Aredo daily quota.
-- Phase 1 `01-RESEARCH.md` was written BEFORE the scope change — it covers auth/DAL/Drizzle/proxy.ts but NOT Resend email or the chat/diagram tables. The Phase 1 planner must be told to add: Resend email utility (verification/reset) + the conversations/messages/process_diagrams/ai_usage tables. These are straightforward; no re-research required.
-- A subagent hit a usage limit (reset ~10:50pm Africa/Lagos on 2026-06-18). Re-verify agent availability before spawning the Phase 1 planner/checker.
+- Phase 17 (Confirmation → Sign Off Migration) is explicitly flagged as the highest-risk phase in this milestone — it must be planned and verified with the same rigor as a production data migration: exact key/role/slug/order parity, and side-by-side behavior testing of pre-migration vs post-migration projects.
+- Phase 16 (engine core) must land the parallel/join graph representation (WF-05) correctly, or Phase 17's migration of the existing Delivery Project Checklist + Delivery Readiness → Project Check Report join cannot be verified as behaviorally identical.
+- Source PDFs for the ~9 original checklists' exact line items are not yet delivered (carried over from v1.0/v1.1); does not block v2.0 phases, which operate on the step *graph*, not checklist content.
+- Open product decisions to confirm with stakeholder: final Dave Aredo daily quota (carried over, unrelated to v2.0).
 
 ## Quick Tasks Completed
 
@@ -90,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-02
-Stopped at: Milestone v1.1 planned — ready to plan Phase 11
-Resume file: None (run /gsd-plan-phase 11)
+Last session: 2026-07-09
+Stopped at: Milestone v2.0 roadmapped (Phases 16-22, 30/30 requirements mapped) — ready to plan Phase 16
+Resume file: None (run /gsd:plan-phase 16)

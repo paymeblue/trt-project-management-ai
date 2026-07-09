@@ -276,8 +276,21 @@
 
 ## v2.0 Traceability
 
-*(filled by roadmapper)*
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| WF-01, WF-02, WF-03, WF-04, WF-05 | Phase 16 | Pending |
+| WF-06 | Phase 17 | Pending |
+| CFG-01, CFG-02, CFG-03 | Phase 18 | Pending |
+| ROLE-01, ROLE-02, ROLE-03 | Phase 19 | Pending |
+| PAY-01, PAY-02, PAY-03, PAY-04 | Phase 20 | Pending |
+| STG-01..07 | Phase 21 | Pending |
+| STG-08..14 | Phase 22 | Pending |
+
+**Coverage:**
+- v2.0 requirements: 30 total
+- Mapped to phases: 30
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-18*
-*Last updated: 2026-07-09 — v2.0 milestone requirements added*
+*Last updated: 2026-07-09 — v2.0 roadmap created (phases 16-22)*
