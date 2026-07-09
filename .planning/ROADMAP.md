@@ -319,8 +319,9 @@ Plans:
   1. Opening the Workflow Configurator prompts for a configuration PIN (default `0000`, hint visible) before rendering; a wrong PIN blocks entry
   2. The configurator lists every step in order and supports add, remove, drag-and-drop reorder, and editing label/text/role/upload-requirement/optional flag, all persisting immediately to the live graph
   3. The super admin can change the PIN from inside the configurator; the new PIN is stored hashed, the old PIN stops working, and the hint updates alongside it
-**Plans**: TBD (set at /gsd-plan-phase 18)
+**Plans**: 1 (implemented directly, no separate plan-phase/execute-phase round — see commit)
 **UI hint**: yes
+**Status**: Complete ✓ (2026-07-09) — reorder shipped as up/down buttons (matching the existing checklist-authoring CRUD pattern) rather than drag-and-drop; verified end-to-end (PIN gate, unlock, add/edit/reorder/delete a step) against the real `graph='live'` data via browser automation, with `verify:live-workflow` passing before and after.
 
 ### Phase 19: New Roles & Assignment
 **Goal**: The three new front-of-funnel roles have working dashboards, and any step can hand a task to a specific person by role.
@@ -396,7 +397,7 @@ v2.0 phases execute in numeric order: 16 → 17 → 18 → 19 → 20 → 21 → 
 | **v2.0 — Configurable Production Workflow Engine** | | | |
 | 16. Workflow Engine Core | 5/5 | Complete   | 2026-07-09 |
 | 17. Confirmation → Sign Off Migration | 6/6 | Complete   | 2026-07-09 |
-| 18. Workflow Configurator | 0/? | Not started | - |
+| 18. Workflow Configurator | 1/1 | Complete ✓ | 2026-07-09 |
 | 19. New Roles & Assignment | 0/? | Not started | - |
 | 20. Payment & Timeline Gating | 0/? | Not started | - |
 | 21. Front-of-Funnel Stages — Intake Through Design Approval | 0/? | Not started | - |

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
-status: verifying
-stopped_at: Completed 17-06-PLAN.md (literal retired, seed data relocated, tests retargeted, human-verified zero regression) — Phase 17 (Confirmation to Sign Off Migration) COMPLETE, all 6 plans done
-last_updated: "2026-07-09T15:53:36.333Z"
-last_activity: 2026-07-09
+status: executing
+stopped_at: Phase 18 (Workflow Configurator) COMPLETE — PIN-gated step CRUD (add/remove/reorder/edit) implemented directly and verified end-to-end via browser automation against the real live graph
+last_updated: "2026-07-09T20:45:00.000Z"
+last_activity: 2026-07-09 -- Phase 18 complete
 progress:
   total_phases: 21
-  completed_phases: 3
-  total_plans: 16
-  completed_plans: 16
-  percent: 14
+  completed_phases: 4
+  total_plans: 17
+  completed_plans: 17
+  percent: 19
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-09)
 
 **Core value:** A PM on the floor or on-site can complete a structured checklist (with photo evidence) on their phone and have it permanently recorded — replacing paper, with role-scoped visibility and read-only Super Admin oversight.
-**Current focus:** Phase 17 — Confirmation → Sign Off Migration (complete, ready for verification)
+**Current focus:** Phase 19 — New Roles & Assignment (next)
 
 ## Current Position
 
-Phase: 17 (Confirmation → Sign Off Migration) — COMPLETE
-Plan: 6 of 6
-Status: Phase complete — ready for verification
-Last activity: 2026-07-09
+Phase: 18 (Workflow Configurator) — COMPLETE
+Plan: 1 of 1
+Status: Phase complete — ready for Phase 19
+Last activity: 2026-07-09 -- Phase 18 complete
 
 ## Performance Metrics
 
@@ -93,6 +93,10 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 17]: [Phase 17 P06]: WORKFLOW_STEPS/LAST_STEP/stepByN/isProjectComplete retired from lib/workflow.ts; canonical 11-step data relocated verbatim to db/workflow-live-steps.ts (LIVE_WORKFLOW_STEPS), consumed only by the seed script and verify-live-workflow.ts
 - [Phase 17]: [Phase 17 P06]: tests/actions/workflow.test.ts (outside the plan's file list) also depended on WORKFLOW_STEPS for mock DB rows; retargeted to LIVE_WORKFLOW_STEPS as a blocking fix so tsc --noEmit passes project-wide
 - [Phase 17]: [Phase 17 P06]: Human verification (real dev server, real projects at currentStep 3/5/12) confirmed byte-identical rendering across header switcher, admin timeline, about/flow-diagram, and new-project-form post-cutover; no currentStep changed. WF-06 satisfied — Phase 17 complete.
+- [Phase 18]: Implemented directly (no separate plan-phase/execute-phase agent round, to conserve tokens) — new `workflow_config_access` single-row table (pinHash + hint), server-only PIN functions in lib/workflow-graph.ts, and actions/workflow-config.ts wrapping them with an HMAC-signed httpOnly cookie (`wf_cfg_unlock`, 30min TTL, signed with AUTH_SECRET) as the "unlocked" marker — no extra DB round trip needed to verify it.
+- [Phase 18]: Reorder (moveGraphStep) swaps orderIndex always, but only rewires workflow_step_edges when both swapped steps have <=1 incoming and <=1 outgoing edge each ("simple") — guarantees the one existing branch/join (Delivery Project Checklist + Delivery Readiness -> Project Check Report) can never be corrupted by a reorder; a join-adjacent step only gets its display position changed, with a message telling the admin to verify connections manually. This is a deliberate, bounded scope choice instead of a full DAG editor.
+- [Phase 18]: Reorder UI uses up/down buttons (mirroring checklist-editor.tsx), not drag-and-drop as CFG-01 literally said — same reasoning as the checklist-authoring CRUD precedent; documented as a scope trade in REQUIREMENTS.md.
+- [Phase 18]: End-to-end verified live via browser automation: signed in, unlocked with default PIN 0000, reordered two real steps and reverted, added+deleted a throwaway step, then re-ran verify:live-workflow (PARITY 12/12, both JOIN orders 4/4) to confirm the live graph was untouched.
 
 ### Pending Todos
 

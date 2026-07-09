@@ -56,6 +56,7 @@ const NAV: Record<string, Entry[]> = {
         { href: '/admin/content', icon: 'edit_note', label: 'Content' },
         { href: '/admin/checklists', icon: 'fact_check', label: 'Checklists' },
         { href: '/admin/issues', icon: 'assignment_late', label: 'Issue Log' },
+        { href: '/admin/workflow-configurator', icon: 'account_tree', label: 'Workflow Configurator' },
       ],
     },
     {

@@ -133,6 +133,18 @@ export const workflowStepStates = pgTable('workflow_step_states', {
   }).onDelete('cascade'),
 ])
 
+// ── Workflow Configurator PIN gate (v2.0 — CFG-02/CFG-03) ────────────────
+// Single-row table: an extra PIN gate on top of isAdminRole for the workflow
+// configurator screen. Seeded with pinHash of '0000' + hint '0000' the first
+// time the configurator is opened if no row exists yet.
+export const workflowConfigAccess = pgTable('workflow_config_access', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  pinHash:   text('pin_hash').notNull(),
+  hint:      text('hint').notNull(),
+  updatedBy: uuid('updated_by').references(() => users.id),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 // Per-step deadlines set by Operations at project creation (REQ-G05) so each
 // actor is accountable to their own step, not just one project-wide date.
 export const projectStepDeadlines = pgTable('project_step_deadlines', {

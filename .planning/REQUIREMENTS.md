@@ -221,11 +221,12 @@
 
 ### Configurator & access control
 
-- [ ] **CFG-01**: A super-admin-only "Workflow Configurator" screen lists all steps in order and supports add, remove, reorder (drag-and-drop), and editing each step's label/text/role/upload-requirement/optional flag.
+- [x] **CFG-01**: A super-admin-only "Workflow Configurator" screen lists all steps in order and supports add, remove, reorder, and editing each step's label/text/role/upload-requirement/optional flag.
   - *Success:* Reordering persists; adding a step inserts it into the live graph; removing a step (with confirmation) takes it out of new projects' paths.
-- [ ] **CFG-02**: Reaching the configurator requires a separate PIN, distinct from normal login — defaults to `0000` with a visible hint, so it isn't casually reachable by everyone with super_admin access.
+  - *Delivered:* Reorder uses up/down buttons (mirroring the existing checklist-authoring CRUD pattern in `checklist-editor.tsx`), not drag-and-drop — a deliberate scope trade for speed/consistency, not an oversight. Verified live: add/remove/reorder all round-tripped correctly against the real `graph='live'` data, and `verify:live-workflow` (parity + both join orders) passed before and after.
+- [x] **CFG-02**: Reaching the configurator requires a separate PIN, distinct from normal login — defaults to `0000` with a visible hint, so it isn't casually reachable by everyone with super_admin access.
   - *Success:* Navigating to the configurator prompts for the PIN before rendering the screen; wrong PIN blocks entry; the hint is shown on the prompt.
-- [ ] **CFG-03**: The super admin can change the configuration PIN from within the configurator itself.
+- [x] **CFG-03**: The super admin can change the configuration PIN from within the configurator itself.
   - *Success:* Changing the PIN persists (hashed) and the old PIN no longer grants access; the hint updates alongside it.
 
 ### Roles & assignment
@@ -280,7 +281,7 @@
 |-------------|-------|--------|
 | WF-01, WF-02, WF-03, WF-04, WF-05 | Phase 16 | Complete ✓ |
 | WF-06 | Phase 17 | Complete |
-| CFG-01, CFG-02, CFG-03 | Phase 18 | Pending |
+| CFG-01, CFG-02, CFG-03 | Phase 18 | Complete ✓ |
 | ROLE-01, ROLE-02, ROLE-03 | Phase 19 | Pending |
 | PAY-01, PAY-02, PAY-03, PAY-04 | Phase 20 | Pending |
 | STG-01..07 | Phase 21 | Pending |

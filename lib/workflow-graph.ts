@@ -1,4 +1,5 @@
 import 'server-only'
+import bcrypt from 'bcryptjs'
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import {
@@ -6,6 +7,7 @@ import {
   workflowStepEdges,
   workflowStepStates,
   projectStepCompletions,
+  workflowConfigAccess,
   users,
 } from '@/db/schema'
 import type { GraphStep, StepKind, WorkflowRole, WorkflowStep } from '@/lib/workflow'
@@ -344,4 +346,188 @@ export async function assignUser(opts: {
         updatedAt: now,
       },
     })
+}
+
+// ── Workflow Configurator (Phase 18, CFG-01/CFG-02/CFG-03) ────────────────
+// PIN gate: a single-row table holds the hashed PIN + hint, seeded to '0000'
+// on first access. This is an ADDITIONAL gate on top of isAdminRole — callers
+// must still check isAdminRole before calling any of these.
+
+const DEFAULT_CONFIG_PIN = '0000'
+
+/** Reads the current PIN hash + hint, seeding the default row on first call. */
+export async function getConfigAccess(): Promise<{ pinHash: string; hint: string }> {
+  const [row] = await db.select().from(workflowConfigAccess).limit(1)
+  if (row) return { pinHash: row.pinHash, hint: row.hint }
+  const pinHash = await bcrypt.hash(DEFAULT_CONFIG_PIN, 10)
+  await db.insert(workflowConfigAccess).values({ pinHash, hint: DEFAULT_CONFIG_PIN })
+  return { pinHash, hint: DEFAULT_CONFIG_PIN }
+}
+
+export async function verifyConfigPin(pin: string): Promise<boolean> {
+  const { pinHash } = await getConfigAccess()
+  return bcrypt.compare(pin, pinHash)
+}
+
+/** CFG-03: super admin can change the PIN from inside the configurator. */
+export async function setConfigPin(newPin: string, hint: string, updatedBy: string): Promise<void> {
+  const pinHash = await bcrypt.hash(newPin, 10)
+  const [row] = await db.select({ id: workflowConfigAccess.id }).from(workflowConfigAccess).limit(1)
+  if (row) {
+    await db
+      .update(workflowConfigAccess)
+      .set({ pinHash, hint, updatedBy, updatedAt: new Date() })
+      .where(eq(workflowConfigAccess.id, row.id))
+  } else {
+    await db.insert(workflowConfigAccess).values({ pinHash, hint, updatedBy })
+  }
+}
+
+// Step graph CRUD (CFG-01). Reordering swaps `orderIndex` (display order)
+// always, but only rewires `workflow_step_edges` when both swapped steps are
+// "simple" (at most 1 incoming + 1 outgoing edge each) — this guarantees the
+// one existing branch/join (Delivery Project Checklist + Delivery Readiness
+// -> Project Check Report) can never be corrupted by a reorder; a step that's
+// part of a branch/join only has its display position changed, with a note
+// telling the admin to verify connections manually.
+
+function edgeAdjacency(edges: { fromStepId: string; toStepId: string }[]) {
+  const incoming = new Map<string, string[]>()
+  const outgoing = new Map<string, string[]>()
+  for (const e of edges) {
+    incoming.set(e.toStepId, [...(incoming.get(e.toStepId) ?? []), e.fromStepId])
+    outgoing.set(e.fromStepId, [...(outgoing.get(e.fromStepId) ?? []), e.toStepId])
+  }
+  return { incoming, outgoing }
+}
+
+export async function moveGraphStep(opts: {
+  graph: string
+  stepId: string
+  direction: 'up' | 'down'
+}): Promise<{ ok: boolean; message: string }> {
+  const steps = await getGraphSteps(opts.graph)
+  const idx = steps.findIndex((s) => s.id === opts.stepId)
+  if (idx === -1) return { ok: false, message: 'Step not found.' }
+  const swapIdx = opts.direction === 'up' ? idx - 1 : idx + 1
+  if (swapIdx < 0 || swapIdx >= steps.length) {
+    return { ok: false, message: 'That step is already at the edge.' }
+  }
+  const a = steps[idx]
+  const b = steps[swapIdx]
+
+  await db
+    .update(workflowStepDefinitions)
+    .set({ orderIndex: b.orderIndex, updatedAt: new Date() })
+    .where(eq(workflowStepDefinitions.id, a.id))
+  await db
+    .update(workflowStepDefinitions)
+    .set({ orderIndex: a.orderIndex, updatedAt: new Date() })
+    .where(eq(workflowStepDefinitions.id, b.id))
+
+  const edges = await getGraphEdges(opts.graph)
+  const { incoming, outgoing } = edgeAdjacency(edges)
+  const isSimple = (id: string) => (incoming.get(id)?.length ?? 0) <= 1 && (outgoing.get(id)?.length ?? 0) <= 1
+  if (!isSimple(a.id) || !isSimple(b.id)) {
+    return {
+      ok: true,
+      message: 'Display order updated. One of these steps is part of a branch/join — its connections were left unchanged; verify manually.',
+    }
+  }
+
+  const forward = edges.find((e) => e.fromStepId === a.id && e.toStepId === b.id)
+  const backward = edges.find((e) => e.fromStepId === b.id && e.toStepId === a.id)
+  if (forward) {
+    await db
+      .update(workflowStepEdges)
+      .set({ fromStepId: b.id, toStepId: a.id })
+      .where(and(eq(workflowStepEdges.fromStepId, a.id), eq(workflowStepEdges.toStepId, b.id)))
+  } else if (backward) {
+    await db
+      .update(workflowStepEdges)
+      .set({ fromStepId: a.id, toStepId: b.id })
+      .where(and(eq(workflowStepEdges.fromStepId, b.id), eq(workflowStepEdges.toStepId, a.id)))
+  }
+  return { ok: true, message: 'Order updated.' }
+}
+
+export async function createGraphStep(opts: {
+  graph: string
+  stepKey: string
+  label: string
+  role: WorkflowRole
+  fulfillmentKind: StepKind
+  checklistSlug?: string | null
+  targetRole?: WorkflowRole | null
+  isOptional?: boolean
+}): Promise<{ ok: boolean; message: string; stepId?: string }> {
+  const steps = await getGraphSteps(opts.graph)
+  if (steps.some((s) => s.key === opts.stepKey)) {
+    return { ok: false, message: 'A step with that key already exists in this graph.' }
+  }
+  const maxOrder = steps.length ? Math.max(...steps.map((s) => s.orderIndex)) : 0
+  const [inserted] = await db
+    .insert(workflowStepDefinitions)
+    .values({
+      graph: opts.graph,
+      stepKey: opts.stepKey,
+      label: opts.label,
+      role: opts.role,
+      fulfillmentKind: opts.fulfillmentKind,
+      checklistSlug: opts.checklistSlug ?? null,
+      targetRole: opts.targetRole ?? null,
+      isOptional: opts.isOptional ?? false,
+      orderIndex: maxOrder + 1,
+    })
+    .returning({ id: workflowStepDefinitions.id })
+
+  const priorLast = steps.find((s) => s.orderIndex === maxOrder)
+  if (priorLast) {
+    await db
+      .insert(workflowStepEdges)
+      .values({ graph: opts.graph, fromStepId: priorLast.id, toStepId: inserted.id })
+      .onConflictDoNothing()
+  }
+  return { ok: true, message: 'Step added at the end of the graph.', stepId: inserted.id }
+}
+
+/** Deletes a step and reconnects each of its predecessors to each of its successors. */
+export async function deleteGraphStep(opts: { stepId: string }): Promise<{ ok: boolean; message: string }> {
+  const step = await getStepById(opts.stepId)
+  if (!step) return { ok: false, message: 'Step not found.' }
+  const edges = await getGraphEdges(step.graph)
+  const incoming = edges.filter((e) => e.toStepId === step.id).map((e) => e.fromStepId)
+  const outgoing = edges.filter((e) => e.fromStepId === step.id).map((e) => e.toStepId)
+
+  await db.delete(workflowStepDefinitions).where(eq(workflowStepDefinitions.id, step.id))
+
+  for (const from of incoming) {
+    for (const to of outgoing) {
+      await db
+        .insert(workflowStepEdges)
+        .values({ graph: step.graph, fromStepId: from, toStepId: to })
+        .onConflictDoNothing()
+    }
+  }
+  return { ok: true, message: 'Step removed; its predecessors were reconnected to its successors.' }
+}
+
+export async function updateGraphStep(opts: {
+  stepId: string
+  label?: string
+  role?: WorkflowRole
+  fulfillmentKind?: StepKind
+  checklistSlug?: string | null
+  targetRole?: WorkflowRole | null
+  isOptional?: boolean
+}): Promise<{ ok: boolean; message: string }> {
+  const updates: Record<string, unknown> = { updatedAt: new Date() }
+  if (opts.label !== undefined) updates.label = opts.label
+  if (opts.role !== undefined) updates.role = opts.role
+  if (opts.fulfillmentKind !== undefined) updates.fulfillmentKind = opts.fulfillmentKind
+  if (opts.checklistSlug !== undefined) updates.checklistSlug = opts.checklistSlug
+  if (opts.targetRole !== undefined) updates.targetRole = opts.targetRole
+  if (opts.isOptional !== undefined) updates.isOptional = opts.isOptional
+  await db.update(workflowStepDefinitions).set(updates).where(eq(workflowStepDefinitions.id, opts.stepId))
+  return { ok: true, message: 'Step updated.' }
 }
