@@ -6,14 +6,15 @@ import { db } from '@/db'
 import { projects, projectStepCompletions, stepBypassRequests } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import {
-  stepByN,
   canRoleActOnStep,
-  isProjectComplete,
-  LAST_STEP,
+  findStep,
+  lastStepN,
+  projectComplete,
   Roles,
   workflowRoleLabel,
   type UserRole,
 } from '@/lib/workflow'
+import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
 import { notifyAllSuperAdmins } from '@/lib/notifications'
 
 function revalidateBypass() {
@@ -42,7 +43,7 @@ export async function requestStepBypassAction(
   if (proj.status === 'paused') return { ok: false, message: 'This project is paused.' }
   if (proj.currentStep !== stepN) return { ok: false, message: 'This step is no longer current.' }
 
-  const step = stepByN(stepN)
+  const step = findStep(await getLiveWorkflowSteps(), stepN)
   if (!step) return { ok: false, message: 'Invalid step.' }
   if (!canRoleActOnStep(step.role, role as UserRole))
     return { ok: false, message: 'This is not your step to act on.' }
@@ -104,23 +105,26 @@ export async function decideStepBypassAction(input: {
   }
 
   const [proj] = await db.select().from(projects).where(eq(projects.id, req.projectId)).limit(1)
-  const step = stepByN(req.stepN)
+  const steps = await getLiveWorkflowSteps()
+  const step = findStep(steps, req.stepN)
   if (
     proj &&
     step &&
     proj.status !== 'paused' &&
     proj.currentStep === req.stepN &&
-    !isProjectComplete(proj.currentStep)
+    !projectComplete(proj.currentStep, lastStepN(steps))
   ) {
     await db.insert(projectStepCompletions).values({
       projectId: req.projectId,
       stepKey: step.key,
       stepN: step.n,
+      stepDefId: step.stepDefId,
+      graph: 'live',
       completedBy: userId,
       notes: `Bypass approved by super admin: ${req.reason || 'no reason given'}`,
     })
     const nextStep = proj.currentStep + 1
-    const done = nextStep > LAST_STEP
+    const done = nextStep > lastStepN(steps)
     await db
       .update(projects)
       .set({ currentStep: nextStep, status: done ? 'delivered' : proj.status, updatedAt: new Date() })

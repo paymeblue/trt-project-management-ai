@@ -117,7 +117,7 @@ export function isProjectComplete(currentStep: number): boolean {
 // they work identically whether given WORKFLOW_STEPS or a future
 // getLiveWorkflowSteps() result. Legacy stepByN/isProjectComplete are left
 // untouched above; callers migrate to these only when ready.
-export function findStep(steps: WorkflowStep[], n: number): WorkflowStep | undefined {
+export function findStep<T extends WorkflowStep>(steps: T[], n: number): T | undefined {
   return steps.find((s) => s.n === n)
 }
 

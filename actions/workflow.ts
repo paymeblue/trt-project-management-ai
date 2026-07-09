@@ -5,7 +5,8 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { projects, projectStepCompletions } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
-import { stepByN, LAST_STEP, canRoleActOnStep, type UserRole } from '@/lib/workflow'
+import { canRoleActOnStep, findStep, lastStepN, type UserRole } from '@/lib/workflow'
+import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
 
 function revalidateBoards() {
   revalidatePath('/site-pm/projects')
@@ -34,7 +35,8 @@ export async function advanceProjectStep(opts: {
   if (!proj) return false
   if (proj.currentStep !== expectedStepN) return false // stale / already advanced by someone else
 
-  const step = stepByN(expectedStepN)
+  const steps = await getLiveWorkflowSteps()
+  const step = findStep(steps, expectedStepN)
   if (!step) return false
   if (!canRoleActOnStep(step.role, role as UserRole)) return false
 
@@ -42,12 +44,14 @@ export async function advanceProjectStep(opts: {
     projectId,
     stepKey: step.key,
     stepN: step.n,
+    stepDefId: step.stepDefId,
+    graph: 'live',
     completedBy: userId,
     notes: opts.notes?.trim() || null,
   })
 
   const nextStep = proj.currentStep + 1
-  const done = nextStep > LAST_STEP
+  const done = nextStep > lastStepN(steps)
   await db
     .update(projects)
     .set({
@@ -68,7 +72,7 @@ export async function completeAckStepAction(
   _prev: AckStepState,
   input: { projectId: string; expectedStepN: number; notes?: string },
 ): Promise<AckStepState> {
-  const step = stepByN(input?.expectedStepN)
+  const step = findStep(await getLiveWorkflowSteps(), input?.expectedStepN)
   if (!step || step.kind !== 'ack') return { ok: false, message: 'Invalid step.' }
   const advanced = await advanceProjectStep({
     projectId: input.projectId,
