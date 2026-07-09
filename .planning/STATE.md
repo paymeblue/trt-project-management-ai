@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: executing
-stopped_at: Completed 16-01-PLAN.md (workflow-graph schema pushed live)
-last_updated: "2026-07-09T11:09:54.743Z"
+stopped_at: Completed 16-02-PLAN.md (workflow graph read engine + seed)
+last_updated: "2026-07-09T11:21:02.874Z"
 last_activity: 2026-07-09
 progress:
   total_phases: 21
   completed_phases: 1
   total_plans: 10
-  completed_plans: 6
+  completed_plans: 7
   percent: 5
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 ## Current Position
 
 Phase: 16 (Workflow Engine Core) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-07-09
 
@@ -47,6 +47,7 @@ Last activity: 2026-07-09
 ## Accumulated Context
 
 | Phase 16 P01 | 25min | 2 tasks | 1 files |
+| Phase 16 P02 | 15min | 3 tasks | 4 files |
 
 ### Decisions
 
@@ -67,6 +68,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - MILESTONE v2.0 (2026-07-09): Configurable Production Workflow Engine. Locked: (1) `WORKFLOW_STEPS` hardcoded array replaced by a DB-driven step graph read by `lib/workflow.ts`; (2) new fulfillment kinds beyond creation/checklist/readiness/ack — yes/no+optional-upload, approval (two-party send/receive), assignment (actor picks a user of a target role); (3) steps can be optional (skippable) vs required, configurable by super admin; (4) the existing parallel/join pair (Delivery Project Checklist + Delivery Readiness → Project Check Report) must be natively representable in the graph, not incidental numbering; (5) every step from Confirmation through Sign Off migrates UNCHANGED (byte-for-byte behavior) — this is the single highest-risk phase (Phase 17), isolated and explicitly verified against pre- and post-migration projects; (6) Workflow Configurator is super-admin-only AND gated behind a separate configuration PIN (default `0000`, changeable, hint shown) — an additional access-control layer on top of super_admin auth, not a replacement; (7) new roles `customer_care`, `ops_factory`, `factory_manager` added to the role enum with dashboard shells following the Phase 15 pattern; super-admin "titles" (Head of Design, MD, ED, COO, CPO, etc.) stay in `users.position`, no new role enum values for them; (8) `projects` gains an independent `paid`/`unpaid` payment status (separate from `not_delivered`/`delivered`/`paused`), with TWO distinct payment gates — initial toggle by Head of Operations gating the design phase, and a second Invoicing checkpoint after Brief Taking gating the Design Stage; (9) 14 new front-of-funnel/production-authorization stages seeded as data in the new engine, split across two phases: Phase 21 (Intake → Design Approval, pre-Confirmation) and Phase 22 (Confirmation2 → Factory Manager QC, inserted ahead of the existing Materials/Accessories Readiness step); (10) reuse existing `checklist_definitions`/`checklist_template_items` tables for checklist-kind step content — only the step *graph* itself becomes data-driven, checklists were already data-driven.
 - Phase numbering for v2.0 continues from 15 (last completed phase): 16, 17, 18, 19, 20, 21, 22.
 - [Phase 16]: Named 3 long FK constraints explicitly (psc_step_def_id_fk, wse_from_step_id_fk, wss_step_def_id_fk) in db/schema.ts to avoid Postgres 63-char identifier truncation causing drizzle-kit push non-idempotency
+- [Phase 16 P02]: GraphStep.role/targetRole cast from DB roleEnum (6 values) to WorkflowRole (4 values) in lib/workflow-graph.ts's row mapper — workflow steps only ever assign the 4 roles that own steps; avoids widening WorkflowRole itself, which existing consumers depend on
 
 ### Pending Todos
 
@@ -97,6 +99,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-09T11:09:54.736Z
-Stopped at: Completed 16-01-PLAN.md (workflow-graph schema pushed live)
+Last session: 2026-07-09T11:21:02.867Z
+Stopped at: Completed 16-02-PLAN.md (workflow graph read engine + seed)
 Resume file: None
