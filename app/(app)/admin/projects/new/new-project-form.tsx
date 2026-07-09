@@ -6,19 +6,20 @@ import {
   type CreateProjectState,
 } from '@/actions/projects';
 import {
-  WORKFLOW_STEPS,
   FIRST_ACTION_STEP,
-  LAST_STEP,
+  lastStepN,
   workflowRoleLabel,
 } from '@/lib/workflow';
+import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider';
 
 const INITIAL: CreateProjectState = { status: 'idle' };
 
-// Steps Operations can set a deadline for (step 1 auto-completes at creation).
-const ACTIONABLE_STEPS = WORKFLOW_STEPS.filter((s) => s.n >= FIRST_ACTION_STEP);
-
 export default function NewProjectForm() {
   const [state, action, pending] = useActionState(createProjectAction, INITIAL);
+  const steps = useWorkflowSteps();
+  // Steps Operations can set a deadline for (step 1 auto-completes at creation).
+  const actionableSteps = steps.filter((s) => s.n >= FIRST_ACTION_STEP);
+  const lastN = lastStepN(steps);
   // Per-step deadline values (ISO date strings) + a toast for ordering errors.
   const [deadlines, setDeadlines] = useState<Record<number, string>>({});
   const [toast, setToast] = useState<string | null>(null);
@@ -34,7 +35,7 @@ export default function NewProjectForm() {
   function bounds(stepN: number): { min?: string; max?: string } {
     let min: string | undefined;
     let max: string | undefined;
-    for (const s of ACTIONABLE_STEPS) {
+    for (const s of actionableSteps) {
       const v = deadlines[s.n];
       if (!v) continue;
       if (s.n < stepN) min = !min || v > min ? v : min;
@@ -44,7 +45,7 @@ export default function NewProjectForm() {
   }
 
   function labelOf(n: number) {
-    const s = ACTIONABLE_STEPS.find((x) => x.n === n);
+    const s = actionableSteps.find((x) => x.n === n);
     return s ? `${s.n}. ${s.label}` : `step ${n}`;
   }
 
@@ -52,7 +53,7 @@ export default function NewProjectForm() {
     if (value) {
       const { min, max } = bounds(stepN);
       if (min && value < min) {
-        const earlier = ACTIONABLE_STEPS.filter(
+        const earlier = actionableSteps.filter(
           (s) => s.n < stepN && deadlines[s.n] === min,
         )[0];
         setToast(
@@ -61,7 +62,7 @@ export default function NewProjectForm() {
         return; // reject the out-of-order value
       }
       if (max && value > max) {
-        const later = ACTIONABLE_STEPS.filter(
+        const later = actionableSteps.filter(
           (s) => s.n > stepN && deadlines[s.n] === max,
         )[0];
         setToast(
@@ -116,11 +117,11 @@ export default function NewProjectForm() {
         </p>
         <p className="mb-3 text-[11px] text-gray-500">
           Optional — set a target date for each step so each role is accountable
-          to its own deadline (steps {FIRST_ACTION_STEP}–{LAST_STEP}). A later
+          to its own deadline (steps {FIRST_ACTION_STEP}–{lastN}). A later
           step can’t be due before an earlier one.
         </p>
         <div className="space-y-2">
-          {ACTIONABLE_STEPS.map((s) => {
+          {actionableSteps.map((s) => {
             const { min, max } = bounds(s.n);
             return (
               <div key={s.n} className="flex items-center gap-3">
