@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: executing
-stopped_at: Completed 16-03-PLAN.md (workflow graph write engine + server actions)
-last_updated: "2026-07-09T11:28:33.349Z"
+stopped_at: Completed 16-04-PLAN.md (test graph seed + CLI verification harness proving WF-03/04/05)
+last_updated: "2026-07-09T11:46:14.672Z"
 last_activity: 2026-07-09
 progress:
   total_phases: 21
   completed_phases: 1
   total_plans: 10
-  completed_plans: 8
+  completed_plans: 9
   percent: 5
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 ## Current Position
 
 Phase: 16 (Workflow Engine Core) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-07-09
 
@@ -49,6 +49,7 @@ Last activity: 2026-07-09
 | Phase 16 P01 | 25min | 2 tasks | 1 files |
 | Phase 16 P02 | 15min | 3 tasks | 4 files |
 | Phase 16 P03 | 12min | 2 tasks | 2 files |
+| Phase 16 P04 | 35min | 2 tasks | 3 files |
 
 ### Decisions
 
@@ -72,6 +73,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 16 P02]: GraphStep.role/targetRole cast from DB roleEnum (6 values) to WorkflowRole (4 values) in lib/workflow-graph.ts's row mapper — workflow steps only ever assign the 4 roles that own steps; avoids widening WorkflowRole itself, which existing consumers depend on
 - [Phase 16 P03]: completeGraphStep gates non-skip completions of the 3 new fulfillment kinds (yes_no_upload/approval/assignment) on a workflow_step_states row already being status 'complete', throwing step-not-fulfilled otherwise; legacy kinds are trusted as already validated upstream
 - [Phase 16 P03]: skip enforcement (required-step-cannot-be-skipped) lives entirely server-side inside completeGraphStep, so a forged skip=true on a required step is rejected before any row is written
+- [Phase 16]: [Phase 16 P04]: CLI harnesses importing a server-only-marked module must patch node:module's Module._load via a plain require() (not a static import, which tsx hoists above other statements) to short-circuit the server-only package's unconditional throw outside Next's webpack build
 
 ### Pending Todos
 
@@ -102,6 +104,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-09T11:28:33.343Z
-Stopped at: Completed 16-03-PLAN.md (workflow graph write engine + server actions)
+Last session: 2026-07-09T11:46:14.665Z
+Stopped at: Completed 16-04-PLAN.md (test graph seed + CLI verification harness proving WF-03/04/05)
 Resume file: None
