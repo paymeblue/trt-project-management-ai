@@ -8,24 +8,21 @@ A digital platform that replaces the paper checklists TRT Arredo currently uses 
 
 A PM on the floor or on-site can complete a structured checklist (with photo evidence) on their phone and have it permanently recorded — replacing paper, with each role seeing only what's theirs and the Super Admin seeing everything read-only.
 
-## Current Milestone: v1.1 Super-admin governance & accountability
+## Current Milestone: v2.0 Configurable Production Workflow Engine
 
-**Goal:** Give super admins central control and escalation power (locked checklist authoring, in-app alerts, pause/approve/dispute flows) and make every actor accountable via per-step deadlines and a final sign-off.
+**Goal:** Replace the hardcoded 11-step `WORKFLOW_STEPS` array with a DB-driven, super-admin-editable workflow graph (n8n-style step builder), and extend the pipeline with the full front-of-funnel stages — Customer Care intake through production authorization — that don't exist today, while leaving every step from the existing "Confirmation" step onward untouched.
 
-**Target features (REQ-G01…G10, see REQUIREMENTS.md):**
-- Checklist create/edit locked to super_admin only (#1)
-- Distinct analytics color per project (#8)
-- Issue Log mapped to a project (#9)
-- New super_admin Sign-Off step after Close Out (#4)
-- Per-step deadlines set by Operations at creation (#5)
-- In-app super-admin alerts subsystem + `paused` project status (foundation for #2/#3/#6)
-- Pause/flag → notify all super admins, project paused until resolved (#2)
-- Higher-authority approval to advance without a checklist (#3)
-- Escalate issues to every super admin + per-project dispute section (#6)
+**Target features:**
+- Workflow engine: steps live in the database, not in `lib/workflow.ts`; each step has an order, a responsible role, and a fulfillment kind (checklist, yes/no + optional upload, approval, assignment)
+- Steps can be marked optional (skippable) vs. required by the super admin
+- Super-admin workflow configurator screen: add/remove/reorder steps, edit label/text/upload requirement, assign role — gated behind a separate configuration PIN (default `0000`, changeable, with a hint shown so it isn't forgotten) so it isn't casually reachable by everyone with super_admin access
+- New seeded front-of-funnel stages (Customer Care intake, paid/unpaid toggle + timeline, architect brief assignment + brief taking, invoicing, designer assignment + kickoff + design meeting + design approval, confirmation correction, internal approval, send-to-production, CPO project review & authorization, factory production process, factory-manager QC) inserted ahead of and interleaved with the existing Confirmation → Sign Off tail, which ships unchanged
+- New roles: `customer_care`, `ops_factory`, `factory_manager` (existing `design`/`operations`/`super_admin` + `users.position` cover the rest — architect, head of design, head of operations, chief production officer, MD/ED/COO are titles, not new permission roles)
+- `projects` gains a `paid`/`unpaid` payment status separate from the existing `not_delivered`/`delivered`/`paused` status
 
-**Delivered (Phase 15):** Multi-department extensibility (#7) — Design & Production are now first-class roles with a working shell; their workflow steps can be added additively later.
+**Open questions carried in as working assumptions (confirm during requirements/roadmap, don't silently redecide):** (a) invoicing after brief-taking is a second, distinct payment checkpoint from the initial paid/unpaid toggle; (b) the architect assigned for brief-taking and the designer assigned for kickoff/design are two separate assignment moments, not always the same person.
 
-**Locked decisions:** in-app alerts only (no email) · checklists super_admin-only · sign-off by super_admin · phases continue at 11–14.
+**Locked decisions:** existing Confirmation-onward steps (Confirmation, Materials/Accessories Readiness, Delivery Readiness, Delivery Project Checklist, Project Check Report, Approval to Commence Installation, Installation Readiness, Sorting, Close Out, Sign Off) are NOT redesigned — the new engine must reproduce this tail unchanged · configurator access requires a separate PIN, not just the super_admin role · new roles only where existing role+position can't cover the distinction.
 
 ## Requirements
 
@@ -180,4 +177,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-02 — milestone v1.1 (Super-admin governance & accountability) started*
+*Last updated: 2026-07-09 — milestone v2.0 (Configurable Production Workflow Engine) started*

@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Super-admin governance & accountability
-status: complete
-stopped_at: null
-last_updated: "2026-07-02T00:00:00.000Z"
-last_activity: 2026-07-02 -- Phase 14 complete; MILESTONE v1.1 DONE (all REQ-G01..G10 shipped)
+milestone: v2.0
+milestone_name: Configurable Production Workflow Engine
+status: planning
+last_updated: "2026-07-09T10:12:31.750Z"
+last_activity: 2026-07-09
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 11
-  completed_plans: 11
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,13 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-02)
 
 ## Current Position
 
-Milestone: v1.1 — Super-admin governance & accountability
-Phase: 14 of 14 — COMPLETE (3/3). Milestone v1.1 COMPLETE. Next: /gsd-verify-work or /gsd-complete-milestone
+Phase: Not started (defining requirements)
 Plan: —
-Status: Executing
-Last activity: 2026-07-06 -- Quick task 260706-bpg: Slack-like group chat (group conversations, emoji picker + reactions, typing indicator, GSAP fullscreen expand)
-
-Progress: [##########] 100% (v1.1 — 4/4 phases) ✓
+Status: Defining requirements
+Last activity: 2026-07-09 — Milestone v2.0 started
 
 ## Performance Metrics
 
