@@ -243,7 +243,7 @@
   - *Success:* New projects created via the Customer Care intake step start `unpaid`.
 - [ ] **PAY-02**: Head of Operations (role `operations`) toggles a project from `unpaid` to `paid`, and this gates progress into the design phase (architect assignment / brief taking cannot start while `unpaid`).
   - *Success:* Attempting to act on the brief-taking step while `unpaid` is rejected server-side; toggling `paid` unblocks it.
-- [ ] **PAY-03**: A second, distinct invoicing checkpoint exists after Brief Taking — Customer Care prompts Ops to create and send an invoice, and the project cannot proceed to Kickoff until the client has paid it. This is separate from PAY-01/02's initial paid toggle.
+- [ ] **PAY-03**: A second, distinct invoicing checkpoint exists after Brief Taking — Customer Care prompts Ops to create and send an invoice, and the project cannot proceed to the Design Stage (client approval) until the client has paid it. This is separate from PAY-01/02's initial paid toggle.
   - *Success:* Two independent gates exist in the data model; satisfying one does not satisfy the other.
 - [ ] **PAY-04**: Per-step deadlines (existing `project_step_deadlines` mechanism from v1.1) extend to cover every new step in the expanded workflow, not just the original 11.
   - *Success:* Operations can set a deadline for any new step at project creation; board/countdown/my-work read it the same way they do for existing steps.
@@ -251,21 +251,20 @@
 ### New stage content (seeded default workflow, ahead of existing Confirmation)
 
 - [ ] **STG-01**: Project Intent — Customer Care creates a project capturing customer name, email, phone, location, and scope.
-- [ ] **STG-02**: Assign Architect for Brief — Head of Design assigns a `design`-role user as the architect for this project's brief.
-- [ ] **STG-03**: Brief Taking — architect/designer marks the brief taken (yes/no) with an optional file upload.
-- [ ] **STG-04**: Invoicing — Customer Care/Ops marks the client-paid invoice checkpoint (yes/no) — see PAY-03.
-- [ ] **STG-05**: Assign Designer for Kickoff — Head of Design assigns a `design`-role user to run kickoff/design (may differ from STG-02's architect).
-- [ ] **STG-06**: Kickoff Meeting — designer marks kickoff held (yes/no) with an optional upload.
-- [ ] **STG-07**: Design Meeting — designer marks materials/colors gathered (yes/no) with an optional upload.
-- [ ] **STG-08**: Design Stage — designer marks client design approval (yes/no) with an optional upload of the approved drawing.
-- [ ] **STG-09**: Confirmation 2 / re-confirmation — Site PM re-confirms on-site, inserted immediately after the existing Confirmation step.
-- [ ] **STG-10**: Confirmation Correction — designer inputs site corrections into the design (yes/no) with an optional upload of the corrected drawing.
-- [ ] **STG-11**: Internal Approval — Ops Admin routes the drawing to Head of Design to check/approve and receives it back; upload of the approved drawing.
-- [ ] **STG-12**: Send for Production — Ops Admin sends, Chief Production Officer (super_admin) receives (approval/two-sided-ack fulfillment kind).
-- [ ] **STG-13**: Project Review and Authorization — CPO reviews and approves (yes/no) after internal team review.
-- [ ] **STG-14**: Production Process — `ops_factory` role completes a checklist: optimization document upload, then cutting/edging/edging-concluded/upholstery-concluded/glass/accessories-sorted, each yes/no.
-- [ ] **STG-15**: Factory Manager Approval / QC — `factory_manager` role approves (yes/no), inserted immediately before the existing Materials/Accessories Readiness step.
-  - *Success (STG-01…15 as a set):* A new project walks through all 15 stages in order, each gated on its predecessor (or its parallel-branch partner where applicable), and arrives at the existing Confirmation step in exactly the state today's Confirmation step already expects.
+- [ ] **STG-02**: Assign Designer/Architect for Brief — Head of Design assigns a single `design`-role user who carries the project through Kickoff, Design Meeting, Brief Taking, and the Design Stage (one assignment, not a second re-assignment later).
+- [ ] **STG-03**: Kickoff Meeting — designer marks kickoff held (yes/no) with an optional upload.
+- [ ] **STG-04**: Design Meeting — designer marks materials/colors gathered (yes/no) with an optional upload.
+- [ ] **STG-05**: Brief Taking — designer marks the brief taken (yes/no) with an optional file upload.
+- [ ] **STG-06**: Invoicing — Customer Care/Ops marks the client-paid invoice checkpoint (yes/no) — see PAY-03. Sits after Brief Taking, before the Design Stage.
+- [ ] **STG-07**: Design Stage — designer marks client design approval (yes/no) with an optional upload of the approved drawing.
+- [ ] **STG-08**: Confirmation 2 / re-confirmation — Site PM re-confirms on-site, inserted immediately after the existing Confirmation step.
+- [ ] **STG-09**: Confirmation Correction — designer inputs site corrections into the design (yes/no) with an optional upload of the corrected drawing.
+- [ ] **STG-10**: Internal Approval — Ops Admin routes the drawing to Head of Design to check/approve and receives it back; upload of the approved drawing.
+- [ ] **STG-11**: Send for Production — Ops Admin sends, Chief Production Officer (super_admin) receives (approval/two-sided-ack fulfillment kind).
+- [ ] **STG-12**: Project Review and Authorization — CPO reviews and approves (yes/no) after internal team review.
+- [ ] **STG-13**: Production Process — `ops_factory` role completes a checklist: optimization document upload, then cutting/edging/edging-concluded/upholstery-concluded/glass/accessories-sorted, each yes/no.
+- [ ] **STG-14**: Factory Manager Approval / QC — `factory_manager` role approves (yes/no), inserted immediately before the existing Materials/Accessories Readiness step.
+  - *Success (STG-01…14 as a set):* A new project walks through all 14 stages in order — Intent → paid → Assign designer → Kickoff → Design Meeting → Brief Taking → Invoicing → Design Stage → Confirmation2 → Confirmation Correction → Internal Approval → Send for Production → Project Review & Authorization → Production Process → Factory Manager QC — each gated on its predecessor (or its parallel-branch partner where applicable), and arrives at the existing Confirmation step in exactly the state today's Confirmation step already expects.
 
 ### v2.0 Out of Scope
 
