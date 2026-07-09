@@ -6,7 +6,8 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { projects, projectStepCompletions, projectStepDeadlines } from '@/db/schema'
 import { requireAdmin, verifySession } from '@/lib/dal'
-import { FIRST_ACTION_STEP, WORKFLOW_STEPS, Roles, isProjectComplete } from '@/lib/workflow'
+import { FIRST_ACTION_STEP, Roles, lastStepN, projectComplete } from '@/lib/workflow'
+import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
 import { notifyAllSuperAdmins } from '@/lib/notifications'
 
 function revalidateProjectBoards() {
@@ -39,7 +40,7 @@ export async function createProjectAction(
   // Parse the per-step deadlines (REQ-G05) up front and validate ORDER before
   // creating anything: a later step can't be due before an earlier one (#4).
   const parsedDeadlines: { stepN: number; deadline: Date }[] = []
-  for (const s of WORKFLOW_STEPS) {
+  for (const s of await getLiveWorkflowSteps()) {
     if (s.n < FIRST_ACTION_STEP) continue // step 1 auto-completes, no deadline
     const raw = String(formData.get(`deadline_${s.n}`) ?? '').trim()
     if (!raw) continue
@@ -120,7 +121,7 @@ export async function pauseProjectAction(
   const [proj] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
   if (!proj) return { ok: false, message: 'Project not found.' }
   if (proj.status === 'paused') return { ok: false, message: 'This project is already paused.' }
-  if (isProjectComplete(proj.currentStep))
+  if (projectComplete(proj.currentStep, lastStepN(await getLiveWorkflowSteps())))
     return { ok: false, message: 'This project is already complete.' }
 
   await db

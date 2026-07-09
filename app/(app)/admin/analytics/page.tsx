@@ -2,7 +2,8 @@ import { asc, desc } from 'drizzle-orm'
 import { db } from '@/db'
 import { projects, projectStepCompletions } from '@/db/schema'
 import { requireAdmin } from '@/lib/dal'
-import { isProjectComplete } from '@/lib/workflow'
+import { lastStepN, projectComplete } from '@/lib/workflow'
+import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
 import AnalyticsChart, { type ProjectSpeed } from '@/app/_components/analytics-chart'
 
 export const dynamic = 'force-dynamic'
@@ -30,7 +31,7 @@ function StatCard({
 export default async function AdminAnalyticsPage() {
   await requireAdmin()
 
-  const [rows, completions] = await Promise.all([
+  const [rows, completions, steps] = await Promise.all([
     db.select().from(projects).orderBy(desc(projects.createdAt)),
     db
       .select({
@@ -39,6 +40,7 @@ export default async function AdminAnalyticsPage() {
       })
       .from(projectStepCompletions)
       .orderBy(asc(projectStepCompletions.completedAt)),
+    getLiveWorkflowSteps(),
   ])
 
   // Latest step completion per project — the end of the delivery clock.
@@ -50,7 +52,7 @@ export default async function AdminAnalyticsPage() {
   const now = new Date().getTime()
 
   const data: ProjectSpeed[] = rows.map((p) => {
-    const complete = isProjectComplete(p.currentStep) || p.status === 'delivered'
+    const complete = projectComplete(p.currentStep, lastStepN(steps)) || p.status === 'delivered'
     const start = p.createdAt.getTime()
     // For completed projects the clock stops at the final step completion (or
     // updatedAt as a fallback); ongoing projects measure elapsed time so far.

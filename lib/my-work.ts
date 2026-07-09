@@ -3,17 +3,20 @@ import { inArray } from 'drizzle-orm'
 import { db } from '@/db'
 import { projects, projectStepDeadlines } from '@/db/schema'
 import {
-  stepByN,
   canRoleActOnStep,
-  isProjectComplete,
+  findStep,
+  lastStepN,
+  projectComplete,
   type UserRole,
   type MyWork,
 } from '@/lib/workflow'
+import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
 
 // Computes the in-progress projects (for the header switcher) and the subset
 // awaiting THIS user's action (for the forcing gate). Shared by the app layout
 // (initial render) and the /api/my-work polling endpoint.
 export async function getMyWork(role: UserRole): Promise<MyWork> {
+  const steps = await getLiveWorkflowSteps()
   const rows = await db
     .select({
       id: projects.id,
@@ -26,7 +29,9 @@ export async function getMyWork(role: UserRole): Promise<MyWork> {
 
   // Paused projects are excluded from active work: no forced gate, no header
   // "Act" until a super admin resumes them (REQ-G07).
-  const active = rows.filter((p) => !isProjectComplete(p.currentStep) && p.status !== 'paused')
+  const active = rows.filter(
+    (p) => !projectComplete(p.currentStep, lastStepN(steps)) && p.status !== 'paused',
+  )
 
   // Per-step deadlines (REQ-G05): the deadline shown for a project is the one
   // set for its CURRENT step, falling back to the project-wide delivery date.
@@ -55,7 +60,7 @@ export async function getMyWork(role: UserRole): Promise<MyWork> {
 
   const pending = active
     .filter((p) => {
-      const step = stepByN(p.currentStep)
+      const step = findStep(steps, p.currentStep)
       return step ? canRoleActOnStep(step.role, role) : false
     })
     .map((p) => ({
