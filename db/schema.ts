@@ -19,6 +19,7 @@ export const responseOptionsEnum = pgEnum('response_options', ['yes_no', 'yes_no
 export const checklistStatusEnum = pgEnum('checklist_status', ['draft', 'submitted'])
 export const responseValueEnum = pgEnum('response_value', ['yes', 'no', 'na'])
 export const chatRoleEnum = pgEnum('chat_role', ['user', 'assistant'])
+export const fulfillmentKindEnum = pgEnum('fulfillment_kind', ['creation', 'checklist', 'readiness', 'ack', 'yes_no_upload', 'approval', 'assignment'])
 
 // ── Users (NextAuth Credentials — bcrypt verified in auth.ts authorize()) ──
 export const users = pgTable('users', {
@@ -53,12 +54,63 @@ export const projects = pgTable('projects', {
 export const projectStepCompletions = pgTable('project_step_completions', {
   id:          uuid('id').primaryKey().defaultRandom(),
   projectId:   uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
-  stepKey:     text('step_key').notNull(),               // WorkflowStep.key
-  stepN:       integer('step_n').notNull(),              // WorkflowStep.n
+  stepKey:     text('step_key').notNull(),               // WorkflowStep.key (legacy live rows)
+  stepN:       integer('step_n').notNull(),              // WorkflowStep.n (legacy live rows)
+  stepDefId:   uuid('step_def_id').references(() => workflowStepDefinitions.id, { onDelete: 'cascade' }), // graph-engine rows key by this instead
+  graph:       text('graph').default('live').notNull(),  // isolates Phase 16 test graph from the live graph
+  skipped:     boolean('skipped').default(false).notNull(), // skipped-optional-step recorded as a satisfied predecessor for join readiness
   completedBy: uuid('completed_by').notNull().references(() => users.id),
   notes:       text('notes'),
   completedAt: timestamp('completed_at').defaultNow().notNull(),
 })
+
+// ── Workflow Step Definitions (v2.0 — configurable workflow graph, WF-01) ──
+// A single step in a workflow graph: order, key, label, responsible role, and
+// fulfillment kind. `graph` isolates the Phase 16 test graph from 'live'.
+export const workflowStepDefinitions = pgTable('workflow_step_definitions', {
+  id:              uuid('id').primaryKey().defaultRandom(),
+  graph:           text('graph').default('live').notNull(),
+  stepKey:         text('step_key').notNull(),
+  label:           text('label').notNull(),
+  role:            roleEnum('role').notNull(),
+  fulfillmentKind: fulfillmentKindEnum('fulfillment_kind').notNull(),
+  checklistSlug:   text('checklist_slug'),               // set only when fulfillmentKind = 'checklist'; mirrors checklist_definitions.slug
+  targetRole:      roleEnum('target_role'),               // set only when fulfillmentKind = 'assignment' — role the actor picks a user from
+  isOptional:      boolean('is_optional').default(false).notNull(),
+  orderIndex:      integer('order_index').notNull(),      // display/default ordering only — adjacency lives in workflow_step_edges
+  createdAt:       timestamp('created_at').defaultNow().notNull(),
+  updatedAt:       timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({ graphStepKeyUq: unique().on(t.graph, t.stepKey) }))
+
+// ── Workflow Step Edges (v2.0 — explicit adjacency, WF-05) ────────────────
+// The ONLY source of adjacency between steps. A join step is one with
+// multiple incoming edges (predecessors); parallel branches are multiple
+// outgoing edges from the same step.
+export const workflowStepEdges = pgTable('workflow_step_edges', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  graph:      text('graph').default('live').notNull(),
+  fromStepId: uuid('from_step_id').notNull().references(() => workflowStepDefinitions.id, { onDelete: 'cascade' }),
+  toStepId:   uuid('to_step_id').notNull().references(() => workflowStepDefinitions.id, { onDelete: 'cascade' }),
+  createdAt:  timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({ fromToUq: unique().on(t.fromStepId, t.toStepId) }))
+
+// ── Workflow Step States (v2.0 — per-project runtime state, WF-03) ───────
+// Runtime state for the new fulfillment kinds (yes_no_upload, approval,
+// assignment) that don't fit the existing checklist/readiness-form tables.
+export const workflowStepStates = pgTable('workflow_step_states', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  projectId:      uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  stepDefId:      uuid('step_def_id').notNull().references(() => workflowStepDefinitions.id, { onDelete: 'cascade' }),
+  status:         text('status').default('pending').notNull(),   // 'pending' | 'sent' | 'complete'
+  answer:         text('answer'),                                 // 'yes' | 'no' for yes_no_upload
+  uploadData:     text('upload_data'),                            // base64 data URL, same pattern as checklists.photoData
+  uploadName:     text('upload_name'),
+  assignedUserId: uuid('assigned_user_id').references(() => users.id), // for assignment
+  sentBy:         uuid('sent_by').references(() => users.id),         // approval send
+  receivedBy:     uuid('received_by').references(() => users.id),     // approval receive
+  actedBy:        uuid('acted_by').references(() => users.id),
+  updatedAt:      timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({ projectStepDefUq: unique().on(t.projectId, t.stepDefId) }))
 
 // Per-step deadlines set by Operations at project creation (REQ-G05) so each
 // actor is accountable to their own step, not just one project-wide date.
