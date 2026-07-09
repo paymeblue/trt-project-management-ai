@@ -4,9 +4,11 @@ import { db } from '@/db'
 import {
   workflowStepDefinitions,
   workflowStepEdges,
+  workflowStepStates,
   projectStepCompletions,
+  users,
 } from '@/db/schema'
-import type { GraphStep, WorkflowRole } from '@/lib/workflow'
+import type { GraphStep, StepKind, WorkflowRole } from '@/lib/workflow'
 
 // ── Read engine for the DB-driven workflow graph (Phase 16, WF-01/WF-02) ──
 // Every function reads live from the database on each call — no module-level
@@ -122,4 +124,204 @@ export async function getLastStep(graph = 'live'): Promise<GraphStep | undefined
   const terminalSteps = steps.filter((s) => !hasOutgoing.has(s.id))
   terminalSteps.sort((a, b) => b.orderIndex - a.orderIndex)
   return terminalSteps[0]
+}
+
+// ── Write engine (Phase 16, WF-02/WF-03/WF-04) ────────────────────────────
+// Kind handlers below (submitYesNoUpload/sendApproval/receiveApproval/
+// assignUser) only record runtime state in workflow_step_states — they never
+// advance the project themselves. completeGraphStep is the single place that
+// records a project_step_completions row and re-derives the actionable set,
+// so state-fulfillment and advancement stay independently testable.
+
+// Kinds that require a fulfilled workflow_step_states row (status 'complete')
+// before completeGraphStep will accept a non-skip completion. The legacy
+// checklist/readiness/ack/creation kinds are accepted as already validated
+// upstream by their own submission flow (mirrors actions/workflow.ts).
+const STATE_GATED_KINDS: StepKind[] = ['yes_no_upload', 'approval', 'assignment']
+
+/**
+ * Complete (or skip) a graph step for a project, then return the freshly
+ * re-derived actionable set. `skip` on a required (non-optional) step is
+ * rejected server-side — the client's skip flag can never override this
+ * (WF-04, T-16-06).
+ */
+export async function completeGraphStep(opts: {
+  projectId: string
+  stepDefId: string
+  actorId: string
+  skip?: boolean
+}): Promise<{ ok: boolean; actionable: GraphStep[] }> {
+  const { projectId, stepDefId, actorId, skip } = opts
+  const step = await getStepById(stepDefId)
+  if (!step) throw new Error('step-not-found')
+
+  if (skip) {
+    if (!step.isOptional) throw new Error('required-step-cannot-be-skipped')
+    await db.insert(projectStepCompletions).values({
+      projectId,
+      stepDefId: step.id,
+      graph: step.graph,
+      stepKey: step.key,
+      stepN: step.orderIndex,
+      completedBy: actorId,
+      skipped: true,
+    })
+    return { ok: true, actionable: await getActionableSteps(projectId, step.graph) }
+  }
+
+  if (STATE_GATED_KINDS.includes(step.kind)) {
+    const [state] = await db
+      .select()
+      .from(workflowStepStates)
+      .where(
+        and(eq(workflowStepStates.projectId, projectId), eq(workflowStepStates.stepDefId, stepDefId)),
+      )
+      .limit(1)
+    if (!state || state.status !== 'complete') throw new Error('step-not-fulfilled')
+  }
+
+  await db.insert(projectStepCompletions).values({
+    projectId,
+    stepDefId: step.id,
+    graph: step.graph,
+    stepKey: step.key,
+    stepN: step.orderIndex,
+    completedBy: actorId,
+    skipped: false,
+  })
+
+  return { ok: true, actionable: await getActionableSteps(projectId, step.graph) }
+}
+
+/** Records the yes/no answer (+ optional upload) for a `yes_no_upload` step. */
+export async function submitYesNoUpload(opts: {
+  projectId: string
+  stepDefId: string
+  actorId: string
+  answer: 'yes' | 'no'
+  uploadData?: string | null
+  uploadName?: string | null
+}): Promise<void> {
+  const now = new Date()
+  await db
+    .insert(workflowStepStates)
+    .values({
+      projectId: opts.projectId,
+      stepDefId: opts.stepDefId,
+      status: 'complete',
+      answer: opts.answer,
+      uploadData: opts.uploadData ?? null,
+      uploadName: opts.uploadName ?? null,
+      actedBy: opts.actorId,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: [workflowStepStates.projectId, workflowStepStates.stepDefId],
+      set: {
+        status: 'complete',
+        answer: opts.answer,
+        uploadData: opts.uploadData ?? null,
+        uploadName: opts.uploadName ?? null,
+        actedBy: opts.actorId,
+        updatedAt: now,
+      },
+    })
+}
+
+/** First half of the two-party `approval` kind: records who sent it. */
+export async function sendApproval(opts: {
+  projectId: string
+  stepDefId: string
+  actorId: string
+}): Promise<void> {
+  const now = new Date()
+  await db
+    .insert(workflowStepStates)
+    .values({
+      projectId: opts.projectId,
+      stepDefId: opts.stepDefId,
+      status: 'sent',
+      sentBy: opts.actorId,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: [workflowStepStates.projectId, workflowStepStates.stepDefId],
+      set: { status: 'sent', sentBy: opts.actorId, updatedAt: now },
+    })
+}
+
+/**
+ * Second half of the two-party `approval` kind. Requires a row already in
+ * 'sent' status, and the receiver must differ from the sender (T-16-07 —
+ * self-approval is rejected server-side, not just hidden in the UI).
+ */
+export async function receiveApproval(opts: {
+  projectId: string
+  stepDefId: string
+  actorId: string
+}): Promise<void> {
+  const [state] = await db
+    .select()
+    .from(workflowStepStates)
+    .where(
+      and(
+        eq(workflowStepStates.projectId, opts.projectId),
+        eq(workflowStepStates.stepDefId, opts.stepDefId),
+      ),
+    )
+    .limit(1)
+  if (!state || state.status !== 'sent') throw new Error('approval-not-sent')
+  if (state.sentBy === opts.actorId) throw new Error('approval-requires-two-parties')
+
+  await db
+    .update(workflowStepStates)
+    .set({ status: 'complete', receivedBy: opts.actorId, updatedAt: new Date() })
+    .where(
+      and(
+        eq(workflowStepStates.projectId, opts.projectId),
+        eq(workflowStepStates.stepDefId, opts.stepDefId),
+      ),
+    )
+}
+
+/**
+ * Records the assignment for an `assignment` step. Rejects an assignee whose
+ * role doesn't match the step's targetRole (T-16-08).
+ */
+export async function assignUser(opts: {
+  projectId: string
+  stepDefId: string
+  actorId: string
+  assignedUserId: string
+}): Promise<void> {
+  const step = await getStepById(opts.stepDefId)
+  if (!step) throw new Error('step-not-found')
+
+  const [assignee] = await db
+    .select({ id: users.id, role: users.role })
+    .from(users)
+    .where(eq(users.id, opts.assignedUserId))
+    .limit(1)
+  if (!assignee || assignee.role !== step.targetRole) throw new Error('assignee-role-mismatch')
+
+  const now = new Date()
+  await db
+    .insert(workflowStepStates)
+    .values({
+      projectId: opts.projectId,
+      stepDefId: opts.stepDefId,
+      status: 'complete',
+      assignedUserId: opts.assignedUserId,
+      actedBy: opts.actorId,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: [workflowStepStates.projectId, workflowStepStates.stepDefId],
+      set: {
+        status: 'complete',
+        assignedUserId: opts.assignedUserId,
+        actedBy: opts.actorId,
+        updatedAt: now,
+      },
+    })
 }
