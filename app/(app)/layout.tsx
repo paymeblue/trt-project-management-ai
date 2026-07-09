@@ -14,8 +14,10 @@ import PendingStepGate from '@/app/_components/pending-step-gate';
 import HeaderProjectSwitcher from '@/app/_components/header-project-switcher';
 import NotificationsBell from '@/app/_components/notifications-bell';
 import MyWorkProvider from '@/app/_components/my-work-provider';
+import WorkflowStepsProvider from '@/app/_components/workflow-steps-provider';
 import { TrtLogo, TrtWatermark } from '@/app/_components/trt-logo';
 import { getMyWork } from '@/lib/my-work';
+import { getLiveWorkflowSteps } from '@/lib/workflow-graph';
 import { isAdminRole, userRoleLabel, type UserRole } from '@/lib/workflow';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
@@ -50,9 +52,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // Header switcher + forcing gate get a server-rendered snapshot; the provider
   // then polls /api/my-work to keep them near-real-time.
   const initialWork = await getMyWork(role as UserRole);
+  // Live workflow steps (Phase 17, WF-06): seeded once per request from the DB
+  // graph, exposed to client components via useWorkflowSteps().
+  const liveSteps = await getLiveWorkflowSteps();
 
   return (
     <MyWorkProvider initial={initialWork}>
+    <WorkflowStepsProvider initial={liveSteps}>
     <div className="relative min-h-screen bg-background text-on-surface">
       {/* TRT logo watermark behind every screen */}
       <div
@@ -135,6 +141,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       {/* Forcing "action required" modal for steps on this user's desk */}
       <PendingStepGate />
     </div>
+    </WorkflowStepsProvider>
     </MyWorkProvider>
   );
 }
