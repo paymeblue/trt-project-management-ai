@@ -2,20 +2,22 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
-  stepByN,
+  findStep,
   stepHref,
   workflowRoleLabel,
   canRoleActOnStep,
-  LAST_STEP,
+  lastStepN,
   type UserRole,
 } from '@/lib/workflow'
 import { useMyWork } from '@/app/_components/my-work-provider'
+import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
 
 // Dismissable navbar indicator: shows the "current" in-progress project + the
 // step it's on, with a dropdown to switch between projects (a PM may juggle
 // several at once). Data is live (polled by MyWorkProvider).
 export default function HeaderProjectSwitcher({ viewerRole }: { viewerRole: UserRole }) {
   const { activeProjects: projects } = useMyWork()
+  const steps = useWorkflowSteps()
   // State is held in-memory; because this component lives in the app layout it
   // survives client-side navigations (it only resets on a full page reload).
   const [dismissed, setDismissed] = useState(false)
@@ -49,7 +51,8 @@ export default function HeaderProjectSwitcher({ viewerRole }: { viewerRole: User
   }
 
   const selected = projects.find((p) => p.id === selectedId) ?? projects[0]
-  const step = stepByN(selected.stepN)
+  const lastN = lastStepN(steps)
+  const step = findStep(steps, selected.stepN)
   const mine = step ? canRoleActOnStep(step.role, viewerRole) : false
   const href = step && mine ? stepHref(step, selected.id) : null
 
@@ -73,7 +76,7 @@ export default function HeaderProjectSwitcher({ viewerRole }: { viewerRole: User
               {selected.name}
             </span>
             <span className="block truncate text-label-sm leading-tight text-on-surface-variant">
-              {step ? `Step ${step.n}/${LAST_STEP}: ${step.label}` : 'In progress'}
+              {step ? `Step ${step.n}/${lastN}: ${step.label}` : 'In progress'}
               {step ? (mine ? ' · your turn' : ` · ${workflowRoleLabel(step.role)}`) : ''}
             </span>
           </span>
@@ -103,7 +106,7 @@ export default function HeaderProjectSwitcher({ viewerRole }: { viewerRole: User
       {open && (
         <div className="absolute left-0 top-full z-50 mt-1 max-h-80 w-80 overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-low p-1 shadow-lg">
           {projects.map((p) => {
-            const s = stepByN(p.stepN)
+            const s = findStep(steps, p.stepN)
             const youract = s ? canRoleActOnStep(s.role, viewerRole) : false
             return (
               <button
@@ -125,7 +128,7 @@ export default function HeaderProjectSwitcher({ viewerRole }: { viewerRole: User
                   )}
                 </span>
                 <span className="truncate text-label-sm text-on-surface-variant">
-                  {s ? `Step ${s.n}/${LAST_STEP}: ${s.label}` : 'In progress'}
+                  {s ? `Step ${s.n}/${lastN}: ${s.label}` : 'In progress'}
                 </span>
               </button>
             )

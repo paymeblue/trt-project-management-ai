@@ -2,9 +2,10 @@
 
 import { useActionState, useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { stepByN, stepHref, workflowRoleLabel } from '@/lib/workflow'
+import { findStep, stepHref, workflowRoleLabel } from '@/lib/workflow'
 import { completeAckStepAction, type AckStepState } from '@/actions/workflow'
 import { useMyWork } from '@/app/_components/my-work-provider'
+import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
 
 const INITIAL_ACK: AckStepState = { ok: false }
 
@@ -16,6 +17,7 @@ function isStepRoute(pathname: string) {
 
 export default function PendingStepGate() {
   const { pending, refresh } = useMyWork()
+  const steps = useWorkflowSteps()
   const pathname = usePathname()
   const [ackState, dispatchAck, ackPending] = useActionState(completeAckStepAction, INITIAL_ACK)
   const [notes, setNotes] = useState('')
@@ -51,7 +53,7 @@ export default function PendingStepGate() {
 
   if (!item) return null
 
-  const step = stepByN(item.stepN)
+  const step = findStep(steps, item.stepN)
   if (!step) return null
 
   const others = pending.filter(
