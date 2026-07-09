@@ -2,7 +2,8 @@ import { desc, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { stepBypassRequests, projects, users } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
-import { stepByN, workflowRoleLabel, LAST_STEP, Roles } from '@/lib/workflow'
+import { findStep, lastStepN, workflowRoleLabel, Roles } from '@/lib/workflow'
+import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
 import ApprovalActions from '@/app/_components/approval-actions'
 
 export const dynamic = 'force-dynamic'
@@ -37,6 +38,9 @@ export default async function ApprovalsPage() {
     .where(eq(stepBypassRequests.status, 'pending'))
     .orderBy(desc(stepBypassRequests.createdAt))
 
+  const steps = await getLiveWorkflowSteps()
+  const lastStep = lastStepN(steps)
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
       <a href="/admin/dashboard" className="text-sm text-primary hover:underline">
@@ -55,7 +59,7 @@ export default async function ApprovalsPage() {
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => {
-            const step = stepByN(r.stepN)
+            const step = findStep(steps, r.stepN)
             return (
               <li
                 key={r.id}
@@ -64,7 +68,7 @@ export default async function ApprovalsPage() {
                 <div className="min-w-0">
                   <p className="font-semibold text-gray-900">{r.projectName ?? 'Unknown project'}</p>
                   <p className="text-xs text-gray-500">
-                    Step {r.stepN}/{LAST_STEP}: {step?.label ?? '—'}
+                    Step {r.stepN}/{lastStep}: {step?.label ?? '—'}
                     {step ? ` · ${workflowRoleLabel(step.role)}` : ''}
                   </p>
                   <p className="mt-1 text-sm text-gray-700">
