@@ -1,10 +1,12 @@
-// End-to-end workflow, rendered straight from WORKFLOW_STEPS (the single source
-// of truth in lib/workflow.ts) so the diagram can never drift out of order. It
-// is the real interleaved sequence — Operations → Site PM → Factory PM → … —
-// not a Factory/Site two-lane handoff. Pure server component, dark-mode aware
-// via semantic tokens; role accent colours are fixed hues legible on both themes.
+// End-to-end workflow, rendered straight from the live DB-driven step graph
+// (Phase 17, WF-06 — getLiveWorkflowSteps()) so the diagram can never drift out
+// of order. It is the real interleaved sequence — Operations → Site PM →
+// Factory PM → … — not a Factory/Site two-lane handoff. Async server
+// component, dark-mode aware via semantic tokens; role accent colours are
+// fixed hues legible on both themes.
 
-import { WORKFLOW_STEPS, workflowRoleLabel, type WorkflowRole } from '@/lib/workflow'
+import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
+import { workflowRoleLabel, type WorkflowRole } from '@/lib/workflow'
 
 const ROLE_COLOR: Record<WorkflowRole, string> = {
   operations: '#6366f1', // indigo
@@ -32,7 +34,8 @@ const DETAIL: Record<string, string> = {
 
 const ROLES: WorkflowRole[] = ['operations', 'site_pm', 'factory_pm', 'super_admin']
 
-export default function TrtFlowDiagram() {
+export default async function TrtFlowDiagram() {
+  const steps = await getLiveWorkflowSteps()
   return (
     <div>
       {/* Super Admin oversight banner */}
@@ -64,9 +67,9 @@ export default function TrtFlowDiagram() {
 
       {/* Sequential timeline */}
       <ol className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
-        {WORKFLOW_STEPS.map((step, i) => {
+        {steps.map((step, i) => {
           const color = ROLE_COLOR[step.role]
-          const last = i === WORKFLOW_STEPS.length - 1
+          const last = i === steps.length - 1
           return (
             <li key={step.key} className="flex gap-3">
               {/* Number badge + connecting rail */}
