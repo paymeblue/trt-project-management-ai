@@ -296,7 +296,20 @@ Plans:
   2. The Delivery Project Checklist + Delivery Readiness → Project Check Report parallel/join relationship is modeled natively in the graph, not inferred from sequential numbering
   3. A project created before the cutover and one created after both progress through Confirmation→Sign Off identically — same role gates, same checklist slugs, same completion boundary
   4. The old hardcoded `WORKFLOW_STEPS` array is retired in favor of the DB graph with no regression anywhere it was previously read from (board, gate, my-work, flow diagram)
-**Plans**: TBD (set at /gsd-plan-phase 17)
+**Locked decisions** (derived at planning, no discuss-phase):
+  - D-01: `projects.currentStep` stays an integer position pointer interpreted as the live graph's `orderIndex`; the migration mutates NO project's `currentStep`. No schema change (verified: in-flight projects at currentStep 3/5, delivered at 12, all align 1:1 with orderIndex 1..11).
+  - D-02: The `WORKFLOW_STEPS` literal is retired from `lib/workflow.ts`; steps are sourced from DB `graph='live'` via `getLiveWorkflowSteps()` (server) / `useWorkflowSteps()` (client). Canonical bootstrap data relocates to `db/workflow-live-steps.ts` (seed-only).
+  - D-03: The live graph edges are CORRECTED (Phase 16 seeded them linear) to natively model Delivery Readiness (4) + Delivery Project Checklist (5) → Project Check Report (6); live integer advancement still linearizes by orderIndex, so behavior stays byte-identical.
+  - D-04: `advanceProjectStep` + bypass-approval additionally record `stepDefId`/`graph` on completions (additive; integer `currentStep` remains the behavioral source of truth).
+**Plans**: 6 plans
+
+Plans:
+- [ ] 17-01-PLAN.md — getLiveWorkflowSteps() adapter + pure helpers + corrected live edges + parity/join verification (Wave 1)
+- [ ] 17-02-PLAN.md — Cut over server actions/libs (my-work, advance, bypass, projects, analytics) + stepDefId dual-write (Wave 2)
+- [ ] 17-03-PLAN.md — Cut over step-gating server pages (checklist, readiness, approvals, timeline) (Wave 2)
+- [ ] 17-04-PLAN.md — WorkflowStepsProvider + layout wire + flow diagram on the DB (Wave 2)
+- [ ] 17-05-PLAN.md — Cut over client consumers (board, header switcher, pending gate, new-project form) to useWorkflowSteps() (Wave 3)
+- [ ] 17-06-PLAN.md — Retire the literal + relocate seed data + tests + before/after human verification (Wave 4)
 
 ### Phase 18: Workflow Configurator
 **Goal**: The super admin can reshape the live workflow graph — add, remove, reorder, and edit steps — from a dedicated, separately PIN-gated screen, without a code change or redeploy.
