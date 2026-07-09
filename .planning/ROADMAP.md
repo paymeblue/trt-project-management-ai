@@ -276,8 +276,16 @@ Plans:
   3. Each of the four fulfillment kinds — checklist, yes/no with optional upload, approval (two-party send/receive), and assignment (actor picks a user of a target role) — renders its correct interface and gates advancement correctly on a test graph
   4. An optional step can be skipped (project advances); a required step cannot be skipped (rejected server-side)
   5. Two steps can be modeled as parallel branches feeding one join step; the join only becomes actionable once both branches are complete, regardless of completion order
-**Plans**: TBD (set at /gsd-plan-phase 16)
+**Plans**: 5 plans
+**Scope note**: Phase 16 builds the DB engine + schema + read/write plumbing and proves all five success criteria against an isolated TEST graph. It keeps the existing synchronous `lib/workflow.ts` API (and its ~20 live callers) working unchanged off `WORKFLOW_STEPS`; flipping live gate/board/my-work callers onto the DB engine with zero-regression verification is Phase 17's job (the isolated highest-risk cutover).
 **UI hint**: yes
+
+Plans:
+- [ ] 16-01-PLAN.md — Schema: fulfillment_kind enum + workflow_step_definitions/edges/states tables + extend project_step_completions; drizzle-kit push [Wave 1]
+- [ ] 16-02-PLAN.md — Read engine (lib/workflow-graph.ts) + extend lib/workflow.ts types (client-safe) + seed the 11 current steps as the 'live' graph [Wave 2]
+- [ ] 16-03-PLAN.md — Write engine: completeGraphStep + optional/required skip enforcement + 3 new-kind handlers + gated server actions [Wave 3]
+- [ ] 16-04-PLAN.md — Test-graph seed (all 4 kinds + optional + parallel/join) + CLI verification harness proving WF-03/04/05 [Wave 4]
+- [ ] 16-05-PLAN.md — Minimal renderers for the 3 new kinds + /workflow/step route (WF-03 UI at test-graph fidelity) [Wave 4]
 
 ### Phase 17: Confirmation → Sign Off Migration
 **Goal**: Every existing production step from Confirmation through Sign Off runs on the new engine with zero behavior change for any project, past or future — the single highest-risk cutover in this milestone, verified explicitly.
