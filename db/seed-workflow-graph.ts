@@ -1,11 +1,19 @@
 /**
  * Structural seed: copy the current 11 live WORKFLOW_STEPS (lib/workflow.ts)
  * 1:1 into the workflow_step_definitions / workflow_step_edges tables under
- * graph='live', with a linear chain of edges (step n -> step n+1).
+ * graph='live'.
  *
- * This is a STRUCTURAL seed only — it mirrors the existing steps' shape so
- * the read engine (lib/workflow-graph.ts) has real data to query. It is NOT
- * the Phase 17 verified content migration.
+ * Edges (Phase 17 Plan 01, WF-06/D-03): an explicit edge list, by step key,
+ * rather than a linear n->n+1 chain — every step is still sequential EXCEPT
+ * the delivery cluster, which natively encodes the existing
+ * Delivery Readiness + Delivery Project Checklist -> Project Check Report
+ * parallel/join (both branches must complete, in either order, before
+ * Project Check Report is actionable; see lib/workflow-graph.ts
+ * getActionableSteps). This is a STRUCTURAL/behavioral seed only — it
+ * mirrors the existing steps' shape and gating so the read engine
+ * (lib/workflow-graph.ts) has real data to query, proven byte-identical to
+ * WORKFLOW_STEPS by scripts/verify-live-workflow.ts. It is NOT the Phase 17
+ * caller-cutover (later plans in this phase).
  *
  * Run via: npm run db:seed-workflow-graph
  *
@@ -60,17 +68,38 @@ async function main() {
     console.log(`  + step ${step.n}: "${step.key}" (${inserted.id})`)
   }
 
-  // Insert a linear edge for each consecutive pair (n -> n+1).
-  let edgeCount = 0
+  // Explicit edge list by step key (Phase 17 Plan 01, D-03): every step stays
+  // sequential EXCEPT the delivery cluster, which fans out from
+  // materials_readiness into delivery_readiness AND delivery_project, both
+  // converging on project_check_report (the parallel/join this milestone
+  // requires to be natively modeled, not incidental numbering).
+  const idByKey = new Map<string, string>()
   for (const step of WORKFLOW_STEPS) {
-    const nextN = step.n + 1
-    if (nextN > WORKFLOW_STEPS.length) continue
-    const fromId = idByStepN.get(step.n)!
-    const toId = idByStepN.get(nextN)!
+    idByKey.set(step.key, idByStepN.get(step.n)!)
+  }
+
+  const EDGES: [string, string][] = [
+    ['new_project', 'confirmation'],
+    ['confirmation', 'materials_readiness'],
+    ['materials_readiness', 'delivery_readiness'],
+    ['materials_readiness', 'delivery_project'],
+    ['delivery_readiness', 'project_check_report'],
+    ['delivery_project', 'project_check_report'],
+    ['project_check_report', 'approval_installation'],
+    ['approval_installation', 'installation_readiness'],
+    ['installation_readiness', 'sorting'],
+    ['sorting', 'close_out'],
+    ['close_out', 'sign_off'],
+  ]
+
+  let edgeCount = 0
+  for (const [fromKey, toKey] of EDGES) {
+    const fromId = idByKey.get(fromKey)!
+    const toId = idByKey.get(toKey)!
     await db.insert(workflowStepEdges).values({ graph: GRAPH, fromStepId: fromId, toStepId: toId })
     edgeCount++
   }
-  console.log(`  + ${edgeCount} linear edges`)
+  console.log(`  + ${edgeCount} edges (incl. fan-out materials_readiness->{delivery_readiness,delivery_project} and join ->project_check_report)`)
 
   console.log('Done.')
 }
