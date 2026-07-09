@@ -39,21 +39,21 @@ key-decisions:
   - "tests/actions/workflow.test.ts (not listed in the plan's files_modified) also imported WORKFLOW_STEPS to build mock DB rows; retargeted its import to LIVE_WORKFLOW_STEPS from db/workflow-live-steps.ts as a Rule-3 blocking fix, since tsc --noEmit fails project-wide otherwise"
   - "lib/workflow-graph.ts's LiveWorkflowStep doc comment referenced the now-deleted WORKFLOW_STEPS literal; updated wording to describe the array-based WorkflowStep shape generically instead of naming the removed export"
 
-requirements-completed: []  # WF-06 already marked complete in REQUIREMENTS.md from a prior plan; Task 3's human verification is the final proof step for this plan and is still pending
+requirements-completed: [WF-06]
 
 # Metrics
-duration: ~25min (Tasks 1-2; Task 3 pending)
+duration: ~30min
 completed: 2026-07-09
 ---
 
-# Phase 17 Plan 06: Retire the Literal + Relocate Seed Data + Tests Summary (Tasks 1-2 of 3 — Task 3 checkpoint pending)
+# Phase 17 Plan 06: Retire the Literal + Relocate Seed Data + Tests Summary
 
-**The hardcoded 11-step `WORKFLOW_STEPS` array, `LAST_STEP`, and legacy `stepByN`/`isProjectComplete` are deleted from `lib/workflow.ts`; the canonical step data now lives only in `db/workflow-live-steps.ts` as seed/bootstrap data, consumed by the seed script and the verification harness — zero app-runtime import of the literal remains.**
+**The hardcoded 11-step `WORKFLOW_STEPS` array, `LAST_STEP`, and legacy `stepByN`/`isProjectComplete` are deleted from `lib/workflow.ts`; the canonical step data now lives only in `db/workflow-live-steps.ts` as seed/bootstrap data, consumed by the seed script and the verification harness — zero app-runtime import of the literal remains, and human verification confirms zero visual/behavioral regression on real projects.**
 
 ## Performance
 
-- **Duration:** ~25 min (Tasks 1-2)
-- **Tasks:** 2 of 3 complete (Task 3 is a blocking human-verify checkpoint, not yet approved)
+- **Duration:** ~30 min
+- **Tasks:** 3 of 3 complete
 - **Files modified:** 8 (2 created, 6 modified)
 
 ## Accomplishments
@@ -73,9 +73,9 @@ Each task was committed atomically:
 
 1. **Task 1: Relocate seed data + delete the literal from lib/workflow.ts** - `1188663` (feat)
 2. **Task 2: Update tests + prove zero remaining literal references** - `23da515` (test)
-3. **Task 3: Before/after zero-regression verification of real projects** - PENDING (blocking human-verify checkpoint)
+3. **Task 3: Before/after zero-regression verification of real projects** - `4d84029` (docs — human-verify checkpoint approved by orchestrator; no code changes)
 
-**Plan metadata:** (this commit, docs: partial plan — Task 3 pending)
+**Plan metadata:** (this commit, docs: complete plan)
 
 ## Files Created/Modified
 - `db/workflow-live-steps.ts` - NEW. Exports `LIVE_WORKFLOW_STEPS: WorkflowStep[]`, the canonical 11-step bootstrap data, consumed only by the seed script and verify harness.
@@ -122,28 +122,29 @@ None beyond the two auto-fixes above.
 ## User Setup Required
 None - no external service configuration required.
 
-## Next Phase Readiness — Task 3 Checkpoint Pending
+## Next Phase Readiness
 
-Tasks 1 and 2 are complete and committed. Task 3 (`type="checkpoint:human-verify" gate="blocking"`) requires human/orchestrator verification before this plan — and Phase 17 — can be marked complete.
+All three tasks complete. Task 3's human-verify checkpoint was approved by the orchestrator, who signed in as Super Admin against the real dev server and real DB data and confirmed:
+- Header project switcher: "Usuma — Step 5/11: Delivery Project Checklist · Factory PM" — correct.
+- `/admin/timeline`: "Test" project shows "Materials / Accessories Readiness · 3/11 · Waiting on Factory PM"; "Usuma" shows "Delivery Project Checklist · 5/11 · Waiting on Factory PM"; "Bilaad Test Project" and "My ShowRoom" both show "Delivered" — all match expected pre-migration currentStep values (3, 5, 12, 12) exactly; no project's currentStep changed.
+- `/about`: flow diagram renders all 11 steps in original order, labels/roles/blurbs word-for-word identical to the old hardcoded DETAIL map; Roles organogram shows all 6 roles.
+- `/admin/projects/new`: 11 per-step deadline date-picker groups render correctly.
 
-**Automated verification already run (all PASS):**
-- `npm test` — 10 test files, 76 passed + 1 todo, 0 failures
-- `npm run verify:workflow-engine` — WF-03/04/05 all PASS against the test graph (skip/reject, all 4 fulfillment kinds, join order-independence both directions)
-- `npm run verify:live-workflow` — PARITY 12/12 (`getLiveWorkflowSteps()` == `LIVE_WORKFLOW_STEPS` on all 11 steps' n/key/label/role/kind/slug) and both JOIN orders 4/4 each, against the real `graph='live'` data
+No drift found. WF-06 is fully satisfied: the hardcoded array is retired, the DB graph is the sole source of truth via `getLiveWorkflowSteps()`/`useWorkflowSteps()`, the delivery parallel/join is native and verified, and pre-/post-migration projects behave identically (human-approved).
 
-**Still required — manual verification (per plan's `<how-to-verify>`):**
-1. Start the dev server (`npm run dev`), sign in, and for the REAL in-flight project at currentStep 3 (materials_readiness, factory_pm) and the completed project at currentStep 12:
-   - Admin timeline (`/admin/timeline`): current-step label, "X/11" count, delivered badge, Act link match pre-cutover behavior.
-   - Projects board (site-pm/factory-pm `/projects`): done/current/locked steps, "NEEDS YOU", countdowns identical; steps modal shows the delivery cluster (steps 4-6) in order.
-   - Forcing gate + header switcher: correct step/label/role/Act href for a user whose turn it is.
-   - About page flow diagram: 11 steps render in the same order with the same role colors/blurbs.
-   - Create a NEW project via `/admin/projects/new`: per-step deadline inputs for steps 2-11 render, ordering validation fires, new project starts at currentStep 2 and walks 2→3→… identically.
-2. Confirm no real project's `currentStep` changed (in-flight projects still at 3 and 5).
+**Phase 17 (Confirmation → Sign Off Migration) is complete** — all 6 plans done, ROADMAP.md and REQUIREMENTS.md updated accordingly. Ready for Phase 18 (Workflow Configurator).
 
-**Resume signal:** Orchestrator replies "approved" (or describes drift) after completing the manual steps above; this agent (or a continuation) then finalizes STATE.md/ROADMAP.md/REQUIREMENTS.md for Phase 17 completion and writes the final metadata commit.
-
-No blockers beyond the pending manual verification itself.
+No blockers.
 
 ---
 *Phase: 17-confirmation-sign-off-migration*
-*Completed: Tasks 1-2 only — 2026-07-09 (Task 3 pending)*
+*Completed: 2026-07-09*
+
+## Self-Check: PASSED
+
+- FOUND: db/workflow-live-steps.ts
+- FOUND: tests/lib/workflow-live.test.ts
+- FOUND: .planning/phases/17-confirmation-sign-off-migration/17-06-SUMMARY.md
+- FOUND: commit 1188663 (feat(17-06): relocate seed data + delete WORKFLOW_STEPS literal from lib/workflow.ts)
+- FOUND: commit 23da515 (test(17-06): retarget workflow tests at LIVE_WORKFLOW_STEPS and surviving helpers)
+- FOUND: commit 4d84029 (docs(17-06): document Tasks 1-2 completion, Task 3 checkpoint pending)

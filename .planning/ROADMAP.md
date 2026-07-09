@@ -33,7 +33,7 @@ Milestone v2.0 (phases 16-22) replaces the hardcoded 11-step `WORKFLOW_STEPS` ar
 
 ### Milestone v2.0 — Configurable Production Workflow Engine
 - [x] **Phase 16: Workflow Engine Core** - DB-backed step graph replaces the hardcoded `WORKFLOW_STEPS` array; new fulfillment kinds (yes/no+upload, approval, assignment), optional/skip logic, and parallel/join branching all representable (WF-01, WF-02, WF-03, WF-04, WF-05) (completed 2026-07-09)
-- [ ] **Phase 17: Confirmation → Sign Off Migration** - The existing 10-step tail (Confirmation through Sign Off) cut over onto the new engine with explicit zero-regression verification (WF-06)
+- [x] **Phase 17: Confirmation → Sign Off Migration** - The existing 10-step tail (Confirmation through Sign Off) cut over onto the new engine with explicit zero-regression verification (WF-06) (completed 2026-07-09)
 - [ ] **Phase 18: Workflow Configurator** - Super-admin-only, separately PIN-gated screen to add/remove/reorder/edit steps in the live graph (CFG-01, CFG-02, CFG-03)
 - [ ] **Phase 19: New Roles & Assignment** - `customer_care`, `ops_factory`, `factory_manager` roles with dashboards; assignment-kind steps notify a picked user; super-admin titles stay in `users.position` (ROLE-01, ROLE-02, ROLE-03)
 - [ ] **Phase 20: Payment & Timeline Gating** - `paid`/`unpaid` project status with two independent payment gates; per-step deadlines extend to every new step (PAY-01, PAY-02, PAY-03, PAY-04)
@@ -309,7 +309,7 @@ Plans:
 - [x] 17-03-PLAN.md — Cut over step-gating server pages (checklist, readiness, approvals, timeline) (Wave 2)
 - [x] 17-04-PLAN.md — WorkflowStepsProvider + layout wire + flow diagram on the DB (Wave 2)
 - [x] 17-05-PLAN.md — Cut over client consumers (board, header switcher, pending gate, new-project form) to useWorkflowSteps() (Wave 3)
-- [ ] 17-06-PLAN.md — Retire the literal + relocate seed data + tests + before/after human verification (Wave 4)
+- [x] 17-06-PLAN.md — Retire the literal + relocate seed data + tests + before/after human verification (Wave 4)
 
 ### Phase 18: Workflow Configurator
 **Goal**: The super admin can reshape the live workflow graph — add, remove, reorder, and edit steps — from a dedicated, separately PIN-gated screen, without a code change or redeploy.
@@ -395,7 +395,7 @@ v2.0 phases execute in numeric order: 16 → 17 → 18 → 19 → 20 → 21 → 
 | 15. Multi-department extensibility (#7) | -/- | Complete ✓ | 2026-07-09 |
 | **v2.0 — Configurable Production Workflow Engine** | | | |
 | 16. Workflow Engine Core | 5/5 | Complete   | 2026-07-09 |
-| 17. Confirmation → Sign Off Migration | 5/6 | In Progress|  |
+| 17. Confirmation → Sign Off Migration | 6/6 | Complete   | 2026-07-09 |
 | 18. Workflow Configurator | 0/? | Not started | - |
 | 19. New Roles & Assignment | 0/? | Not started | - |
 | 20. Payment & Timeline Gating | 0/? | Not started | - |

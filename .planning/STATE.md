@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
-status: executing
-stopped_at: 17-06-PLAN.md Tasks 1-2 complete (literal retired, seed data relocated, tests retargeted) — Task 3 blocking human-verify checkpoint pending (dev-server before/after check)
-last_updated: "2026-07-09T16:45:00.000Z"
+status: verifying
+stopped_at: Completed 17-06-PLAN.md (literal retired, seed data relocated, tests retargeted, human-verified zero regression) — Phase 17 (Confirmation to Sign Off Migration) COMPLETE, all 6 plans done
+last_updated: "2026-07-09T15:53:36.333Z"
 last_activity: 2026-07-09
 progress:
   total_phases: 21
-  completed_phases: 2
-  total_plans: 17
-  completed_plans: 15
-  percent: 10
+  completed_phases: 3
+  total_plans: 16
+  completed_plans: 16
+  percent: 14
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-09)
 
 **Core value:** A PM on the floor or on-site can complete a structured checklist (with photo evidence) on their phone and have it permanently recorded — replacing paper, with role-scoped visibility and read-only Super Admin oversight.
-**Current focus:** Phase 17 — Confirmation → Sign Off Migration
+**Current focus:** Phase 17 — Confirmation → Sign Off Migration (complete, ready for verification)
 
 ## Current Position
 
-Phase: 17 (Confirmation → Sign Off Migration) — EXECUTING
+Phase: 17 (Confirmation → Sign Off Migration) — COMPLETE
 Plan: 6 of 6
-Status: Tasks 1-2 complete; Task 3 (blocking human-verify checkpoint) pending
+Status: Phase complete — ready for verification
 Last activity: 2026-07-09
 
 ## Performance Metrics
@@ -56,6 +56,7 @@ Last activity: 2026-07-09
 | Phase 17 P03 | 10min | 2 tasks | 4 files |
 | Phase 17 P04 | 8min | 2 tasks | 3 files |
 | Phase 17 P05 | 10min | 3 tasks | 4 files |
+| Phase 17 P06 | 25min | 3 tasks | 8 files |
 
 ### Decisions
 
@@ -89,7 +90,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 17]: [Phase 17 P04]: about/page.tsx needed no edit for the now-async TrtFlowDiagram — plain JSX invocation of an async server component compiles/builds unchanged under Next's RSC model
 - [Phase 17]: [Phase 17 P05]: Phase 17 grew from 5 to 6 plans — a 6th plan (17-06, literal retirement + before/after checkpoint) was added after earlier plans' docs were written; progress counts updated to reflect 6 total plans in this phase
 - [Phase 17]: [Phase 17 P05]: Client components (board, header switcher, pending gate, new-project form) cut over to useWorkflowSteps(); re-ran npm run verify:live-workflow post-cutover (PARITY 12/12, both JOIN orders 4/4) to confirm the DB-sourced steps these components now render from remain byte-identical to the legacy WORKFLOW_STEPS array
-- [Phase 17 P06]: Retired WORKFLOW_STEPS/LAST_STEP/stepByN/isProjectComplete from lib/workflow.ts; canonical 11-step data relocated verbatim to db/workflow-live-steps.ts (LIVE_WORKFLOW_STEPS), consumed only by the seed script and verify-live-workflow.ts. tests/actions/workflow.test.ts (not in the plan's file list) also depended on the literal — retargeted as a Rule 3 blocking fix. Tasks 1-2 committed (1188663, 23da515); Task 3 (dev-server before/after human verification of real projects at currentStep 3/5/12) is a blocking checkpoint still pending.
+- [Phase 17]: [Phase 17 P06]: WORKFLOW_STEPS/LAST_STEP/stepByN/isProjectComplete retired from lib/workflow.ts; canonical 11-step data relocated verbatim to db/workflow-live-steps.ts (LIVE_WORKFLOW_STEPS), consumed only by the seed script and verify-live-workflow.ts
+- [Phase 17]: [Phase 17 P06]: tests/actions/workflow.test.ts (outside the plan's file list) also depended on WORKFLOW_STEPS for mock DB rows; retargeted to LIVE_WORKFLOW_STEPS as a blocking fix so tsc --noEmit passes project-wide
+- [Phase 17]: [Phase 17 P06]: Human verification (real dev server, real projects at currentStep 3/5/12) confirmed byte-identical rendering across header switcher, admin timeline, about/flow-diagram, and new-project-form post-cutover; no currentStep changed. WF-06 satisfied — Phase 17 complete.
 
 ### Pending Todos
 
@@ -120,6 +123,6 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 
 ## Session Continuity
 
-Last session: 2026-07-09T16:45:00.000Z
-Stopped at: 17-06-PLAN.md Tasks 1-2 complete (literal retired, seed data relocated, tests retargeted); Task 3 blocking human-verify checkpoint pending — dev server before/after check of real projects at currentStep 3/5/12 across timeline/board/gate/switcher/flow-diagram/new-project-form
-Resume file: .planning/phases/17-confirmation-sign-off-migration/17-06-PLAN.md (Task 3)
+Last session: 2026-07-09T15:53:36.317Z
+Stopped at: Completed 17-06-PLAN.md (literal retired, seed data relocated, tests retargeted, human-verified zero regression) — Phase 17 (Confirmation to Sign Off Migration) COMPLETE, all 6 plans done
+Resume file: None
