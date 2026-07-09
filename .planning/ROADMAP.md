@@ -304,7 +304,7 @@ Plans:
 **Plans**: 6 plans
 
 Plans:
-- [ ] 17-01-PLAN.md — getLiveWorkflowSteps() adapter + pure helpers + corrected live edges + parity/join verification (Wave 1)
+- [x] 17-01-PLAN.md — getLiveWorkflowSteps() adapter + pure helpers + corrected live edges + parity/join verification (Wave 1)
 - [ ] 17-02-PLAN.md — Cut over server actions/libs (my-work, advance, bypass, projects, analytics) + stepDefId dual-write (Wave 2)
 - [ ] 17-03-PLAN.md — Cut over step-gating server pages (checklist, readiness, approvals, timeline) (Wave 2)
 - [ ] 17-04-PLAN.md — WorkflowStepsProvider + layout wire + flow diagram on the DB (Wave 2)
@@ -395,7 +395,7 @@ v2.0 phases execute in numeric order: 16 → 17 → 18 → 19 → 20 → 21 → 
 | 15. Multi-department extensibility (#7) | -/- | Complete ✓ | 2026-07-09 |
 | **v2.0 — Configurable Production Workflow Engine** | | | |
 | 16. Workflow Engine Core | 5/5 | Complete   | 2026-07-09 |
-| 17. Confirmation → Sign Off Migration | 0/? | Not started | - |
+| 17. Confirmation → Sign Off Migration | 1/6 | In Progress|  |
 | 18. Workflow Configurator | 0/? | Not started | - |
 | 19. New Roles & Assignment | 0/? | Not started | - |
 | 20. Payment & Timeline Gating | 0/? | Not started | - |

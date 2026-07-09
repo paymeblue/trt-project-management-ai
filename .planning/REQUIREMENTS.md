@@ -216,7 +216,7 @@
   - *Success:* Skipping an optional step advances `currentStep`; attempting to skip a required step is rejected server-side.
 - [x] **WF-05**: The existing parallel/join pattern (Delivery Project Checklist + Delivery Readiness both feeding into Project Check Report) is representable in the new graph, not just a coincidence of sequential numbering.
   - *Success:* Both branch steps must complete before the join step becomes actionable; either can complete first.
-- [ ] **WF-06**: Every existing step from Confirmation through Sign Off is migrated into the new engine unchanged — same key, role, checklist slug, and relative order to each other.
+- [x] **WF-06**: Every existing step from Confirmation through Sign Off is migrated into the new engine unchanged — same key, role, checklist slug, and relative order to each other.
   - *Success:* A project created before this migration and one created after both see identical Confirmation→Sign Off behavior; no existing checklist slug or role assignment changes.
 
 ### Configurator & access control
@@ -279,7 +279,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | WF-01, WF-02, WF-03, WF-04, WF-05 | Phase 16 | Complete ✓ |
-| WF-06 | Phase 17 | Pending |
+| WF-06 | Phase 17 | Complete |
 | CFG-01, CFG-02, CFG-03 | Phase 18 | Pending |
 | ROLE-01, ROLE-02, ROLE-03 | Phase 19 | Pending |
 | PAY-01, PAY-02, PAY-03, PAY-04 | Phase 20 | Pending |
