@@ -10,6 +10,12 @@ export const dynamic = 'force-dynamic'
 
 const ROLES: { name: string; icon: string; blurb: string }[] = [
   {
+    name: 'Operations',
+    icon: 'settings',
+    blurb:
+      'Opens each project and sets its delivery timeline, then approves commencement of on-site installation once the factory side is ready. Full admin rights alongside Super Admin.',
+  },
+  {
     name: 'Factory PM',
     icon: 'factory',
     blurb:
@@ -22,10 +28,22 @@ const ROLES: { name: string; icon: string; blurb: string }[] = [
       'Runs the installation site. Handles Confirmation / Verification, the full Project Production Checklist (Kitchen, Closet, Vanity, TV units), Delivery Site Readiness, Sorting, Change Requests and Close-Out, and keeps the Issue Log.',
   },
   {
+    name: 'Design',
+    icon: 'design_services',
+    blurb:
+      'Design department shell is live; its workflow steps (briefs, kickoff, client design approval) are being rolled out and will appear here once configured.',
+  },
+  {
+    name: 'Production',
+    icon: 'precision_manufacturing',
+    blurb:
+      'Production department shell is live; its workflow steps (production authorization, factory process, QC) are being rolled out and will appear here once configured.',
+  },
+  {
     name: 'Super Admin',
     icon: 'admin_panel_settings',
     blurb:
-      'Oversees everything (largely read-only). Manages users and static content (About TRT, Email Formats), authors process flow charts, and monitors activity across both roles. Created from the CLI only.',
+      'Oversees everything (largely read-only). Manages users and static content (About TRT, Email Formats), authors process flow charts, and monitors activity across every role. Created from the CLI only.',
   },
 ]
 
@@ -112,9 +130,9 @@ export default async function AboutPage() {
               <div className="h-6 w-px bg-gray-300" />
               <div className="h-px w-2/3 bg-gray-300" />
               {/* Subordinates */}
-              <div className="flex w-full flex-col gap-4 sm:flex-row">
+              <div className="flex w-full flex-col gap-4 sm:flex-row sm:flex-wrap">
                 {subs.map((r) => (
-                  <div key={r.name} className="flex flex-1 flex-col items-center">
+                  <div key={r.name} className="flex min-w-[220px] flex-1 flex-col items-center">
                     <div className="h-4 w-px bg-gray-300" />
                     <div className="w-full rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
                       <div className="mb-1 flex items-center gap-2">

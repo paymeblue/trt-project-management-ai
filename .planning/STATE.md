@@ -79,7 +79,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 
 ### Pending Todos
 
-None yet.
+- `/about` page (`app/(app)/about/page.tsx` ROLES organogram + `app/_components/trt-flow-diagram.tsx` DETAIL/ROLE_COLOR maps) must grow to cover new roles and steps as they land: Phase 19 adds `customer_care`/`ops_factory`/`factory_manager` (ROLES organogram + `WorkflowRole`/`ROLE_COLOR` in trt-flow-diagram.tsx need new entries); Phases 21-22 seed the new front-of-funnel and production-authorization steps (each needs a `DETAIL` blurb keyed by its step `key`, or the diagram silently renders a blank description). trt-flow-diagram.tsx already reads live off the workflow source of truth (`WORKFLOW_STEPS` today, the DB graph after Phase 17) — new steps appear automatically, but per-step blurbs and per-role colors are still hardcoded maps that need a matching entry each time. Fixed now: Operations/Design/Production were already live roles (Phase 15) missing from the About page's ROLES organogram — added with honest "steps not yet configured" blurbs for Design/Production.
 
 ### Blockers/Concerns
 
