@@ -26,7 +26,14 @@ export type WorkflowRole =
   | typeof Roles.SitePm
   | typeof Roles.FactoryPm
   | typeof Roles.SuperAdmin
-export type StepKind = 'creation' | 'checklist' | 'readiness' | 'ack'
+export type StepKind =
+  | 'creation'
+  | 'checklist'
+  | 'readiness'
+  | 'ack'
+  | 'yes_no_upload'
+  | 'approval'
+  | 'assignment'
 
 // True for roles with full admin rights (admin area, project creation, timeline).
 export function isAdminRole(role: UserRole): boolean {
@@ -51,6 +58,22 @@ export type WorkflowStep = {
   role: WorkflowRole
   kind: StepKind
   slug?: string // checklist definition slug (kind === 'checklist')
+}
+
+// A step read from the DB-driven workflow graph (lib/workflow-graph.ts,
+// Phase 16+). Distinct from the legacy array-based WorkflowStep above — kept
+// side by side so existing array callers are unaffected (see plan 16-02).
+export type GraphStep = {
+  id: string
+  graph: string
+  key: string
+  label: string
+  role: WorkflowRole
+  kind: StepKind
+  slug?: string | null
+  targetRole?: WorkflowRole | null
+  isOptional: boolean
+  orderIndex: number
 }
 
 export const WORKFLOW_STEPS: WorkflowStep[] = [
@@ -143,5 +166,17 @@ export function stepHref(step: WorkflowStep, projectId: string): string | null {
   const q = `?projectId=${projectId}&step=${step.n}`
   if (step.kind === 'checklist' && step.slug) return `/checklists/${step.slug}${q}`
   if (step.kind === 'readiness') return `/factory-pm/readiness${q}`
+  return null
+}
+
+// Destination for an actionable GraphStep (DB-driven workflow, Phase 16+).
+// The 3 new fulfillment kinds render through the minimal /workflow/step
+// renderer (built in plan 05); 'ack' steps complete inline (no destination).
+export function graphStepHref(step: GraphStep, projectId: string): string | null {
+  const q = `?projectId=${projectId}&step=${step.key}`
+  if (step.kind === 'checklist' && step.slug) return `/checklists/${step.slug}${q}`
+  if (step.kind === 'yes_no_upload' || step.kind === 'approval' || step.kind === 'assignment') {
+    return `/workflow/step${q}`
+  }
   return null
 }
