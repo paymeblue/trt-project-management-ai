@@ -8,7 +8,7 @@ import {
   projectStepCompletions,
   users,
 } from '@/db/schema'
-import type { GraphStep, StepKind, WorkflowRole } from '@/lib/workflow'
+import type { GraphStep, StepKind, WorkflowRole, WorkflowStep } from '@/lib/workflow'
 
 // ── Read engine for the DB-driven workflow graph (Phase 16, WF-01/WF-02) ──
 // Every function reads live from the database on each call — no module-level
@@ -41,6 +41,27 @@ export async function getGraphSteps(graph = 'live'): Promise<GraphStep[]> {
     .where(eq(workflowStepDefinitions.graph, graph))
     .orderBy(workflowStepDefinitions.orderIndex)
   return rows.map(toGraphStep)
+}
+
+// A GraphStep from the 'live' graph, projected into the legacy WorkflowStep
+// shape (Phase 17, WF-06) — the migration adapter that lets DB-driven steps
+// stand in for the hardcoded WORKFLOW_STEPS array without changing its
+// consumers' expected shape. `stepDefId` is carried alongside so a caller can
+// still resolve back to the DB row (e.g. for completeGraphStep) once callers
+// migrate off the legacy array.
+export type LiveWorkflowStep = WorkflowStep & { stepDefId: string }
+
+export async function getLiveWorkflowSteps(): Promise<LiveWorkflowStep[]> {
+  const steps = await getGraphSteps('live')
+  return steps.map((g) => ({
+    n: g.orderIndex,
+    key: g.key,
+    label: g.label,
+    role: g.role,
+    kind: g.kind,
+    slug: g.slug ?? undefined,
+    stepDefId: g.id,
+  }))
 }
 
 export async function getStepByKey(graph: string, key: string): Promise<GraphStep | undefined> {

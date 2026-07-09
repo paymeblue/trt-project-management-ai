@@ -111,6 +111,24 @@ export function isProjectComplete(currentStep: number): boolean {
   return currentStep > LAST_STEP
 }
 
+// ── Pure, array-argument helpers (Phase 17, WF-06) ────────────────────────
+// Additive variants of stepByN/isProjectComplete that take a steps array
+// instead of closing over the legacy WORKFLOW_STEPS module-level constant —
+// they work identically whether given WORKFLOW_STEPS or a future
+// getLiveWorkflowSteps() result. Legacy stepByN/isProjectComplete are left
+// untouched above; callers migrate to these only when ready.
+export function findStep(steps: WorkflowStep[], n: number): WorkflowStep | undefined {
+  return steps.find((s) => s.n === n)
+}
+
+export function lastStepN(steps: WorkflowStep[]): number {
+  return Math.max(...steps.map((s) => s.n))
+}
+
+export function projectComplete(currentStep: number, lastN: number): boolean {
+  return currentStep > lastN
+}
+
 const ROLE_LABELS: Record<WorkflowRole, string> = {
   operations: 'Operations',
   site_pm: 'Site PM',
