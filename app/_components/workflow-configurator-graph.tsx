@@ -128,8 +128,11 @@ function GraphInner({
       position: { x: step.positionX ?? 0, y: step.positionY ?? 0 },
       data: { step, stepNumber: orderedIndex.get(step.id) ?? 0 },
     }))
-    const hasAnyPersistedPosition = steps.some((s) => s.positionX != null && s.positionY != null)
-    if (hasAnyPersistedPosition) return built
+    // Only trust persisted positions once EVERY node has one — a partial
+    // set (e.g. one node dragged+saved before others existed) would leave
+    // the rest piled at (0,0). Auto-layout is the safe default otherwise.
+    const allHavePersistedPosition = steps.length > 0 && steps.every((s) => s.positionX != null && s.positionY != null)
+    if (allHavePersistedPosition) return built
     const initialEdges = initialEdgeList.map((e) => ({ id: `${e.fromStepId}->${e.toStepId}`, source: e.fromStepId, target: e.toStepId }))
     return layout(built, initialEdges)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recompute only when the step/edge set itself changes, not on every render
@@ -151,26 +154,48 @@ function GraphInner({
   const [edges, setEdges, onEdgesChangeDefault] = useEdgesState(initialEdges)
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
   const [edgeError, setEdgeError] = useState<string | null>(null)
+  const [layoutDirty, setLayoutDirty] = useState(false)
+  const [savingLayout, setSavingLayout] = useState(false)
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
   // Re-sync when the server data changes underneath us (e.g. after a
   // side-panel save triggers a full refresh from the parent).
   useEffect(() => {
     setNodes(initialNodes)
     setEdges(initialEdges)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting local dirty-flag to match freshly-synced server data, not deriving new state
+    setLayoutDirty(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialNodes, initialEdges])
 
+  // Dragging only repositions locally — nothing is persisted until the
+  // admin explicitly clicks "Save layout" (per explicit request: arrange
+  // freely, save deliberately, not on every drag).
   const onNodesChange = useCallback(
     (changes: NodeChange<StepNode>[]) => {
       onNodesChangeDefault(changes)
-      for (const change of changes) {
-        if (change.type === 'position' && change.position && !change.dragging) {
-          updateConfigStepPositionAction(change.id, change.position.x, change.position.y)
-        }
-      }
+      if (changes.some((c) => c.type === 'position')) setLayoutDirty(true)
     },
     [onNodesChangeDefault],
   )
+
+  function autoArrange() {
+    setNodes((nds) => layout(nds as StepNode[], edges))
+    setLayoutDirty(true)
+    setSaveMessage(null)
+  }
+
+  function saveLayout() {
+    setSavingLayout(true)
+    setSaveMessage(null)
+    Promise.all(nodes.map((n) => updateConfigStepPositionAction(n.id, n.position.x, n.position.y)))
+      .then(() => {
+        setLayoutDirty(false)
+        setSaveMessage('Layout saved.')
+      })
+      .catch(() => setSaveMessage('Could not save the layout — try again.'))
+      .finally(() => setSavingLayout(false))
+  }
 
   const onEdgesChange = useCallback(
     (changes: EdgeChange<Edge>[]) => {
@@ -211,9 +236,33 @@ function GraphInner({
   const selectedStep = selectedStepId ? stepById.get(selectedStepId) : null
 
   return (
-    <div className="flex gap-4">
+    <div>
+      <div className="mb-3 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={autoArrange}
+          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+        >
+          <span className="material-symbols-outlined text-base">auto_awesome</span>
+          Auto-arrange
+        </button>
+        <button
+          type="button"
+          onClick={saveLayout}
+          disabled={!layoutDirty || savingLayout}
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
+        >
+          {savingLayout && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+          Save layout
+        </button>
+        {layoutDirty && !savingLayout && (
+          <span className="text-[11px] text-gray-400">Unsaved arrangement</span>
+        )}
+        {saveMessage && <span className="text-[11px] text-green-600">{saveMessage}</span>}
+      </div>
+      <div className="flex gap-4">
       <div
-        className="h-[420px] flex-1 overflow-hidden rounded-xl border border-gray-200 bg-gray-50"
+        className="h-[640px] flex-1 overflow-hidden rounded-xl border border-gray-200 bg-gray-50"
         style={{ minWidth: 0 }}
       >
         <ReactFlow
@@ -267,6 +316,7 @@ function GraphInner({
           {edgeError && <p className="mt-3 text-error">{edgeError}</p>}
         </div>
       )}
+      </div>
     </div>
   )
 }
