@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth"
+import type { UserRole } from "@/lib/workflow"
 
 export const authConfig = {
   // Auth.js auto-trusts the host only on Vercel; Netlify (and other hosts) need
@@ -26,7 +27,7 @@ export const authConfig = {
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string
-        session.user.role = token.role as "factory_pm" | "site_pm" | "super_admin" | "operations"
+        session.user.role = token.role as UserRole
       }
       return session
     },

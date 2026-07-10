@@ -5,13 +5,13 @@
  *
  *   3. assign_designer_brief  (assignment, role=design, requiredPosition=head_designer,
  *                              targetRoles=[design, architect])
- *   4. kickoff_meeting        (yes_no_upload, role=design)
- *   5. design_meeting         (yes_no_upload, role=design)
- *   6. brief_taking           (yes_no_upload, role=design)
- *   7. design_initiation      (assignment, role=design, requiredPosition=head_designer,
+ *   4. brief_taking           (yes_no_upload, role=design)
+ *   5. design_initiation      (assignment, role=design, requiredPosition=head_designer,
  *                              targetRoles=[design, architect]) -- a SECOND, distinct
  *                              assignment moment, may pick a different person than
  *                              assign_designer_brief
+ *   6. kickoff_meeting        (yes_no_upload, role=design)
+ *   7. design_meeting         (yes_no_upload, role=design)
  *   8. design_stage           (yes_no_upload, role=design)
  *
  * "Confirmation" (and everything after it) shifts down by 6 orderIndex
@@ -69,8 +69,6 @@ const NEW_STEPS: NewStep[] = [
     requiredPosition: 'head_designer',
     targetRoles: ['design', 'architect'],
   },
-  { stepKey: 'kickoff_meeting', label: 'Kickoff Meeting', role: 'design', fulfillmentKind: 'yes_no_upload' },
-  { stepKey: 'design_meeting', label: 'Design Meeting', role: 'design', fulfillmentKind: 'yes_no_upload' },
   { stepKey: 'brief_taking', label: 'Brief Taking', role: 'design', fulfillmentKind: 'yes_no_upload' },
   {
     stepKey: 'design_initiation',
@@ -80,6 +78,8 @@ const NEW_STEPS: NewStep[] = [
     requiredPosition: 'head_designer',
     targetRoles: ['design', 'architect'],
   },
+  { stepKey: 'kickoff_meeting', label: 'Kickoff Meeting', role: 'design', fulfillmentKind: 'yes_no_upload' },
+  { stepKey: 'design_meeting', label: 'Design Meeting', role: 'design', fulfillmentKind: 'yes_no_upload' },
   { stepKey: 'design_stage', label: 'Design Stage', role: 'design', fulfillmentKind: 'yes_no_upload' },
 ]
 

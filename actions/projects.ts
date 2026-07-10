@@ -17,6 +17,23 @@ function revalidateProjectBoards() {
   revalidatePath('/factory-pm/projects')
 }
 
+// v2.0 Phase 22: "Assign Designer/Architect for Brief" (stepN 3) and "Brief
+// Taking" (stepN 4) must each be due within 5 days of when Operations sets
+// the timeline (business rule from the production-pipeline update — these
+// are the two steps immediately after Payment Confirmation & Timeline).
+const FIVE_DAY_MAX_STEP_NS = new Set([3, 4])
+const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000
+
+function checkFiveDayCap(parsedDeadlines: { stepN: number; deadline: Date }[], anchor: Date): string | null {
+  const limit = new Date(anchor.getTime() + FIVE_DAYS_MS)
+  for (const { stepN, deadline } of parsedDeadlines) {
+    if (FIVE_DAY_MAX_STEP_NS.has(stepN) && deadline > limit) {
+      return `Step ${stepN}'s deadline must be within 5 days — it can't be later than ${limit.toLocaleDateString()}.`
+    }
+  }
+  return null
+}
+
 export type CreateProjectState = { status: 'idle' | 'error'; message?: string }
 
 // Operations / Super Admin only. Creates a project, sets its deadline, marks the
@@ -66,6 +83,8 @@ export async function createProjectAction(
       message: 'The final delivery deadline must be on or after the last step deadline.',
     }
   }
+  const fiveDayError = checkFiveDayCap(parsedDeadlines, new Date())
+  if (fiveDayError) return { status: 'error', message: fiveDayError }
 
   const [created] = await db
     .insert(projects)
@@ -196,6 +215,8 @@ export async function confirmPaymentAndSetTimelineAction(
       message: 'The final delivery deadline must be on or after the last step deadline.',
     }
   }
+  const fiveDayError = checkFiveDayCap(parsedDeadlines, new Date())
+  if (fiveDayError) return { status: 'error', message: fiveDayError }
 
   await db
     .update(projects)

@@ -1,7 +1,7 @@
 /**
  * CLI verification harness (v2.0 Phase 21): proves the 6 new Design-team
- * steps (assign_designer_brief -> kickoff_meeting -> design_meeting ->
- * brief_taking -> design_initiation -> design_stage) work end-to-end against
+ * steps (assign_designer_brief -> brief_taking -> design_initiation ->
+ * kickoff_meeting -> design_meeting -> design_stage) work end-to-end against
  * the REAL 'live' graph on a throwaway project — no mocks. Specifically:
  *
  * - The two assignment steps accept a `design`-OR-`architect` pool assignee
@@ -175,20 +175,6 @@ async function main() {
       wg.completeGraphStep({ projectId: project.id, stepDefId: assignBrief.id, actorId: headDesigner }),
     )
 
-    await assertOk('submit kickoff_meeting (yes)', () =>
-      wg.submitYesNoUpload({ projectId: project.id, stepDefId: kickoff.id, actorId: designerA, answer: 'yes' }),
-    )
-    await assertOk('complete kickoff_meeting', () =>
-      wg.completeGraphStep({ projectId: project.id, stepDefId: kickoff.id, actorId: designerA }),
-    )
-
-    await assertOk('submit design_meeting (yes)', () =>
-      wg.submitYesNoUpload({ projectId: project.id, stepDefId: designMeeting.id, actorId: designerA, answer: 'yes' }),
-    )
-    await assertOk('complete design_meeting', () =>
-      wg.completeGraphStep({ projectId: project.id, stepDefId: designMeeting.id, actorId: designerA }),
-    )
-
     await assertOk('submit brief_taking (yes)', () =>
       wg.submitYesNoUpload({ projectId: project.id, stepDefId: briefTaking.id, actorId: designerA, answer: 'yes' }),
     )
@@ -204,6 +190,20 @@ async function main() {
     )
     await assertOk('complete design_initiation', () =>
       wg.completeGraphStep({ projectId: project.id, stepDefId: designInitiation.id, actorId: headDesigner }),
+    )
+
+    await assertOk('submit kickoff_meeting (yes)', () =>
+      wg.submitYesNoUpload({ projectId: project.id, stepDefId: kickoff.id, actorId: architectA, answer: 'yes' }),
+    )
+    await assertOk('complete kickoff_meeting', () =>
+      wg.completeGraphStep({ projectId: project.id, stepDefId: kickoff.id, actorId: architectA }),
+    )
+
+    await assertOk('submit design_meeting (yes)', () =>
+      wg.submitYesNoUpload({ projectId: project.id, stepDefId: designMeeting.id, actorId: architectA, answer: 'yes' }),
+    )
+    await assertOk('complete design_meeting', () =>
+      wg.completeGraphStep({ projectId: project.id, stepDefId: designMeeting.id, actorId: architectA }),
     )
 
     await assertOk('submit design_stage (yes, client approved)', () =>

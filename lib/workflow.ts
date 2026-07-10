@@ -24,6 +24,11 @@ export const Roles = {
   // v2.0 Phase 19/21: separated from Design (resolved 2026-07-09) — owns
   // Design/Architect assignment-pool steps, also part of WorkflowRole.
   Architect: 'architect',
+  // v2.0 Phase 22 (production pipeline, 2026-07-10): factory-floor roles that
+  // own their own workflow steps but are explicitly NOT admin roles — see
+  // isAdminRole below. Not super admins.
+  FactoryOperations: 'factory_operations',
+  FactoryManager: 'factory_manager',
 } as const
 
 // v2.0 Phase 19 (ad hoc): known `users.position` values that gate a step via
@@ -45,6 +50,8 @@ export type WorkflowRole =
   | typeof Roles.CustomerCare
   | typeof Roles.Design
   | typeof Roles.Architect
+  | typeof Roles.FactoryOperations
+  | typeof Roles.FactoryManager
 export type StepKind =
   | 'creation'
   | 'checklist'
@@ -103,6 +110,13 @@ export type GraphStep = {
   // `users.position` value. null = any user with `role` may act (unchanged
   // legacy behavior).
   requiredPosition?: string | null
+  // v2.0 Phase 22 (ad hoc): for `approval`-kind steps only — narrows WHO may
+  // RECEIVE (the second party) to one exact `users.position` value, distinct
+  // from `requiredPosition` which (for approval steps) gates who may SEND.
+  // null = receive is open to anyone who can act on the step and isn't the
+  // sender (legacy behavior, T-16-07). E.g. Send for Production: `requiredPosition`
+  // = head_of_operations (sender), `receiverRequiredPosition` = chief_production_officer.
+  receiverRequiredPosition?: string | null
   isOptional: boolean
   orderIndex: number
   // Graph-canvas node placement only (Configurator graph view) — cosmetic,
@@ -152,6 +166,8 @@ const ROLE_LABELS: Record<WorkflowRole, string> = {
   customer_care: 'Customer Care',
   design: 'Design',
   architect: 'Architect',
+  factory_operations: 'Factory Operations',
+  factory_manager: 'Factory Manager',
 }
 
 export function workflowRoleLabel(role: WorkflowRole): string {
@@ -169,6 +185,8 @@ const USER_ROLE_LABELS: Record<UserRole, string> = {
   production: 'Production',
   customer_care: 'Customer Care',
   architect: 'Architect',
+  factory_operations: 'Factory Operations Head',
+  factory_manager: 'Factory Manager',
 }
 
 export function userRoleLabel(role: string): string {
@@ -184,6 +202,11 @@ const ROLE_DASHBOARD: Record<UserRole, string> = {
   production: '/production/dashboard',
   customer_care: '/customer-care/dashboard',
   architect: '/architect/dashboard',
+  // v2.0 Phase 22: no bespoke dashboard shell built for these yet — reuse the
+  // Production dashboard (closest existing factory-floor analog) rather than
+  // build new pages beyond what was asked.
+  factory_operations: '/production/dashboard',
+  factory_manager: '/production/dashboard',
 }
 
 export function roleDashboard(role: string): string {
@@ -204,7 +227,15 @@ export function canRoleActOnStep(stepRole: WorkflowRole, userRole: UserRole): bo
 
 // Checklist slugs that require photo evidence before submit. (The 2-image
 // requirement lives on the Materials / Accessories Readiness Form, not here.)
-export const REQUIRED_PHOTOS: Record<string, number> = {}
+export const REQUIRED_PHOTOS: Record<string, number> = {
+  // v2.0 Phase 22: "has optimisation been done? ... upload document" — the
+  // one required attachment for the Production Process checklist.
+  production_process: 1,
+  // v2.0 Phase 22: the Factory Manager's "3 readiness forms" (material,
+  // accessories, upholstery) are captured as 3 required photo attachments,
+  // mirroring the existing Materials/Accessories Readiness Form pattern.
+  factory_manager_readiness: 3,
+}
 
 // Destination for an actionable step. `ack` steps are completed inline from the
 // modal (no destination).
@@ -228,7 +259,7 @@ export function stepHref(step: WorkflowStep, projectId: string): string | null {
 // The 3 new fulfillment kinds render through the minimal /workflow/step
 // renderer (built in plan 05); 'ack' steps complete inline (no destination).
 export function graphStepHref(step: GraphStep, projectId: string): string | null {
-  const q = `?projectId=${projectId}&step=${step.key}`
+  const q = `?projectId=${projectId}&step=${step.key}&graph=live`
   if (step.kind === 'checklist' && step.slug) return `/checklists/${step.slug}${q}`
   if (step.kind === 'yes_no_upload' || step.kind === 'approval' || step.kind === 'assignment') {
     return `/workflow/step${q}`

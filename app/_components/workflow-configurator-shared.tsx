@@ -52,6 +52,8 @@ export const ROLE_COLOR: Record<WorkflowRole, string> = {
   customer_care: '#d946ef',
   design: '#e11d48',
   architect: '#a855f7',
+  factory_operations: '#ca8a04', // amber
+  factory_manager: '#0d9488', // teal
 }
 
 export function StatusNote({ state }: { state: ConfigActionState }) {

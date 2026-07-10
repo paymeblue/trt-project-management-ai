@@ -17,8 +17,11 @@ const ASSIGNABLE_ROLES: UserRole[] = [
   Roles.SuperAdmin,
   Roles.Operations,
   Roles.Design,
+  Roles.Architect,
   Roles.Production,
   Roles.CustomerCare,
+  Roles.FactoryOperations,
+  Roles.FactoryManager,
 ]
 
 // Roles an admin may create from the UI. PMs + the future departments; the
@@ -27,8 +30,11 @@ const CREATABLE_ROLES: UserRole[] = [
   Roles.FactoryPm,
   Roles.SitePm,
   Roles.Design,
+  Roles.Architect,
   Roles.Production,
   Roles.CustomerCare,
+  Roles.FactoryOperations,
+  Roles.FactoryManager,
 ]
 
 type ActionResult = { ok: boolean; error?: string }

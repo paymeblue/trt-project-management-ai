@@ -48,7 +48,12 @@ export default function YesNoUploadStep({
         uploadData,
         uploadName,
       })
-      setMessage(res.message ?? (res.ok ? 'Submitted.' : 'Could not submit.'))
+      if (!res.ok) {
+        setMessage(res.message ?? 'Could not submit.')
+        return
+      }
+      const completeRes = await completeStepAction({ projectId, stepDefId })
+      setMessage(completeRes.message ?? (completeRes.ok ? 'Step completed.' : 'Could not complete step.'))
     })
   }
 

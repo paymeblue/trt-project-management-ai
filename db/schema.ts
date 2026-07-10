@@ -13,7 +13,7 @@ import {
 } from 'drizzle-orm/pg-core'
 
 // ── Enums ────────────────────────────────────────────────────────────────
-export const roleEnum = pgEnum('role', ['factory_pm', 'site_pm', 'super_admin', 'operations', 'design', 'production', 'customer_care', 'architect'])
+export const roleEnum = pgEnum('role', ['factory_pm', 'site_pm', 'super_admin', 'operations', 'design', 'production', 'customer_care', 'architect', 'factory_operations', 'factory_manager'])
 export const projectStatusEnum = pgEnum('project_status', ['not_delivered', 'delivered', 'paused'])
 export const paymentStatusEnum = pgEnum('payment_status', ['unpaid', 'paid'])
 export const targetRoleEnum = pgEnum('target_role', ['factory_pm', 'site_pm', 'both'])
@@ -101,6 +101,7 @@ export const workflowStepDefinitions = pgTable('workflow_step_definitions', {
   checklistSlug:   text('checklist_slug'),               // set only when fulfillmentKind = 'checklist'; mirrors checklist_definitions.slug
   targetRoles:     roleEnum('target_role').array(),       // set only when fulfillmentKind = 'assignment' — pool of roles the actor may pick a user from (v2.0 Phase 19: was a single role, widened to a list so e.g. Head Designer can pick from design OR architect)
   requiredPosition: text('required_position'),            // v2.0 Phase 19 (ad hoc, pre-formal-enum): narrows a role-gated step to one exact users.position value (e.g. 'head_designer'). null = today's behavior unchanged (any user with the step's role may act). Deliberately left as free text for now, not a DB enum — converting users.position to a real Postgres enum is deferred to formal Phase 19 execution to avoid migration risk under this ad hoc build.
+  receiverRequiredPosition: text('receiver_required_position'), // v2.0 Phase 22 (ad hoc): approval-kind steps only — narrows the RECEIVER (2nd party) to one exact users.position, distinct from requiredPosition which gates the SENDER. null = receive stays open to anyone eligible who isn't the sender (legacy behavior).
   isOptional:      boolean('is_optional').default(false).notNull(),
   // Graph-canvas node placement (Configurator graph view) — cosmetic only;
   // null until an admin drags the node at least once, at which point an

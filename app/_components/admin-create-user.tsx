@@ -8,8 +8,11 @@ const ROLES = [
   { value: 'factory_pm', label: 'Factory PM' },
   { value: 'site_pm', label: 'Site PM' },
   { value: 'design', label: 'Design' },
+  { value: 'architect', label: 'Architect' },
   { value: 'production', label: 'Production' },
   { value: 'customer_care', label: 'Customer Care' },
+  { value: 'factory_operations', label: 'Factory Operations Head' },
+  { value: 'factory_manager', label: 'Factory Manager' },
 ]
 
 export default function AdminCreateUser() {

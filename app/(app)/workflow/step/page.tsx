@@ -26,7 +26,7 @@ export default async function WorkflowStepPage({
 
   const projectId = typeof sp.projectId === 'string' ? sp.projectId : null
   const stepKey = typeof sp.step === 'string' ? sp.step : null
-  const graph = typeof sp.graph === 'string' ? sp.graph : 'test'
+  const graph = typeof sp.graph === 'string' ? sp.graph : 'live'
   const dashboard = roleDashboard(role)
 
   if (!projectId || !stepKey) {

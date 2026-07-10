@@ -1,6 +1,6 @@
 import 'server-only'
 import bcrypt from 'bcryptjs'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/db'
 import {
   workflowStepDefinitions,
@@ -9,6 +9,7 @@ import {
   projectStepCompletions,
   workflowConfigAccess,
   users,
+  projects,
 } from '@/db/schema'
 import type { GraphStep, StepKind, WorkflowRole, WorkflowStep } from '@/lib/workflow'
 import { stepRequiredKinds } from '@/lib/workflow'
@@ -35,6 +36,7 @@ function toGraphStep(row: typeof workflowStepDefinitions.$inferSelect): GraphSte
     slug: row.checklistSlug,
     targetRoles: row.targetRoles as WorkflowRole[] | null,
     requiredPosition: row.requiredPosition,
+    receiverRequiredPosition: row.receiverRequiredPosition,
     isOptional: row.isOptional,
     orderIndex: row.orderIndex,
     positionX: row.positionX,
@@ -168,6 +170,89 @@ export async function getLastStep(graph = 'live'): Promise<GraphStep | undefined
 const STATE_GATED_KINDS: StepKind[] = ['yes_no_upload', 'approval', 'assignment']
 
 /**
+ * Keeps `projects.currentStep` in sync when a graph step completes. The UI,
+ * checklist gates, and my-work forcing all key off currentStep (linear
+ * progression); completeGraphStep alone only wrote project_step_completions.
+ * Only advances when the completed step is the one the project is waiting on.
+ */
+async function syncProjectCurrentStepAfterCompletion(
+  projectId: string,
+  completedStepOrderIndex: number,
+  graph: string,
+): Promise<void> {
+  const [proj] = await db
+    .select({ currentStep: projects.currentStep, status: projects.status })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1)
+  if (!proj || proj.currentStep !== completedStepOrderIndex) return
+
+  const steps = await getGraphSteps(graph)
+  const lastN = steps.length ? Math.max(...steps.map((s) => s.orderIndex)) : completedStepOrderIndex
+  const nextStep = proj.currentStep + 1
+  const done = nextStep > lastN
+  await db
+    .update(projects)
+    .set({
+      currentStep: nextStep,
+      status: done ? 'delivered' : proj.status,
+      updatedAt: new Date(),
+    })
+    .where(eq(projects.id, projectId))
+
+  if (!done) {
+    const landedOn = steps.find((s) => s.orderIndex === nextStep)
+    if (landedOn) await autoAssignIfConfigured(projectId, landedOn)
+  }
+}
+
+// v2.0 Phase 22 (ad hoc, targeted): stepKeys whose `assignment` fulfillment
+// is performed automatically the moment the project lands on them, instead
+// of waiting for the Head Designer to pick manually — "Assign designer...
+// auto assigned" (5-day-max timeline). Deliberately a hardcoded allowlist,
+// not a generic "auto-assign" framework, mirroring the same targeted-
+// exception style as canRoleActOnStep's Operations/super_admin case above —
+// only assign_designer_brief needs this; design_initiation (the second,
+// deliberately-manual assignment moment) must stay untouched.
+const AUTO_ASSIGN_STEP_KEYS = new Set(['assign_designer_brief'])
+
+/**
+ * Round-robin auto-assignment: picks the eligible user (role in
+ * step.targetRoles) who was LEAST RECENTLY assigned to this exact step
+ * across all projects (never-assigned users sort first), assigns them, and
+ * immediately completes the step on their behalf. No-ops if the step isn't
+ * in AUTO_ASSIGN_STEP_KEYS, isn't an assignment step, or no eligible user
+ * exists (falls back to manual assignment via the normal UI).
+ */
+async function autoAssignIfConfigured(projectId: string, step: GraphStep): Promise<void> {
+  if (!AUTO_ASSIGN_STEP_KEYS.has(step.key)) return
+  if (step.kind !== 'assignment' || !step.targetRoles?.length) return
+
+  const candidates = await db
+    .select({ id: users.id, role: users.role })
+    .from(users)
+    .where(inArray(users.role, step.targetRoles))
+  if (candidates.length === 0) return
+
+  const priorAssignments = await db
+    .select({ assignedUserId: workflowStepStates.assignedUserId, updatedAt: workflowStepStates.updatedAt })
+    .from(workflowStepStates)
+    .where(eq(workflowStepStates.stepDefId, step.id))
+  const lastAssignedAt = new Map<string, number>()
+  for (const row of priorAssignments) {
+    if (!row.assignedUserId) continue
+    const t = row.updatedAt.getTime()
+    const prev = lastAssignedAt.get(row.assignedUserId)
+    if (prev === undefined || t > prev) lastAssignedAt.set(row.assignedUserId, t)
+  }
+  candidates.sort((a, b) => (lastAssignedAt.get(a.id) ?? 0) - (lastAssignedAt.get(b.id) ?? 0))
+  const chosen = candidates[0]
+
+  await assignUser({ projectId, stepDefId: step.id, actorId: chosen.id, assignedUserId: chosen.id })
+  await completeGraphStep({ projectId, stepDefId: step.id, actorId: chosen.id })
+}
+
+/**
  * Appends `kind` to a project+step's fulfilled-kinds record (v2.0 Phase
  * 18.1 — multi-kind steps), deduping. Read-modify-write since Drizzle's
  * neon-http driver has no convenience array-union upsert; call sites are
@@ -210,6 +295,7 @@ export async function completeGraphStep(opts: {
       completedBy: actorId,
       skipped: true,
     })
+    await syncProjectCurrentStepAfterCompletion(projectId, step.orderIndex, step.graph)
     return { ok: true, actionable: await getActionableSteps(projectId, step.graph) }
   }
 
@@ -238,6 +324,7 @@ export async function completeGraphStep(opts: {
     completedBy: actorId,
     skipped: false,
   })
+  await syncProjectCurrentStepAfterCompletion(projectId, step.orderIndex, step.graph)
 
   return { ok: true, actionable: await getActionableSteps(projectId, step.graph) }
 }
@@ -458,6 +545,20 @@ async function swapAdjacentSteps(
   const [b] = await db.select().from(workflowStepDefinitions).where(eq(workflowStepDefinitions.id, bId)).limit(1)
   if (!a || !b) throw new Error('step-not-found')
 
+  // v2.0 Phase 22: keep every in-flight project's currentStep pointing at the
+  // SAME step it was waiting on before the swap. currentStep is a raw
+  // orderIndex, not a stepDefId, so without this a Configurator drag silently
+  // desyncs any project's progress (the exact root cause behind "confirm/assign
+  // clicked and nothing happened" — see migrate-repair-live-workflow-graph.ts).
+  // Snapshot affected project ids BEFORE mutating anything: updating by raw
+  // "currentStep = oldValue" in two sequential statements would re-match rows
+  // the first statement just wrote (both old values swap into each other),
+  // silently cancelling the remap — updating by id avoids that.
+  const [projectsAtA, projectsAtB] = await Promise.all([
+    db.select({ id: projects.id }).from(projects).where(eq(projects.currentStep, a.orderIndex)),
+    db.select({ id: projects.id }).from(projects).where(eq(projects.currentStep, b.orderIndex)),
+  ])
+
   await db
     .update(workflowStepDefinitions)
     .set({ orderIndex: b.orderIndex, updatedAt: new Date() })
@@ -466,6 +567,13 @@ async function swapAdjacentSteps(
     .update(workflowStepDefinitions)
     .set({ orderIndex: a.orderIndex, updatedAt: new Date() })
     .where(eq(workflowStepDefinitions.id, b.id))
+
+  for (const p of projectsAtA) {
+    await db.update(projects).set({ currentStep: b.orderIndex, updatedAt: new Date() }).where(eq(projects.id, p.id))
+  }
+  for (const p of projectsAtB) {
+    await db.update(projects).set({ currentStep: a.orderIndex, updatedAt: new Date() }).where(eq(projects.id, p.id))
+  }
 
   const edges = await getGraphEdges(graph)
   const { incoming, outgoing } = edgeAdjacency(edges)
@@ -558,6 +666,7 @@ export async function createGraphStep(opts: {
   checklistSlug?: string | null
   targetRoles?: WorkflowRole[] | null
   requiredPosition?: string | null
+  receiverRequiredPosition?: string | null
   isOptional?: boolean
 }): Promise<{ ok: boolean; message: string; stepId?: string }> {
   const steps = await getGraphSteps(opts.graph)
@@ -577,6 +686,7 @@ export async function createGraphStep(opts: {
       checklistSlug: opts.checklistSlug ?? null,
       targetRoles: opts.targetRoles ?? null,
       requiredPosition: opts.requiredPosition ?? null,
+      receiverRequiredPosition: opts.receiverRequiredPosition ?? null,
       isOptional: opts.isOptional ?? false,
       orderIndex: maxOrder + 1,
     })
@@ -622,6 +732,7 @@ export async function updateGraphStep(opts: {
   checklistSlug?: string | null
   targetRoles?: WorkflowRole[] | null
   requiredPosition?: string | null
+  receiverRequiredPosition?: string | null
   isOptional?: boolean
 }): Promise<{ ok: boolean; message: string }> {
   const updates: Record<string, unknown> = { updatedAt: new Date() }
@@ -632,6 +743,7 @@ export async function updateGraphStep(opts: {
   if (opts.checklistSlug !== undefined) updates.checklistSlug = opts.checklistSlug
   if (opts.targetRoles !== undefined) updates.targetRoles = opts.targetRoles
   if (opts.requiredPosition !== undefined) updates.requiredPosition = opts.requiredPosition
+  if (opts.receiverRequiredPosition !== undefined) updates.receiverRequiredPosition = opts.receiverRequiredPosition
   if (opts.isOptional !== undefined) updates.isOptional = opts.isOptional
   await db.update(workflowStepDefinitions).set(updates).where(eq(workflowStepDefinitions.id, opts.stepId))
   return { ok: true, message: 'Step updated.' }

@@ -57,14 +57,21 @@ type StepAuth = { ok: true; userId: string } | { ok: false; message: string }
 // (v2.0 Phase 19 — `users.position` is not carried in the JWT since it can
 // change post-signup via the self-service profile flow, and a stale claim
 // would silently under- or over-authorize).
-async function authorizeStep(stepDefId: string): Promise<StepAuth> {
+// `forReceive` (v2.0 Phase 22): approval-kind steps can gate the 2nd party
+// (receiver) to a DIFFERENT exact position than the 1st party (sender) via
+// `receiverRequiredPosition` — e.g. Send for Production: sender must be
+// Head of Operations (`requiredPosition`), receiver must be Chief Production
+// Officer (`receiverRequiredPosition`). When unset, receive falls back to the
+// step's normal `requiredPosition` gate (legacy behavior unchanged).
+async function authorizeStep(stepDefId: string, forReceive = false): Promise<StepAuth> {
   const { userId, role } = await verifySession()
   const step = await getStepById(stepDefId)
   if (!step) return { ok: false, message: 'That step could not be found.' }
   if (!canRoleActOnStep(step.role, role)) return { ok: false, message: 'Not your step.' }
-  if (step.requiredPosition) {
+  const requiredPos = forReceive ? (step.receiverRequiredPosition ?? step.requiredPosition) : step.requiredPosition
+  if (requiredPos) {
     const [actingUser] = await db.select({ position: users.position }).from(users).where(eq(users.id, userId)).limit(1)
-    if (actingUser?.position !== step.requiredPosition) {
+    if (actingUser?.position !== requiredPos) {
       return { ok: false, message: engineErrorMessage(new Error('position-mismatch')) }
     }
   }
@@ -136,7 +143,7 @@ export async function receiveApprovalAction(input: {
   projectId: string
   stepDefId: string
 }): Promise<WorkflowGraphActionState> {
-  const auth = await authorizeStep(input.stepDefId)
+  const auth = await authorizeStep(input.stepDefId, true)
   if (!auth.ok) return auth
   try {
     await receiveApproval({ projectId: input.projectId, stepDefId: input.stepDefId, actorId: auth.userId })

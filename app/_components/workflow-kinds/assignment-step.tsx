@@ -62,11 +62,17 @@ export default function AssignmentStep({
     startTransition(async () => {
       const res = await assignUserAction({ projectId, stepDefId, assignedUserId: selected })
       if (res.ok) {
+        const completeRes = await completeStepAction({ projectId, stepDefId })
         const who = candidates.find((c) => c.id === selected)?.name ?? 'User'
         const where = `"${stepLabel ?? 'this step'}"${projectName ? ` on ${projectName}` : ''}`
-        setMessage(`✓ ${who} assigned to ${where}.${redirectTo ? ' Redirecting…' : ''}`)
-        setOk(true)
-        scheduleRedirect()
+        if (completeRes.ok) {
+          setMessage(`✓ ${who} assigned to ${where}. Step completed.${redirectTo ? ' Redirecting…' : ''}`)
+          setOk(true)
+          scheduleRedirect()
+        } else {
+          setMessage(completeRes.message ?? `Assigned ${who}, but could not mark the step complete.`)
+          setOk(false)
+        }
       } else {
         setMessage(res.message ?? 'Could not assign.')
         setOk(false)
