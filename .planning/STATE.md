@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 Phase: 18 (Workflow Configurator) — COMPLETE. Design pipeline (Phase 21 core, STG-02..07) also shipped ad hoc — see Decisions log.
 Plan: 1 of 1
 Status: Phase complete — ready for Phase 19 (formal plan-phase should account for what's already ad hoc-shipped, not re-plan it)
-Last activity: 2026-07-10 -- Completed quick task 260710-cq3: blank-screen fix on workflow step pages (loading states + guaranteed dashboard fallback)
+Last activity: 2026-07-10 -- Completed quick task 260710-d32: post-assignment confirmation + redirect in AssignmentStep
 
 ## Performance Metrics
 
@@ -128,6 +128,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 | 2026-07-05 | checklist-authoring-crud | Full super-admin checklist authoring CRUD — delete/reorder items, per-item field editing (type/options/photo-required), and checklist_definitions create/rename/retarget/deactivate-restore | complete ✓ |
 | 2026-07-06 | slack-like-group-chat-group-conversation | Slack-like group chat — group conversations with title, emoji picker + reactions, typing indicator, GSAP fullscreen expand (like Paul Arredo) | complete ✓ |
 | 2026-07-10 | fix-blank-screen-on-workflow-step-pages | Blank-screen fix on workflow step + payment-confirmation pages — redirect(roleDashboard) for all no-access/indeterminate branches, loading.tsx skeletons, (app)/error.tsx boundary | complete ✓ |
+| 2026-07-10 | post-assignment-ux-show-clear-confirmati | Post-assignment UX — named "{name} assigned to {step} on {project}" confirmation + delayed redirect to role dashboard in AssignmentStep | complete ✓ |
 
 ## Deferred Items
 
