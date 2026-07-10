@@ -10,9 +10,18 @@ import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
 const INITIAL_ACK: AckStepState = { ok: false }
 
 // Routes where the user is actively completing a step — the gate must NOT block
-// these, or they could never finish the work that clears it.
+// these, or they could never finish the work that clears it. Must cover every
+// destination stepHref() can return (lib/workflow.ts) — payment_confirmation
+// and the v2.0 Phase 21 yes_no_upload/approval/assignment kinds (/workflow/step)
+// were missing, so Head of Operations (and anyone on those kinds) got stuck in
+// a self-blocking loop: the gate re-showed even while already on the page.
 function isStepRoute(pathname: string) {
-  return pathname.startsWith('/checklists/') || pathname.startsWith('/factory-pm/readiness')
+  return (
+    pathname.startsWith('/checklists/') ||
+    pathname.startsWith('/factory-pm/readiness') ||
+    pathname.startsWith('/admin/payment-confirmation') ||
+    pathname.startsWith('/workflow/step')
+  )
 }
 
 export default function PendingStepGate() {
