@@ -61,6 +61,7 @@ export type StepKind =
   | 'approval'
   | 'assignment'
   | 'payment_confirmation'
+  | 'timeline_setting'
 
 // True for roles with full admin rights (admin area, project creation, timeline).
 export function isAdminRole(role: UserRole): boolean {
@@ -132,8 +133,10 @@ export function stepRequiredKinds(step: Pick<GraphStep, 'kind' | 'additionalKind
   return [step.kind, ...(step.additionalKinds ?? [])]
 }
 
-// New projects begin awaiting the first actionable step (Confirmation); step 1
-// (New Project) is completed by Operations at creation time.
+// New projects begin awaiting the first actionable step (v2.0 Phase 22c:
+// Assign Designer/Architect for Brief, auto-assigned at creation time — see
+// actions/projects.ts triggerEntryAutoAssign); step 1 (New Project) is
+// completed by Customer Care/Operations at creation time.
 export const FIRST_ACTION_STEP = 2
 
 // Shapes shared between the layout, the /api/my-work endpoint and the client
@@ -244,6 +247,7 @@ export function stepHref(step: WorkflowStep, projectId: string): string | null {
   if (step.kind === 'checklist' && step.slug) return `/checklists/${step.slug}${q}`
   if (step.kind === 'readiness') return `/factory-pm/readiness${q}`
   if (step.kind === 'payment_confirmation') return `/admin/payment-confirmation${q}`
+  if (step.kind === 'timeline_setting') return `/admin/invoice-timeline${q}`
   // v2.0 Phase 21: first LIVE use of these 3 kinds (Phase 17's migrated tail
   // never used them, only the Phase 16 test graph did) — route through the
   // same minimal /workflow/step renderer as the test graph, but explicitly
@@ -264,5 +268,6 @@ export function graphStepHref(step: GraphStep, projectId: string): string | null
   if (step.kind === 'yes_no_upload' || step.kind === 'approval' || step.kind === 'assignment') {
     return `/workflow/step${q}`
   }
+  if (step.kind === 'timeline_setting') return `/admin/invoice-timeline?projectId=${projectId}`
   return null
 }

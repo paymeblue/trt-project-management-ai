@@ -4,10 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
-import { projects, projectStepCompletions, projectStepDeadlines } from '@/db/schema'
+import { projects, projectStepCompletions, projectStepDeadlines, users } from '@/db/schema'
 import { requireAdmin, verifySession } from '@/lib/dal'
-import { FIRST_ACTION_STEP, Roles, isAdminRole, lastStepN, projectComplete, type UserRole } from '@/lib/workflow'
-import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
+import { FIRST_ACTION_STEP, Positions, Roles, isAdminRole, lastStepN, projectComplete, type UserRole } from '@/lib/workflow'
+import { getLiveWorkflowSteps, getGraphSteps, autoAssignIfConfigured } from '@/lib/workflow-graph'
 import { advanceProjectStep } from '@/actions/workflow'
 import { notifyAllSuperAdmins } from '@/lib/notifications'
 
@@ -104,18 +104,34 @@ export async function createProjectAction(
       .values(parsedDeadlines.map((p) => ({ projectId: created.id, stepN: p.stepN, deadline: p.deadline })))
   }
 
+  await triggerEntryAutoAssign(created.id)
+
   revalidatePath('/admin/timeline')
   revalidatePath('/site-pm/projects')
   revalidatePath('/factory-pm/projects')
   redirect('/admin/timeline')
 }
 
+// v2.0 Phase 22c: since 'payment_confirmation' was removed, FIRST_ACTION_STEP
+// (the step a new project is parked at) now IS assign_designer_brief — which
+// is auto-assigned (see lib/workflow-graph.ts autoAssignIfConfigured), not
+// manually triggered by completing a prior step. That hook only runs inside
+// completeGraphStep's advancement chain, which a brand-new project never
+// goes through (its currentStep is set directly at INSERT time) — so it must
+// be invoked explicitly here, right after creation, or the very first step
+// would sit unassigned forever with nothing to trigger it.
+async function triggerEntryAutoAssign(projectId: string): Promise<void> {
+  const steps = await getGraphSteps('live')
+  const entryActionStep = steps.find((s) => s.orderIndex === FIRST_ACTION_STEP)
+  if (entryActionStep) await autoAssignIfConfigured(projectId, entryActionStep)
+}
+
 export type CreateProjectIntentState = { status: 'idle' | 'error'; message?: string }
 
 // Customer Care (or admin) only. Captures the client's intent from the intake
 // call and creates the project — unpaid by default (STG-01, PAY-01). No
-// deadlines are collected here; Operations sets the timeline and confirms
-// payment at step 2 (Payment Confirmation & Timeline).
+// deadlines are collected here; Head of Operations sets the timeline once the
+// invoice is uploaded.
 export async function createProjectIntentAction(
   _prev: CreateProjectIntentState,
   formData: FormData,
@@ -158,30 +174,47 @@ export async function createProjectIntentAction(
     completedBy: userId,
   })
 
+  await triggerEntryAutoAssign(created.id)
+
   revalidatePath('/admin/timeline')
   revalidatePath('/customer-care/dashboard')
   redirect('/customer-care/dashboard')
 }
 
-export type ConfirmPaymentState = { status: 'idle' | 'error'; message?: string }
+export type SetInvoiceTimelineState = { status: 'idle' | 'error'; message?: string }
 
-// Operations / Super Admin only. Completes step 2 (Payment Confirmation &
-// Timeline, PAY-02): toggles the project to `paid` and sets the per-step
-// deadlines for every remaining step, then advances past this step via the
-// same generic advancement engine every other step uses.
-export async function confirmPaymentAndSetTimelineAction(
-  _prev: ConfirmPaymentState,
+// Head of Operations ONLY (exact `users.position` match, not just the
+// Operations/Super Admin role) — v2.0 Phase 22: sets the overall delivery
+// date + a deadline for every step after Invoice, once the invoice has been
+// uploaded (Confirmation Correction/Internal Approval and everything
+// downstream). Steps 3/4 (Assign Designer, Brief Taking) are already done by
+// the time this runs — they're auto-assigned with an implicit 5-day SLA
+// (see lib/workflow-graph.ts autoAssignIfConfigured), not a deadline set here.
+export async function setInvoiceTimelineAction(
+  _prev: SetInvoiceTimelineState,
   formData: FormData,
-): Promise<ConfirmPaymentState> {
-  await requireAdmin()
+): Promise<SetInvoiceTimelineState> {
+  const { userId, role } = await verifySession()
+  if (!isAdminRole(role as UserRole)) {
+    return { status: 'error', message: 'Only Operations or a Super Admin can set the timeline.' }
+  }
+  const [actingUser] = await db.select({ position: users.position }).from(users).where(eq(users.id, userId)).limit(1)
+  if (actingUser?.position !== Positions.HeadOfOperations) {
+    return { status: 'error', message: 'This step is restricted to the Operations Manager (Admin).' }
+  }
 
   const projectId = String(formData.get('projectId') ?? '').trim()
   if (!projectId) return { status: 'error', message: 'Missing project.' }
 
   const [proj] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
   if (!proj) return { status: 'error', message: 'Project not found.' }
-  if (proj.currentStep !== 2)
-    return { status: 'error', message: 'This project is not awaiting payment confirmation.' }
+
+  const steps = await getLiveWorkflowSteps()
+  const invoiceTimelineStep = steps.find((s) => s.key === 'invoice_timeline')
+  if (!invoiceTimelineStep) return { status: 'error', message: 'Invoice timeline step is not configured.' }
+  if (proj.currentStep !== invoiceTimelineStep.n) {
+    return { status: 'error', message: 'This project is not awaiting the invoice timeline.' }
+  }
 
   const deadlineRaw = String(formData.get('deliveryDate') ?? '').trim()
   if (!deadlineRaw) return { status: 'error', message: 'A delivery deadline is required.' }
@@ -189,10 +222,10 @@ export async function confirmPaymentAndSetTimelineAction(
   if (Number.isNaN(deliveryDate.getTime()))
     return { status: 'error', message: 'Please enter a valid deadline.' }
 
-  // Parse + validate per-step deadlines for every step AFTER this one (3+).
+  // Parse + validate per-step deadlines for every step AFTER Invoice Timeline.
   const parsedDeadlines: { stepN: number; deadline: Date }[] = []
-  for (const s of await getLiveWorkflowSteps()) {
-    if (s.n <= 2) continue // step 1 auto-completed; step 2 is this one, no future deadline needed
+  for (const s of steps) {
+    if (s.n <= invoiceTimelineStep.n) continue
     const raw = String(formData.get(`deadline_${s.n}`) ?? '').trim()
     if (!raw) continue
     const d = new Date(raw)
@@ -215,13 +248,8 @@ export async function confirmPaymentAndSetTimelineAction(
       message: 'The final delivery deadline must be on or after the last step deadline.',
     }
   }
-  const fiveDayError = checkFiveDayCap(parsedDeadlines, new Date())
-  if (fiveDayError) return { status: 'error', message: fiveDayError }
 
-  await db
-    .update(projects)
-    .set({ paymentStatus: 'paid', deliveryDate, updatedAt: new Date() })
-    .where(eq(projects.id, projectId))
+  await db.update(projects).set({ deliveryDate, updatedAt: new Date() }).where(eq(projects.id, projectId))
 
   if (parsedDeadlines.length) {
     await db
@@ -233,7 +261,7 @@ export async function confirmPaymentAndSetTimelineAction(
       })
   }
 
-  const advanced = await advanceProjectStep({ projectId, expectedStepN: 2 })
+  const advanced = await advanceProjectStep({ projectId, expectedStepN: invoiceTimelineStep.n })
   if (!advanced) {
     return { status: 'error', message: 'Could not complete this step — it may have already moved on.' }
   }

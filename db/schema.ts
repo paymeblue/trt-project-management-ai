@@ -22,7 +22,7 @@ export const responseOptionsEnum = pgEnum('response_options', ['yes_no', 'yes_no
 export const checklistStatusEnum = pgEnum('checklist_status', ['draft', 'submitted'])
 export const responseValueEnum = pgEnum('response_value', ['yes', 'no', 'na'])
 export const chatRoleEnum = pgEnum('chat_role', ['user', 'assistant'])
-export const fulfillmentKindEnum = pgEnum('fulfillment_kind', ['creation', 'checklist', 'readiness', 'ack', 'yes_no_upload', 'approval', 'assignment', 'payment_confirmation'])
+export const fulfillmentKindEnum = pgEnum('fulfillment_kind', ['creation', 'checklist', 'readiness', 'ack', 'yes_no_upload', 'approval', 'assignment', 'payment_confirmation', 'timeline_setting'])
 
 // ── Users (NextAuth Credentials — bcrypt verified in auth.ts authorize()) ──
 export const users = pgTable('users', {

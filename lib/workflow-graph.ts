@@ -224,7 +224,7 @@ const AUTO_ASSIGN_STEP_KEYS = new Set(['assign_designer_brief'])
  * in AUTO_ASSIGN_STEP_KEYS, isn't an assignment step, or no eligible user
  * exists (falls back to manual assignment via the normal UI).
  */
-async function autoAssignIfConfigured(projectId: string, step: GraphStep): Promise<void> {
+export async function autoAssignIfConfigured(projectId: string, step: GraphStep): Promise<void> {
   if (!AUTO_ASSIGN_STEP_KEYS.has(step.key)) return
   if (step.kind !== 'assignment' || !step.targetRoles?.length) return
 
@@ -735,6 +735,25 @@ export async function deleteGraphStep(opts: { stepId: string }): Promise<{ ok: b
   const edges = await getGraphEdges(step.graph)
   const incoming = edges.filter((e) => e.toStepId === step.id).map((e) => e.fromStepId)
   const outgoing = edges.filter((e) => e.fromStepId === step.id).map((e) => e.toStepId)
+
+  // v2.0 Phase 22: any project sitting exactly at this step's orderIndex
+  // would otherwise resolve to nothing after deletion (silently stuck, same
+  // failure family as the Configurator drag bug). Move it forward to
+  // whichever successor now takes over — the lowest orderIndex among them
+  // if there's a fan-out, or "done" (past the last step) if this was the
+  // terminal step.
+  const [allSteps, stuckProjects] = await Promise.all([
+    getGraphSteps(step.graph),
+    db.select({ id: projects.id }).from(projects).where(eq(projects.currentStep, step.orderIndex)),
+  ])
+  if (stuckProjects.length > 0) {
+    const successorOrders = allSteps.filter((s) => outgoing.includes(s.id)).map((s) => s.orderIndex)
+    const lastOrder = allSteps.length ? Math.max(...allSteps.map((s) => s.orderIndex)) : step.orderIndex
+    const fallback = successorOrders.length > 0 ? Math.min(...successorOrders) : lastOrder + 1
+    for (const p of stuckProjects) {
+      await db.update(projects).set({ currentStep: fallback, updatedAt: new Date() }).where(eq(projects.id, p.id))
+    }
+  }
 
   await db.delete(workflowStepDefinitions).where(eq(workflowStepDefinitions.id, step.id))
 

@@ -5,8 +5,8 @@
 // component, dark-mode aware via semantic tokens; role accent colours are
 // fixed hues legible on both themes.
 
-import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
-import { workflowRoleLabel, type WorkflowRole } from '@/lib/workflow'
+import { getLiveWorkflowSteps } from '@/lib/workflow-graph';
+import { workflowRoleLabel, type WorkflowRole } from '@/lib/workflow';
 
 const ROLE_COLOR: Record<WorkflowRole, string> = {
   operations: '#6366f1', // indigo
@@ -18,40 +18,55 @@ const ROLE_COLOR: Record<WorkflowRole, string> = {
   architect: '#a855f7', // purple
   factory_operations: '#ca8a04', // amber
   factory_manager: '#0d9488', // teal
-}
+};
 
 // Short, role-accurate blurbs keyed by the canonical step key.
 const DETAIL: Record<string, string> = {
-  new_project: 'Customer Care captures the client\'s intent and creates the project (unpaid by default).',
-  payment_confirmation: 'Operations confirms payment and sets the delivery timeline for every remaining step.',
-  assign_designer_brief: 'Head Designer assigns a Designer or Architect to take the client\'s brief (auto-assigned, 5-day max).',
-  kickoff_meeting: 'The assigned designer holds the kickoff meeting with the client.',
-  design_meeting: 'The assigned designer gathers materials, colors, and other project details.',
-  brief_taking: 'The assigned designer records the brief taken from the client (5-day max).',
+  new_project:
+    "Customer Care captures the client's intent and creates the project (unpaid by default).",
+  assign_designer_brief:
+    "Head Designer assigns a Designer or Architect to take the client's brief (auto-assigned, 5-day max).",
+  kickoff_meeting:
+    'The assigned designer holds the kickoff meeting with the client.',
+  brief_taking:
+    'The assigned designer records the brief taken from the client (5-day max).',
   invoice_upload: 'Customer Care uploads the invoice.',
+  invoice_timeline:
+    'Operations Manager (Admin) sets the delivery date and a deadline for every remaining step, now that the invoice is in.',
   design_initiation:
-    'Head Designer assigns a designer to begin actual design work — a second, distinct assignment.',
-  design_stage: 'The assigned designer produces the drawing and records the client\'s approval.',
-  ops_design_confirmation: 'Head of Operations gives the first confirmation that the design is approved.',
-  confirmation_correction: 'The designer uploads the corrected drawing for confirmation.',
-  internal_approval: 'Head of Operations uploads the internally approved drawing.',
-  send_for_production: 'Head of Operations sends for production (1/2); Chief Production Officer receives it (2/2).',
-  project_review_authorisation: 'Chief Production Officer reviews the drawing and confirms it has been reviewed.',
-  production_process: 'Factory Operations Head works through the production checklist (optimisation, cutting, edging, drilling & grooving, spray, hardwood & upholstery, glass).',
-  factory_manager_readiness: 'Factory Manager uploads the 3 readiness forms (material, upholstery, accessories), prompting Factory PM and Site PM simultaneously.',
+    'Head Designer assigns a designer to begin actual design work.',
+  design_stage:
+    "The assigned designer produces the drawing and records the client's approval.",
+  ops_design_confirmation:
+    'Operations Manager (Admin) gives the first confirmation that the design is approved.',
+  confirmation_correction:
+    'The designer uploads the corrected drawing for confirmation.',
+  internal_approval:
+    'Operations Manager (Admin) uploads the internally approved drawing.',
+  send_for_production:
+    'Operations Manager (Admin) sends for production (1/2); Chief Production Officer receives it (2/2).',
+  project_review_authorisation:
+    'Chief Production Officer reviews the drawing and confirms it has been reviewed.',
+  production_process:
+    'Factory Operations Head works through the production checklist (optimisation, cutting, edging, drilling & grooving, spray, hardwood & upholstery, glass).',
+  factory_manager_readiness:
+    'Factory Manager uploads the 3 readiness forms (material, upholstery, accessories), prompting Factory PM and Site PM simultaneously.',
   confirmation: 'Site PM confirms the project details to start the workflow.',
   materials_readiness:
     'Factory PM confirms materials & accessories are complete — sign digitally or upload the signed form.',
-  delivery_readiness: 'Site PM confirms the site is ready to receive the delivery.',
-  delivery_project:
-    'Factory PM completes production QA — items labelled, fragile-wrapped, ready to dispatch.',
-  project_check_report: 'Factory PM records the final production check report before handoff.',
-  approval_installation: 'Operations approves commencement of on-site installation.',
-  installation_readiness: 'Site PM confirms everything is ready to begin installation.',
+  delivery_readiness:
+    'Site PM confirms the site is ready to receive the delivery.',
+  delivery_project_check:
+    'Factory PM completes production QA (labelled, fragile-wrapped, ready to dispatch) and records the final project check report.',
+  approval_installation:
+    'Operations approves commencement of on-site installation.',
+  installation_readiness:
+    'Site PM confirms everything is ready to begin installation.',
   sorting: 'Site PM sorts and stages the delivered items on site.',
   close_out: 'Site PM completes the on-site close-out checklist.',
-  sign_off: 'Super Admin gives the final sign-off — the project is complete only after this.',
-}
+  sign_off:
+    'Super Admin gives the final sign-off — the project is complete only after this.',
+};
 
 const ROLES: WorkflowRole[] = [
   'customer_care',
@@ -63,22 +78,26 @@ const ROLES: WorkflowRole[] = [
   'factory_operations',
   'factory_manager',
   'super_admin',
-]
+];
 
 export default async function TrtFlowDiagram() {
-  const steps = await getLiveWorkflowSteps()
+  const steps = await getLiveWorkflowSteps();
   return (
     <div>
       {/* Super Admin oversight banner */}
       <div className="mb-4 flex items-center gap-3 rounded-2xl border border-dashed border-outline-variant bg-surface-container p-4">
         <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary-container text-on-secondary-container">
-          <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
+          <span className="material-symbols-outlined text-[20px]">
+            admin_panel_settings
+          </span>
         </span>
         <div>
-          <p className="text-sm font-bold text-on-surface">Super Admin — oversight across everything</p>
+          <p className="text-sm font-bold text-on-surface">
+            Super Admin — oversight across everything
+          </p>
           <p className="text-xs text-on-surface-variant">
-            Monitors every step (read-only), manages users &amp; content, and authors the process
-            flow charts. Cannot edit another Super Admin.
+            Monitors every step (read-only), manages users &amp; content, and
+            authors the process flow charts. Cannot edit another Super Admin.
           </p>
         </div>
       </div>
@@ -86,7 +105,10 @@ export default async function TrtFlowDiagram() {
       {/* Role legend */}
       <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         {ROLES.map((role) => (
-          <span key={role} className="inline-flex items-center gap-1.5 text-xs text-on-surface-variant">
+          <span
+            key={role}
+            className="inline-flex items-center gap-1.5 text-xs text-on-surface-variant"
+          >
             <span
               className="h-2.5 w-2.5 rounded-full"
               style={{ backgroundColor: ROLE_COLOR[role] }}
@@ -99,8 +121,8 @@ export default async function TrtFlowDiagram() {
       {/* Sequential timeline */}
       <ol className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
         {steps.map((step, i) => {
-          const color = ROLE_COLOR[step.role]
-          const last = i === steps.length - 1
+          const color = ROLE_COLOR[step.role];
+          const last = i === steps.length - 1;
           return (
             <li key={step.key} className="flex gap-3">
               {/* Number badge + connecting rail */}
@@ -111,12 +133,16 @@ export default async function TrtFlowDiagram() {
                 >
                   {step.n}
                 </span>
-                {!last && <span className="my-1 w-px flex-1 bg-outline-variant" />}
+                {!last && (
+                  <span className="my-1 w-px flex-1 bg-outline-variant" />
+                )}
               </div>
 
               <div className={`flex-1 ${last ? '' : 'pb-4'}`}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-on-surface">{step.label}</p>
+                  <p className="text-sm font-semibold text-on-surface">
+                    {step.label}
+                  </p>
                   <span
                     className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
                     style={{ backgroundColor: `${color}22`, color }}
@@ -129,14 +155,16 @@ export default async function TrtFlowDiagram() {
                 </p>
               </div>
             </li>
-          )
+          );
         })}
       </ol>
 
       <p className="mt-4 text-xs text-on-surface-variant">
-        Throughout, anyone can ask <span className="font-semibold text-primary">Paul Arredo</span> (the
-        PMI-certified AI assistant) for guidance, and teams coordinate via dashboard chat.
+        Throughout, anyone can ask{' '}
+        <span className="font-semibold text-primary">Paul Arredo</span> (the
+        PMI-certified AI assistant) for guidance, and teams coordinate via
+        dashboard chat.
       </p>
     </div>
-  )
+  );
 }

@@ -31,34 +31,61 @@
 // Readiness in parallel, replacing the old direct materials->delivery edge).
 // See scripts/migrate-v2-production-pipeline.ts for that migration — it also
 // repaired a prior Configurator-drag corruption of this same graph.
+//
+// Grew again from 26 to 27 steps (v2.0 Phase 22b, 2026-07-10): Payment
+// Confirmation no longer collected deadlines — it just confirmed payment.
+// A new 'invoice_timeline' step, Head of Operations only, did that once
+// the invoice was uploaded: sets the overall delivery date + a deadline
+// for every step from Design Initiation onward. Assign Designer and
+// Brief Taking are already done by this point — auto-assigned with an
+// implicit 5-day SLA, not a deadline collected here. See
+// scripts/migrate-insert-invoice-timeline-step.ts for that migration.
+//
+// Shrank from 27 to 26 steps (v2.0 Phase 22c, 2026-07-10): removed
+// 'payment_confirmation' entirely, per the user's original handwritten
+// process notes — step 1 (Customer Care creates the project) is directly
+// followed by step 2 (Head Designer assigns Architect for the brief), no
+// separate approval step in between. Assign Designer/Architect for Brief is
+// now the FIRST actionable step (auto-assigned immediately at project
+// creation — see actions/projects.ts triggerEntryAutoAssign). See
+// scripts/migrate-remove-payment-confirmation-step.ts for that migration.
+//
+// Shrank from 26 to 24 steps (v2.0 Phase 22d, 2026-07-10): removed
+// 'design_meeting' entirely (kickoff_meeting -> design_stage directly), and
+// merged 'delivery_project' + 'project_check_report' (both factory_pm
+// checklists) into one combined step 'delivery_project_check' — its
+// predecessors are materials_readiness AND delivery_readiness (inherited
+// from project_check_report's join requirement), successor stays
+// approval_installation. "Head of Operations" was also renamed to
+// "Operations Manager" everywhere in the UI (the underlying `users.position`
+// slug `head_of_operations` is unchanged for gating stability). See
+// scripts/migrate-remove-design-meeting-merge-checks.ts for that migration.
 
 import type { WorkflowStep } from '@/lib/workflow'
 
 export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
   { n: 1, key: 'new_project', label: 'Project Intent', role: 'customer_care', kind: 'creation' },
-  { n: 2, key: 'payment_confirmation', label: 'Payment Confirmation & Timeline', role: 'operations', kind: 'payment_confirmation' },
-  { n: 3, key: 'assign_designer_brief', label: 'Assign Designer/Architect for Brief', role: 'design', kind: 'assignment' },
-  { n: 4, key: 'brief_taking', label: 'Brief Taking', role: 'design', kind: 'yes_no_upload' },
-  { n: 5, key: 'invoice_upload', label: 'Invoice (Upload the Invoice)', role: 'customer_care', kind: 'yes_no_upload' },
+  { n: 2, key: 'assign_designer_brief', label: 'Assign Designer/Architect for Brief', role: 'design', kind: 'assignment' },
+  { n: 3, key: 'brief_taking', label: 'Brief Taking', role: 'design', kind: 'yes_no_upload' },
+  { n: 4, key: 'invoice_upload', label: 'Invoice (Upload the Invoice)', role: 'customer_care', kind: 'yes_no_upload' },
+  { n: 5, key: 'invoice_timeline', label: 'Set Delivery Timeline (Invoice)', role: 'operations', kind: 'timeline_setting' },
   { n: 6, key: 'design_initiation', label: 'Design Initiation', role: 'design', kind: 'assignment' },
   { n: 7, key: 'kickoff_meeting', label: 'Kickoff Meeting', role: 'design', kind: 'yes_no_upload' },
-  { n: 8, key: 'design_meeting', label: 'Design Meeting', role: 'design', kind: 'yes_no_upload' },
-  { n: 9, key: 'design_stage', label: 'Design Stage', role: 'design', kind: 'yes_no_upload' },
-  { n: 10, key: 'ops_design_confirmation', label: 'Operations Confirmation (Design Approved)', role: 'operations', kind: 'yes_no_upload' },
-  { n: 11, key: 'confirmation_correction', label: 'Confirmation Correction (Upload Drawing)', role: 'design', kind: 'yes_no_upload' },
-  { n: 12, key: 'internal_approval', label: 'Internal Approval (Upload Approved Drawing)', role: 'operations', kind: 'yes_no_upload' },
-  { n: 13, key: 'send_for_production', label: 'Send for Production', role: 'operations', kind: 'approval' },
-  { n: 14, key: 'project_review_authorisation', label: 'Project Review & Authorisation', role: 'operations', kind: 'yes_no_upload' },
-  { n: 15, key: 'production_process', label: 'Production Process', role: 'factory_operations', kind: 'checklist', slug: 'production_process' },
-  { n: 16, key: 'confirmation', label: 'Confirmation', role: 'site_pm', kind: 'checklist', slug: 'confirmation' },
-  { n: 17, key: 'factory_manager_readiness', label: 'Factory Manager Readiness Forms', role: 'factory_manager', kind: 'checklist', slug: 'factory_manager_readiness' },
-  { n: 18, key: 'materials_readiness', label: 'Materials / Accessories Readiness', role: 'factory_pm', kind: 'readiness' },
-  { n: 19, key: 'delivery_readiness', label: 'Delivery Readiness', role: 'site_pm', kind: 'checklist', slug: 'delivery_site_readiness' },
-  { n: 20, key: 'delivery_project', label: 'Delivery Project Checklist', role: 'factory_pm', kind: 'checklist', slug: 'delivery_project' },
-  { n: 21, key: 'project_check_report', label: 'Project Check Report', role: 'factory_pm', kind: 'checklist', slug: 'project_check_report' },
-  { n: 22, key: 'approval_installation', label: 'Approval to Commence Installation', role: 'operations', kind: 'checklist', slug: 'approval_to_commence_installation' },
-  { n: 23, key: 'installation_readiness', label: 'Installation Readiness', role: 'site_pm', kind: 'checklist', slug: 'installation_readiness' },
-  { n: 24, key: 'sorting', label: 'Sorting', role: 'site_pm', kind: 'checklist', slug: 'sorting' },
-  { n: 25, key: 'close_out', label: 'Close Out', role: 'site_pm', kind: 'checklist', slug: 'close_out' },
-  { n: 26, key: 'sign_off', label: 'Sign Off', role: 'super_admin', kind: 'ack' },
+  { n: 8, key: 'design_stage', label: 'Design Stage', role: 'design', kind: 'yes_no_upload' },
+  { n: 9, key: 'ops_design_confirmation', label: 'Operations Confirmation (Design Approved)', role: 'operations', kind: 'yes_no_upload' },
+  { n: 10, key: 'confirmation_correction', label: 'Confirmation Correction (Upload Drawing)', role: 'design', kind: 'yes_no_upload' },
+  { n: 11, key: 'internal_approval', label: 'Internal Approval (Upload Approved Drawing)', role: 'operations', kind: 'yes_no_upload' },
+  { n: 12, key: 'send_for_production', label: 'Send for Production', role: 'operations', kind: 'approval' },
+  { n: 13, key: 'project_review_authorisation', label: 'Project Review & Authorisation', role: 'operations', kind: 'yes_no_upload' },
+  { n: 14, key: 'production_process', label: 'Production Process', role: 'factory_operations', kind: 'checklist', slug: 'production_process' },
+  { n: 15, key: 'confirmation', label: 'Confirmation', role: 'site_pm', kind: 'checklist', slug: 'confirmation' },
+  { n: 16, key: 'factory_manager_readiness', label: 'Factory Manager Readiness Forms', role: 'factory_manager', kind: 'checklist', slug: 'factory_manager_readiness' },
+  { n: 17, key: 'materials_readiness', label: 'Materials / Accessories Readiness', role: 'factory_pm', kind: 'readiness' },
+  { n: 18, key: 'delivery_readiness', label: 'Delivery Readiness', role: 'site_pm', kind: 'checklist', slug: 'delivery_site_readiness' },
+  { n: 19, key: 'delivery_project_check', label: 'Delivery & Project Check', role: 'factory_pm', kind: 'checklist', slug: 'delivery_project_check' },
+  { n: 20, key: 'approval_installation', label: 'Approval to Commence Installation', role: 'operations', kind: 'checklist', slug: 'approval_to_commence_installation' },
+  { n: 21, key: 'installation_readiness', label: 'Installation Readiness', role: 'site_pm', kind: 'checklist', slug: 'installation_readiness' },
+  { n: 22, key: 'sorting', label: 'Sorting', role: 'site_pm', kind: 'checklist', slug: 'sorting' },
+  { n: 23, key: 'close_out', label: 'Close Out', role: 'site_pm', kind: 'checklist', slug: 'close_out' },
+  { n: 24, key: 'sign_off', label: 'Sign Off', role: 'super_admin', kind: 'ack' },
 ]

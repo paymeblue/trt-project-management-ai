@@ -66,8 +66,8 @@ beforeEach(() => {
 
 describe('advanceProjectStep', () => {
   it('advances when the project is at the expected step and the role can act', async () => {
-    verifyMock.mockResolvedValue({ userId: 'u1', role: 'operations' })
-    // step 2 = payment_confirmation (operations)
+    verifyMock.mockResolvedValue({ userId: 'u1', role: 'design' })
+    // step 2 = assign_designer_brief (design)
     selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 2, status: 'not_delivered' }])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
@@ -81,7 +81,7 @@ describe('advanceProjectStep', () => {
   })
 
   it('is a no-op when the project is no longer at the expected step (idempotent)', async () => {
-    verifyMock.mockResolvedValue({ userId: 'u1', role: 'operations' })
+    verifyMock.mockResolvedValue({ userId: 'u1', role: 'design' })
     selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 5, status: 'not_delivered' }])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
@@ -93,7 +93,7 @@ describe('advanceProjectStep', () => {
   })
 
   it('refuses when the caller role cannot act on the step', async () => {
-    // step 2 (payment_confirmation) belongs to operations; a factory_pm must be refused
+    // step 2 (assign_designer_brief) belongs to design; a factory_pm must be refused
     verifyMock.mockResolvedValue({ userId: 'f1', role: 'factory_pm' })
     selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 2, status: 'not_delivered' }])
 

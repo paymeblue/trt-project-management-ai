@@ -18,11 +18,11 @@ import { LIVE_WORKFLOW_STEPS } from '@/db/workflow-live-steps'
 
 describe('findStep / lastStepN / projectComplete', () => {
   it('resolves steps and rejects out-of-range', () => {
-    expect(findStep(LIVE_WORKFLOW_STEPS, 2)?.key).toBe('payment_confirmation')
+    expect(findStep(LIVE_WORKFLOW_STEPS, 2)?.key).toBe('assign_designer_brief')
     expect(findStep(LIVE_WORKFLOW_STEPS, 99)).toBeUndefined()
   })
 
-  it('FIRST_ACTION_STEP is 2 (Payment Confirmation & Timeline)', () => {
+  it('FIRST_ACTION_STEP is 2 (Assign Designer/Architect for Brief)', () => {
     expect(FIRST_ACTION_STEP).toBe(2)
   })
 

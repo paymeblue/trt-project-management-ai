@@ -1,17 +1,18 @@
 'use client'
 
 import { useActionState, useEffect, useState } from 'react'
-import { confirmPaymentAndSetTimelineAction, type ConfirmPaymentState } from '@/actions/projects'
+import { setInvoiceTimelineAction, type SetInvoiceTimelineState } from '@/actions/projects'
 import { lastStepN, workflowRoleLabel } from '@/lib/workflow'
 import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
 
-const INITIAL: ConfirmPaymentState = { status: 'idle' }
+const INITIAL: SetInvoiceTimelineState = { status: 'idle' }
 
-export default function PaymentConfirmationForm({ projectId }: { projectId: string }) {
-  const [state, action, pending] = useActionState(confirmPaymentAndSetTimelineAction, INITIAL)
+export default function InvoiceTimelineForm({ projectId }: { projectId: string }) {
+  const [state, action, pending] = useActionState(setInvoiceTimelineAction, INITIAL)
   const steps = useWorkflowSteps()
-  // Every step after this one (payment confirmation is step 2).
-  const remainingSteps = steps.filter((s) => s.n > 2)
+  const invoiceTimelineN = steps.find((s) => s.key === 'invoice_timeline')?.n ?? 0
+  // Every step after Invoice Timeline itself.
+  const remainingSteps = steps.filter((s) => s.n > invoiceTimelineN)
   const lastN = lastStepN(steps)
   const [deadlines, setDeadlines] = useState<Record<number, string>>({})
   const [toast, setToast] = useState<string | null>(null)
@@ -81,8 +82,8 @@ export default function PaymentConfirmationForm({ projectId }: { projectId: stri
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
         <p className="text-xs font-semibold text-gray-700">Per-step deadlines</p>
         <p className="mb-3 text-[11px] text-gray-500">
-          Optional — set a target date for each remaining step (3–{lastN}). A later step can&apos;t
-          be due before an earlier one.
+          Optional — set a target date for each remaining step ({invoiceTimelineN + 1}–{lastN}). A
+          later step can&apos;t be due before an earlier one.
         </p>
         <div className="space-y-2">
           {remainingSteps.map((s) => {
@@ -121,7 +122,7 @@ export default function PaymentConfirmationForm({ projectId }: { projectId: stri
         {pending && (
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
         )}
-        {pending ? 'Confirming…' : 'Confirm Payment & Set Timeline'}
+        {pending ? 'Saving…' : 'Set Timeline'}
       </button>
 
       {toast && (

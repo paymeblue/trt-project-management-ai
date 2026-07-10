@@ -37,7 +37,7 @@ export const KIND_OPTIONS: { value: StepKind; label: string; hint: string }[] = 
 // never requires typing an exact snake_case string from memory.
 export const KNOWN_POSITIONS = [
   { value: 'head_designer', label: 'Head Designer' },
-  { value: 'head_of_operations', label: 'Head of Operations' },
+  { value: 'head_of_operations', label: 'Operations Manager (Admin)' },
   { value: 'chief_production_officer', label: 'Chief Production Officer' },
 ]
 

@@ -12,15 +12,19 @@ const INITIAL_ACK: AckStepState = { ok: false }
 
 // Routes where the user is actively completing a step — the gate must NOT block
 // these, or they could never finish the work that clears it. Must cover every
-// destination stepHref() can return (lib/workflow.ts) — payment_confirmation
-// and the v2.0 Phase 21 yes_no_upload/approval/assignment kinds (/workflow/step)
-// were missing, so Head of Operations (and anyone on those kinds) got stuck in
-// a self-blocking loop: the gate re-showed even while already on the page.
+// destination stepHref() can return (lib/workflow.ts) — the v2.0 Phase 21
+// yes_no_upload/approval/assignment kinds (/workflow/step) were missing, so
+// Head of Operations (and anyone on those kinds) got stuck in a
+// self-blocking loop: the gate re-showed even while already on the page.
+// v2.0 Phase 22c: 'payment_confirmation' (& its /admin/payment-confirmation
+// route) was removed from the live graph entirely, but the kind/route stay
+// listed here as dead-but-harmless in case a future graph reintroduces it.
 function isStepRoute(pathname: string) {
   return (
     pathname.startsWith('/checklists/') ||
     pathname.startsWith('/factory-pm/readiness') ||
     pathname.startsWith('/admin/payment-confirmation') ||
+    pathname.startsWith('/admin/invoice-timeline') ||
     pathname.startsWith('/workflow/step')
   )
 }

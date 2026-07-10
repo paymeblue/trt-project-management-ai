@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { LIVE_WORKFLOW_STEPS } from '@/db/workflow-live-steps'
 
 describe('LIVE_WORKFLOW_STEPS structure', () => {
-  it('has 26 steps numbered 1..26 in order (incl. Sign Off)', () => {
-    expect(LIVE_WORKFLOW_STEPS).toHaveLength(26)
+  it('has 24 steps numbered 1..24 in order (incl. Sign Off)', () => {
+    expect(LIVE_WORKFLOW_STEPS).toHaveLength(24)
     LIVE_WORKFLOW_STEPS.forEach((s, i) => expect(s.n).toBe(i + 1))
   })
 
@@ -15,13 +15,12 @@ describe('LIVE_WORKFLOW_STEPS structure', () => {
     const order = LIVE_WORKFLOW_STEPS.map((s) => [s.key, s.role])
     expect(order).toEqual([
       ['new_project', 'customer_care'],
-      ['payment_confirmation', 'operations'],
       ['assign_designer_brief', 'design'],
       ['brief_taking', 'design'],
       ['invoice_upload', 'customer_care'],
+      ['invoice_timeline', 'operations'],
       ['design_initiation', 'design'],
       ['kickoff_meeting', 'design'],
-      ['design_meeting', 'design'],
       ['design_stage', 'design'],
       ['ops_design_confirmation', 'operations'],
       ['confirmation_correction', 'design'],
@@ -33,8 +32,7 @@ describe('LIVE_WORKFLOW_STEPS structure', () => {
       ['factory_manager_readiness', 'factory_manager'],
       ['materials_readiness', 'factory_pm'],
       ['delivery_readiness', 'site_pm'],
-      ['delivery_project', 'factory_pm'],
-      ['project_check_report', 'factory_pm'],
+      ['delivery_project_check', 'factory_pm'],
       ['approval_installation', 'operations'],
       ['installation_readiness', 'site_pm'],
       ['sorting', 'site_pm'],
@@ -45,7 +43,7 @@ describe('LIVE_WORKFLOW_STEPS structure', () => {
 
   it('final step is a super_admin Sign-Off ack step (REQ-G04)', () => {
     const last = LIVE_WORKFLOW_STEPS[LIVE_WORKFLOW_STEPS.length - 1]
-    expect(last).toMatchObject({ n: 26, key: 'sign_off', role: 'super_admin', kind: 'ack' })
+    expect(last).toMatchObject({ n: 24, key: 'sign_off', role: 'super_admin', kind: 'ack' })
   })
 
   it("the Factory PM's first step is Materials / Accessories Readiness", () => {
