@@ -14,6 +14,11 @@
  *    currentStep (+ project_step_deadlines/project_step_completions) so
  *    nobody's progress is lost.
  *
+ *    The underlying bug (lib/workflow-graph.ts swapAdjacentSteps only
+ *    rewiring the ONE edge between the two swapped steps, never their
+ *    outside neighbors) is fixed separately in that file — this migration
+ *    only repairs the data damage already done by it.
+ *
  * 2. INSERT — 8 new production-pipeline steps (Invoice, Ops Design
  *    Confirmation, Confirmation Correction, Internal Approval, Send for
  *    Production, Project Review & Authorisation, Production Process,
@@ -26,6 +31,14 @@
  * without making any changes.
  *
  * Run via: npx tsx scripts/migrate-v2-production-pipeline.ts
+ *
+ * NOTE (already executed 2026-07-10): this ran against the live DB in two
+ * parts — the deadline-remap step hit a transient unique-constraint
+ * collision on its first pass (fixed here with a 2-phase temp-offset
+ * update) and was completed by a follow-up pass. Both the step/edge
+ * migration and the deadline/completion/checklist follow-up are reflected
+ * in the single script below; re-running it now is a no-op (idempotency
+ * guard).
  */
 
 import { config } from 'dotenv'
@@ -101,8 +114,6 @@ const LAST_ORDER = FINAL_STEPS.length
 const LINEAR_KEYS = FINAL_STEPS.map((s) => s.stepKey).filter(
   (k) => !['materials_readiness', 'delivery_readiness', 'delivery_project', 'project_check_report'].includes(k),
 )
-// LINEAR_KEYS runs ...confirmation, factory_manager_readiness, [gap], approval_installation...
-// Splice the branch back in by hand below.
 
 type EdgeSpec = [string, string]
 const EDGES: EdgeSpec[] = []
@@ -267,17 +278,22 @@ async function main() {
     }
   }
 
-  // ── 5. Remap project_step_deadlines.stepN the same way ─────────────────
+  // ── 5. Remap project_step_deadlines.stepN the same way. 2-phase (negative
+  //      temp offset, then final) to dodge the (projectId, stepN) unique
+  //      constraint during the transition — a direct old->new update can
+  //      collide with an as-yet-unprocessed row that already happens to sit
+  //      at the target value. ─────────────────────────────────────────────
   const allDeadlines = await db.select().from(projectStepDeadlines)
-  for (const d of allDeadlines) {
-    const key = oldOrderToKey.get(d.stepN)
-    if (!key) continue
-    const newStepN = FINAL_ORDER.get(key)!
-    if (newStepN !== d.stepN) {
-      await db.update(projectStepDeadlines).set({ stepN: newStepN }).where(eq(projectStepDeadlines.id, d.id))
-    }
+  const deadlinesToFix = allDeadlines
+    .map((d) => ({ row: d, newStepN: oldOrderToKey.has(d.stepN) ? FINAL_ORDER.get(oldOrderToKey.get(d.stepN)!)! : undefined }))
+    .filter((x): x is { row: typeof allDeadlines[number]; newStepN: number } => x.newStepN !== undefined && x.newStepN !== x.row.stepN)
+  for (const { row } of deadlinesToFix) {
+    await db.update(projectStepDeadlines).set({ stepN: -row.stepN }).where(eq(projectStepDeadlines.id, row.id))
   }
-  console.log(`  remapped ${allDeadlines.length} project_step_deadlines row(s)`)
+  for (const { row, newStepN } of deadlinesToFix) {
+    await db.update(projectStepDeadlines).set({ stepN: newStepN }).where(eq(projectStepDeadlines.id, row.id))
+  }
+  console.log(`  remapped ${deadlinesToFix.length} project_step_deadlines row(s)`)
 
   // ── 6. Remap project_step_completions.stepN — prefer stepDefId (stable FK) ──
   const allCompletions = await db.select().from(projectStepCompletions)

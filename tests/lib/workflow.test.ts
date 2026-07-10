@@ -18,16 +18,16 @@ import { LIVE_WORKFLOW_STEPS } from '@/db/workflow-live-steps'
 
 describe('findStep / lastStepN / projectComplete', () => {
   it('resolves steps and rejects out-of-range', () => {
-    expect(findStep(LIVE_WORKFLOW_STEPS, 2)?.key).toBe('confirmation')
+    expect(findStep(LIVE_WORKFLOW_STEPS, 2)?.key).toBe('payment_confirmation')
     expect(findStep(LIVE_WORKFLOW_STEPS, 99)).toBeUndefined()
   })
 
-  it('FIRST_ACTION_STEP is 2 (Confirmation)', () => {
+  it('FIRST_ACTION_STEP is 2 (Payment Confirmation & Timeline)', () => {
     expect(FIRST_ACTION_STEP).toBe(2)
   })
 
   it('lastStepN resolves the last step number', () => {
-    expect(lastStepN(LIVE_WORKFLOW_STEPS)).toBe(11)
+    expect(lastStepN(LIVE_WORKFLOW_STEPS)).toBe(26)
   })
 
   it('is complete only once currentStep passes the last step', () => {
@@ -64,13 +64,13 @@ describe('role gating', () => {
 
 describe('stepHref', () => {
   it('builds checklist links with project + step query', () => {
-    const confirmation = findStep(LIVE_WORKFLOW_STEPS, 2)!
-    expect(stepHref(confirmation, 'p1')).toBe('/checklists/confirmation?projectId=p1&step=2')
+    const confirmation = LIVE_WORKFLOW_STEPS.find((s) => s.key === 'confirmation')!
+    expect(stepHref(confirmation, 'p1')).toBe(`/checklists/confirmation?projectId=p1&step=${confirmation.n}`)
   })
 
   it('builds the readiness link for the materials step', () => {
-    const readiness = findStep(LIVE_WORKFLOW_STEPS, 3)!
-    expect(stepHref(readiness, 'p1')).toBe('/factory-pm/readiness?projectId=p1&step=3')
+    const readiness = LIVE_WORKFLOW_STEPS.find((s) => s.key === 'materials_readiness')!
+    expect(stepHref(readiness, 'p1')).toBe(`/factory-pm/readiness?projectId=p1&step=${readiness.n}`)
   })
 
   it('returns null for the creation step (no destination)', () => {
@@ -106,11 +106,11 @@ describe('v1.1 governance (REQ-G01, G04, G07)', () => {
     expect(canRoleActOnStep('super_admin', Roles.FactoryPm)).toBe(false)
   })
 
-  it('completion boundary is past Sign-Off: step 11 pending, 12 complete', () => {
+  it('completion boundary is past Sign-Off: last step pending, last+1 complete', () => {
     const lastN = lastStepN(LIVE_WORKFLOW_STEPS)
-    expect(projectComplete(10, lastN)).toBe(false) // Close Out done, awaiting Sign Off
-    expect(projectComplete(11, lastN)).toBe(false) // at Sign Off
-    expect(projectComplete(12, lastN)).toBe(true) // signed off → delivered
+    expect(projectComplete(lastN - 1, lastN)).toBe(false) // Close Out done, awaiting Sign Off
+    expect(projectComplete(lastN, lastN)).toBe(false) // at Sign Off
+    expect(projectComplete(lastN + 1, lastN)).toBe(true) // signed off → delivered
   })
 })
 

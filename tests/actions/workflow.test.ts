@@ -66,8 +66,8 @@ beforeEach(() => {
 
 describe('advanceProjectStep', () => {
   it('advances when the project is at the expected step and the role can act', async () => {
-    verifyMock.mockResolvedValue({ userId: 'u1', role: 'site_pm' })
-    // step 2 = confirmation (site_pm)
+    verifyMock.mockResolvedValue({ userId: 'u1', role: 'operations' })
+    // step 2 = payment_confirmation (operations)
     selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 2, status: 'not_delivered' }])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
@@ -81,7 +81,7 @@ describe('advanceProjectStep', () => {
   })
 
   it('is a no-op when the project is no longer at the expected step (idempotent)', async () => {
-    verifyMock.mockResolvedValue({ userId: 'u1', role: 'site_pm' })
+    verifyMock.mockResolvedValue({ userId: 'u1', role: 'operations' })
     selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 5, status: 'not_delivered' }])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
@@ -93,7 +93,7 @@ describe('advanceProjectStep', () => {
   })
 
   it('refuses when the caller role cannot act on the step', async () => {
-    // step 2 (confirmation) belongs to site_pm; a factory_pm must be refused
+    // step 2 (payment_confirmation) belongs to operations; a factory_pm must be refused
     verifyMock.mockResolvedValue({ userId: 'f1', role: 'factory_pm' })
     selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 2, status: 'not_delivered' }])
 
@@ -104,31 +104,31 @@ describe('advanceProjectStep', () => {
     expect(insertValuesMock).not.toHaveBeenCalled()
   })
 
-  it('Close Out (step 10) advances to Sign Off (11) but is NOT yet delivered', async () => {
-    // step 10 = close_out (site_pm); delivery only happens after Sign Off (REQ-G04)
+  it('Close Out (step 25) advances to Sign Off (26) but is NOT yet delivered', async () => {
+    // step 25 = close_out (site_pm); delivery only happens after Sign Off (REQ-G04)
     verifyMock.mockResolvedValue({ userId: 'u1', role: 'site_pm' })
-    selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 10, status: 'not_delivered' }])
+    selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 25, status: 'not_delivered' }])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
-    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 10 })
+    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 25 })
 
     expect(ok).toBe(true)
     expect(setMock).toHaveBeenCalledWith(
-      expect.objectContaining({ currentStep: 11, status: 'not_delivered' }),
+      expect.objectContaining({ currentStep: 26, status: 'not_delivered' }),
     )
   })
 
-  it('marks the project delivered after Sign Off (step 11) completes', async () => {
-    // step 11 = sign_off (super_admin) — the new final step
+  it('marks the project delivered after Sign Off (step 26) completes', async () => {
+    // step 26 = sign_off (super_admin) — the new final step
     verifyMock.mockResolvedValue({ userId: 'admin1', role: 'super_admin' })
-    selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 11, status: 'not_delivered' }])
+    selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 26, status: 'not_delivered' }])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
-    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 11 })
+    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 26 })
 
     expect(ok).toBe(true)
     expect(setMock).toHaveBeenCalledWith(
-      expect.objectContaining({ currentStep: 12, status: 'delivered' }),
+      expect.objectContaining({ currentStep: 27, status: 'delivered' }),
     )
   })
 

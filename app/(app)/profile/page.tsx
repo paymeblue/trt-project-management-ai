@@ -41,14 +41,20 @@ export default async function ProfilePage() {
             name="position"
             defaultValue={u?.position ?? ''}
             placeholder="e.g. Senior Site Manager"
+            list="known-positions"
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
+          <datalist id="known-positions">
+            <option value="head_designer" />
+            <option value="head_of_operations" />
+            <option value="chief_production_officer" />
+          </datalist>
           <p className="mt-1 text-xs text-gray-400">
             Some workflow steps are restricted to an exact position — use{' '}
             <code className="rounded bg-gray-100 px-1">head_designer</code>,{' '}
             <code className="rounded bg-gray-100 px-1">head_of_operations</code>, or{' '}
             <code className="rounded bg-gray-100 px-1">chief_production_officer</code> if you hold one of
-            those titles.
+            those titles. Must match exactly (case and spelling) — start typing to see suggestions.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-4">

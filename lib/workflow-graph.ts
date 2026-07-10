@@ -584,16 +584,42 @@ async function swapAdjacentSteps(
 
   const forward = edges.find((e) => e.fromStepId === a.id && e.toStepId === b.id)
   const backward = edges.find((e) => e.fromStepId === b.id && e.toStepId === a.id)
+
+  // v2.0 Phase 22 bugfix: the internal a<->b edge is only ONE of up to three
+  // edges a swap must fix. Chain [pred]->a->b->[succ] becoming
+  // [pred]->b->a->[succ] (or the mirror, for a backward b->a chain) also
+  // needs pred's outgoing edge and succ's incoming edge re-pointed at the
+  // node now occupying that end of the pair — otherwise pred/succ are left
+  // wired to whichever of a/b is no longer adjacent to them, which silently
+  // orphans/dead-ends/double-entries the graph (this is what corrupted the
+  // live graph before scripts/migrate-v2-production-pipeline.ts repaired it:
+  // every prior Configurator drag only ever fixed the internal edge).
   if (forward) {
+    const predEdge = edges.find((e) => e.toStepId === a.id) // a's only incoming, if any (can't be from b: this is the forward case)
+    const succEdge = edges.find((e) => e.fromStepId === b.id) // b's only outgoing, if any (can't be to a)
     await db
       .update(workflowStepEdges)
       .set({ fromStepId: b.id, toStepId: a.id })
       .where(and(eq(workflowStepEdges.fromStepId, a.id), eq(workflowStepEdges.toStepId, b.id)))
+    if (predEdge) {
+      await db.update(workflowStepEdges).set({ toStepId: b.id }).where(and(eq(workflowStepEdges.fromStepId, predEdge.fromStepId), eq(workflowStepEdges.toStepId, a.id)))
+    }
+    if (succEdge) {
+      await db.update(workflowStepEdges).set({ fromStepId: a.id }).where(and(eq(workflowStepEdges.fromStepId, b.id), eq(workflowStepEdges.toStepId, succEdge.toStepId)))
+    }
   } else if (backward) {
+    const predEdge = edges.find((e) => e.toStepId === b.id) // b's only incoming, if any (can't be from a: this is the backward case)
+    const succEdge = edges.find((e) => e.fromStepId === a.id) // a's only outgoing, if any (can't be to b)
     await db
       .update(workflowStepEdges)
       .set({ fromStepId: a.id, toStepId: b.id })
       .where(and(eq(workflowStepEdges.fromStepId, b.id), eq(workflowStepEdges.toStepId, a.id)))
+    if (predEdge) {
+      await db.update(workflowStepEdges).set({ toStepId: a.id }).where(and(eq(workflowStepEdges.fromStepId, predEdge.fromStepId), eq(workflowStepEdges.toStepId, b.id)))
+    }
+    if (succEdge) {
+      await db.update(workflowStepEdges).set({ fromStepId: b.id }).where(and(eq(workflowStepEdges.fromStepId, a.id), eq(workflowStepEdges.toStepId, succEdge.toStepId)))
+    }
   }
   return { joinAdjacent: false }
 }

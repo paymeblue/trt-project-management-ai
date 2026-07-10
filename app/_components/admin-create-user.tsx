@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createUserAction } from '@/actions/admin-users'
+import { KNOWN_POSITIONS } from '@/app/_components/workflow-configurator-shared'
 
 const ROLES = [
   { value: 'factory_pm', label: 'Factory PM' },
@@ -80,8 +81,24 @@ export default function AdminCreateUser() {
             value={position}
             onChange={(e) => setPosition(e.target.value)}
             placeholder="e.g. Lead Factory PM"
+            list="known-positions"
             className={inputCls}
           />
+          {/* Several workflow steps gate on an EXACT position match (e.g.
+              "chief_production_officer") — free text is easy to typo, so
+              suggest the known machine values while still allowing any
+              other free-text title. */}
+          <datalist id="known-positions">
+            {KNOWN_POSITIONS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </datalist>
+          <p className="mt-1 text-[11px] text-gray-500">
+            To unlock a step restricted to a specific title (e.g. Chief Production Officer, Head of
+            Operations, Head Designer), enter it exactly as suggested.
+          </p>
         </div>
       </div>
 
