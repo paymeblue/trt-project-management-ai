@@ -1,8 +1,13 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { assignUserAction, completeStepAction } from '@/actions/workflow-graph'
 import type { WorkflowRole } from '@/lib/workflow'
+
+// Delay (ms) the success confirmation stays visible before redirecting, so
+// the user has time to read who/what was assigned before the page navigates.
+const REDIRECT_DELAY_MS = 1400
 
 // Minimal renderer for the `assignment` fulfillment kind (WF-03): a picker
 // of users filtered (server-side, in the page) to the step's targetRoles
@@ -15,25 +20,57 @@ export default function AssignmentStep({
   stepDefId,
   targetRoles,
   candidates,
+  stepLabel,
+  projectName,
+  redirectTo,
 }: {
   projectId: string
   stepDefId: string
   targetRoles: WorkflowRole[] | null | undefined
   candidates: { id: string; name: string; role: string }[]
+  stepLabel?: string
+  projectName?: string | null
+  redirectTo?: string
 }) {
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [selected, setSelected] = useState<string>(candidates[0]?.id ?? '')
   const [message, setMessage] = useState<string | null>(null)
+  const [ok, setOk] = useState(false)
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimer.current) clearTimeout(redirectTimer.current)
+    }
+  }, [])
+
+  function scheduleRedirect() {
+    if (!redirectTo) return
+    redirectTimer.current = setTimeout(() => {
+      router.push(redirectTo)
+    }, REDIRECT_DELAY_MS)
+  }
 
   function assign() {
     if (!selected) {
       setMessage('Choose a user first.')
+      setOk(false)
       return
     }
     setMessage(null)
     startTransition(async () => {
       const res = await assignUserAction({ projectId, stepDefId, assignedUserId: selected })
-      setMessage(res.message ?? (res.ok ? 'Assigned.' : 'Could not assign.'))
+      if (res.ok) {
+        const who = candidates.find((c) => c.id === selected)?.name ?? 'User'
+        const where = `"${stepLabel ?? 'this step'}"${projectName ? ` on ${projectName}` : ''}`
+        setMessage(`✓ ${who} assigned to ${where}.${redirectTo ? ' Redirecting…' : ''}`)
+        setOk(true)
+        scheduleRedirect()
+      } else {
+        setMessage(res.message ?? 'Could not assign.')
+        setOk(false)
+      }
     })
   }
 
@@ -41,7 +78,14 @@ export default function AssignmentStep({
     setMessage(null)
     startTransition(async () => {
       const res = await completeStepAction({ projectId, stepDefId })
-      setMessage(res.message ?? (res.ok ? 'Step completed.' : 'Could not complete step.'))
+      if (res.ok) {
+        setMessage(`✓ Step completed.${redirectTo ? ' Redirecting…' : ''}`)
+        setOk(true)
+        scheduleRedirect()
+      } else {
+        setMessage(res.message ?? 'Could not complete step.')
+        setOk(false)
+      }
     })
   }
 
@@ -88,7 +132,9 @@ export default function AssignmentStep({
         </button>
       </div>
 
-      {message && <p className="text-sm text-gray-700">{message}</p>}
+      {message && (
+        <p className={`text-sm ${ok ? 'text-green-700' : 'text-error'}`}>{message}</p>
+      )}
     </div>
   )
 }
