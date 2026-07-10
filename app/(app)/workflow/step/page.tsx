@@ -1,7 +1,7 @@
 import { eq, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { db } from '@/db'
-import { users } from '@/db/schema'
+import { projects, users } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { getStepByKey } from '@/lib/workflow-graph'
 import { canRoleActOnStep, roleDashboard, stepRequiredKinds, type UserRole, type StepKind } from '@/lib/workflow'
@@ -32,6 +32,11 @@ export default async function WorkflowStepPage({
   if (!projectId || !stepKey) {
     redirect(dashboard)
   }
+
+  // Fetched once here (not passed down as a prop from elsewhere) so
+  // AssignmentStep's post-assignment confirmation can name the project.
+  const [proj] = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, projectId!)).limit(1)
+  const projectName = proj?.name ?? null
 
   const step = await getStepByKey(graph, stepKey)
 
@@ -82,6 +87,9 @@ export default async function WorkflowStepPage({
             stepDefId={step!.id}
             targetRoles={step!.targetRoles}
             candidates={candidates}
+            stepLabel={step!.label}
+            projectName={projectName}
+            redirectTo={dashboard}
           />
         )
       }
