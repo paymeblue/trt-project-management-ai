@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import {
   findStep,
   stepHref,
@@ -85,13 +86,13 @@ export default function HeaderProjectSwitcher({ viewerRole }: { viewerRole: User
           </span>
         </button>
         {href && (
-          <a
+          <Link
             href={href}
             title="Open this step"
             className="rounded-full bg-primary px-2 py-1 text-label-sm font-semibold text-white hover:bg-primary/90"
           >
             Act
-          </a>
+          </Link>
         )}
         <button
           type="button"

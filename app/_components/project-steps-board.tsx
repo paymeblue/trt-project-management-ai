@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   Roles,
@@ -404,13 +405,13 @@ function StepsModal({
                     ) : step.kind === 'ack' ? (
                       <AckComplete projectId={project.id} stepN={step.n} />
                     ) : href ? (
-                      <a
+                      <Link
                         href={href}
                         className="mt-1 inline-flex items-center gap-1 rounded-md bg-primary px-4 py-1.5 text-xs font-semibold text-white hover:bg-primary/90"
                       >
                         Open {step.label}
                         <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                      </a>
+                      </Link>
                     ) : null}
                     {mine && (step.kind === 'checklist' || step.kind === 'readiness') && (
                       <BypassRequest projectId={project.id} stepN={step.n} />

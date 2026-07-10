@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { findStep, stepHref, workflowRoleLabel } from '@/lib/workflow'
 import { completeAckStepAction, type AckStepState } from '@/actions/workflow'
@@ -140,13 +141,13 @@ export default function PendingStepGate() {
             )}
           </div>
         ) : href ? (
-          <a
+          <Link
             href={href}
             className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary/90"
           >
             Open &amp; complete this step
             <span className="material-symbols-outlined text-base">arrow_forward</span>
-          </a>
+          </Link>
         ) : null}
       </div>
     </div>
