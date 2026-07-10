@@ -9,6 +9,7 @@ import {
   jsonb,
   unique,
   foreignKey,
+  doublePrecision,
 } from 'drizzle-orm/pg-core'
 
 // ── Enums ────────────────────────────────────────────────────────────────
@@ -90,10 +91,24 @@ export const workflowStepDefinitions = pgTable('workflow_step_definitions', {
   label:           text('label').notNull(),
   role:            roleEnum('role').notNull(),
   fulfillmentKind: fulfillmentKindEnum('fulfillment_kind').notNull(),
+  // v2.0 Phase 18.1 (ad hoc): EXTRA fulfillment kinds required on top of the
+  // primary `fulfillmentKind` — e.g. a step can require BOTH a yes/no+upload
+  // AND an assignment before it's completable. null/empty = today's
+  // single-kind behavior, unchanged. The step-completion page renders one
+  // sub-form per required kind (primary + additional); completeGraphStep
+  // requires ALL of them fulfilled (see workflow_step_states.fulfilled_kinds).
+  additionalKinds: fulfillmentKindEnum('additional_kinds').array(),
   checklistSlug:   text('checklist_slug'),               // set only when fulfillmentKind = 'checklist'; mirrors checklist_definitions.slug
   targetRoles:     roleEnum('target_role').array(),       // set only when fulfillmentKind = 'assignment' — pool of roles the actor may pick a user from (v2.0 Phase 19: was a single role, widened to a list so e.g. Head Designer can pick from design OR architect)
   requiredPosition: text('required_position'),            // v2.0 Phase 19 (ad hoc, pre-formal-enum): narrows a role-gated step to one exact users.position value (e.g. 'head_designer'). null = today's behavior unchanged (any user with the step's role may act). Deliberately left as free text for now, not a DB enum — converting users.position to a real Postgres enum is deferred to formal Phase 19 execution to avoid migration risk under this ad hoc build.
   isOptional:      boolean('is_optional').default(false).notNull(),
+  // Graph-canvas node placement (Configurator graph view) — cosmetic only;
+  // null until an admin drags the node at least once, at which point an
+  // auto-layout (dagre) position is persisted. Execution order is ALWAYS
+  // derived from orderIndex/workflow_step_edges, never from these — moving a
+  // node on the canvas never changes the actual workflow sequence.
+  positionX:       doublePrecision('position_x'),
+  positionY:       doublePrecision('position_y'),
   orderIndex:      integer('order_index').notNull(),      // display/default ordering only — adjacency lives in workflow_step_edges
   createdAt:       timestamp('created_at').defaultNow().notNull(),
   updatedAt:       timestamp('updated_at').defaultNow().notNull(),
@@ -133,6 +148,12 @@ export const workflowStepStates = pgTable('workflow_step_states', {
   sentBy:         uuid('sent_by').references(() => users.id),         // approval send
   receivedBy:     uuid('received_by').references(() => users.id),     // approval receive
   actedBy:        uuid('acted_by').references(() => users.id),
+  // v2.0 Phase 18.1 (ad hoc): which of the step's required kinds (primary +
+  // additionalKinds) have been satisfied so far for this project. Each
+  // kind-specific submit function (submitYesNoUpload/assignUser/
+  // receiveApproval) appends its own kind here. completeGraphStep requires
+  // this to be a superset of the step's full required-kinds set.
+  fulfilledKinds: text('fulfilled_kinds').array(),
   updatedAt:      timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
   unique().on(t.projectId, t.stepDefId),

@@ -1,6 +1,6 @@
 import { verifySession, isAdminRole } from '@/lib/dal'
 import type { UserRole } from '@/lib/workflow'
-import { getGraphSteps, getConfigAccess } from '@/lib/workflow-graph'
+import { getGraphSteps, getGraphEdges, getConfigAccess } from '@/lib/workflow-graph'
 import { isConfiguratorUnlocked } from '@/actions/workflow-config'
 import ConfiguratorPinGate from '@/app/_components/workflow-configurator-pin-gate'
 import ConfiguratorEditor from '@/app/_components/workflow-configurator-editor'
@@ -26,7 +26,7 @@ export default async function WorkflowConfiguratorPage() {
   const unlocked = await isConfiguratorUnlocked()
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8">
+    <div className="mx-auto max-w-[1400px] px-6 py-8">
       <h1 className="mb-2 text-2xl font-bold text-gray-900">Workflow Configurator</h1>
       <p className="mb-6 text-sm text-gray-500">
         Add, remove, reorder, and edit every step in the live project workflow — no code change or
@@ -44,6 +44,7 @@ export default async function WorkflowConfiguratorPage() {
 
 async function ConfiguratorEditorSection() {
   const steps = await getGraphSteps(GRAPH)
+  const edges = await getGraphEdges(GRAPH)
   const access = await getConfigAccess()
-  return <ConfiguratorEditor graph={GRAPH} steps={steps} currentHint={access.hint} />
+  return <ConfiguratorEditor graph={GRAPH} steps={steps} edges={edges} currentHint={access.hint} />
 }

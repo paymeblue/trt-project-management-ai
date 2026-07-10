@@ -90,6 +90,10 @@ export type GraphStep = {
   label: string
   role: WorkflowRole
   kind: StepKind
+  // v2.0 Phase 18.1 (ad hoc): EXTRA fulfillment kinds required on top of
+  // `kind` — e.g. a step needing both a yes/no+upload AND an assignment.
+  // null/empty = single-kind behavior, unchanged.
+  additionalKinds?: StepKind[] | null
   slug?: string | null
   // Pool of roles an `assignment`-kind step's actor may pick a user from
   // (v2.0 Phase 19: widened from a single role to a list — e.g. Head
@@ -101,6 +105,17 @@ export type GraphStep = {
   requiredPosition?: string | null
   isOptional: boolean
   orderIndex: number
+  // Graph-canvas node placement only (Configurator graph view) — cosmetic,
+  // never the source of execution order (that's orderIndex/edges).
+  positionX?: number | null
+  positionY?: number | null
+}
+
+// The full set of fulfillment kinds a step requires — primary + additional
+// (v2.0 Phase 18.1). Order matters for UI rendering (primary kind's form
+// shows first) but not for gating (completeGraphStep requires all of them).
+export function stepRequiredKinds(step: Pick<GraphStep, 'kind' | 'additionalKinds'>): StepKind[] {
+  return [step.kind, ...(step.additionalKinds ?? [])]
 }
 
 // New projects begin awaiting the first actionable step (Confirmation); step 1

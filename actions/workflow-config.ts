@@ -13,6 +13,9 @@ import {
   deleteGraphStep,
   moveGraphStep,
   moveGraphStepToIndex,
+  updateGraphStepPosition,
+  createGraphEdge,
+  deleteGraphEdge,
 } from '@/lib/workflow-graph'
 
 // ── PIN-gate session cookie (CFG-02) ──────────────────────────────────────
@@ -95,6 +98,7 @@ export type AddStepInput = {
   label: string
   role: WorkflowRole
   fulfillmentKind: StepKind
+  additionalKinds?: StepKind[]
   checklistSlug?: string
   targetRoles?: WorkflowRole[]
   requiredPosition?: string
@@ -112,6 +116,7 @@ export async function addConfigStepAction(input: AddStepInput): Promise<ConfigAc
     label: input.label.trim(),
     role: input.role,
     fulfillmentKind: input.fulfillmentKind,
+    additionalKinds: input.additionalKinds?.length ? input.additionalKinds : null,
     checklistSlug: input.checklistSlug || null,
     targetRoles: input.targetRoles?.length ? input.targetRoles : null,
     requiredPosition: input.requiredPosition?.trim() || null,
@@ -127,6 +132,7 @@ export type UpdateStepInput = {
   label?: string
   role?: WorkflowRole
   fulfillmentKind?: StepKind
+  additionalKinds?: StepKind[] | null
   checklistSlug?: string | null
   targetRoles?: WorkflowRole[] | null
   requiredPosition?: string | null
@@ -141,6 +147,7 @@ export async function updateConfigStepAction(input: UpdateStepInput): Promise<Co
   const res = await updateGraphStep({
     ...input,
     targetRoles: input.targetRoles?.length ? input.targetRoles : input.targetRoles === null ? null : undefined,
+    additionalKinds: input.additionalKinds?.length ? input.additionalKinds : input.additionalKinds === null ? null : undefined,
   })
   revalidatePath('/admin/workflow-configurator')
   revalidatePath('/about')
@@ -175,6 +182,43 @@ export async function moveConfigStepToIndexAction(
 ): Promise<ConfigActionState> {
   await requireUnlockedAdmin()
   const res = await moveGraphStepToIndex({ graph, stepId, targetIndex })
+  revalidatePath('/admin/workflow-configurator')
+  revalidatePath('/about')
+  return { status: res.ok ? 'success' : 'error', message: res.message }
+}
+
+/** Graph view: persists a node's canvas position (cosmetic, not execution order). */
+export async function updateConfigStepPositionAction(
+  stepId: string,
+  x: number,
+  y: number,
+): Promise<ConfigActionState> {
+  await requireUnlockedAdmin()
+  const res = await updateGraphStepPosition({ stepId, x, y })
+  return { status: res.ok ? 'success' : 'error', message: res.message }
+}
+
+/** Graph view: creates a direct connection between two steps (drag between handles). */
+export async function addConfigEdgeAction(
+  graph: string,
+  fromStepId: string,
+  toStepId: string,
+): Promise<ConfigActionState> {
+  await requireUnlockedAdmin()
+  const res = await createGraphEdge({ graph, fromStepId, toStepId })
+  revalidatePath('/admin/workflow-configurator')
+  revalidatePath('/about')
+  return { status: res.ok ? 'success' : 'error', message: res.message }
+}
+
+/** Graph view: removes a direct connection between two steps. */
+export async function removeConfigEdgeAction(
+  graph: string,
+  fromStepId: string,
+  toStepId: string,
+): Promise<ConfigActionState> {
+  await requireUnlockedAdmin()
+  const res = await deleteGraphEdge({ graph, fromStepId, toStepId })
   revalidatePath('/admin/workflow-configurator')
   revalidatePath('/about')
   return { status: res.ok ? 'success' : 'error', message: res.message }

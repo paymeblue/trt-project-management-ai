@@ -11,6 +11,7 @@ import {
   users,
 } from '@/db/schema'
 import type { GraphStep, StepKind, WorkflowRole, WorkflowStep } from '@/lib/workflow'
+import { stepRequiredKinds } from '@/lib/workflow'
 
 // ── Read engine for the DB-driven workflow graph (Phase 16, WF-01/WF-02) ──
 // Every function reads live from the database on each call — no module-level
@@ -30,11 +31,14 @@ function toGraphStep(row: typeof workflowStepDefinitions.$inferSelect): GraphSte
     // actually own steps.
     role: row.role as WorkflowRole,
     kind: row.fulfillmentKind,
+    additionalKinds: row.additionalKinds,
     slug: row.checklistSlug,
     targetRoles: row.targetRoles as WorkflowRole[] | null,
     requiredPosition: row.requiredPosition,
     isOptional: row.isOptional,
     orderIndex: row.orderIndex,
+    positionX: row.positionX,
+    positionY: row.positionY,
   }
 }
 
@@ -157,11 +161,27 @@ export async function getLastStep(graph = 'live'): Promise<GraphStep | undefined
 // records a project_step_completions row and re-derives the actionable set,
 // so state-fulfillment and advancement stay independently testable.
 
-// Kinds that require a fulfilled workflow_step_states row (status 'complete')
-// before completeGraphStep will accept a non-skip completion. The legacy
+// Kinds that require a fulfilled workflow_step_states row before
+// completeGraphStep will accept a non-skip completion. The legacy
 // checklist/readiness/ack/creation kinds are accepted as already validated
 // upstream by their own submission flow (mirrors actions/workflow.ts).
 const STATE_GATED_KINDS: StepKind[] = ['yes_no_upload', 'approval', 'assignment']
+
+/**
+ * Appends `kind` to a project+step's fulfilled-kinds record (v2.0 Phase
+ * 18.1 — multi-kind steps), deduping. Read-modify-write since Drizzle's
+ * neon-http driver has no convenience array-union upsert; call sites are
+ * low-contention (one actor completing one step at a time).
+ */
+async function appendFulfilledKind(projectId: string, stepDefId: string, kind: StepKind): Promise<string[]> {
+  const [existing] = await db
+    .select({ fulfilledKinds: workflowStepStates.fulfilledKinds })
+    .from(workflowStepStates)
+    .where(and(eq(workflowStepStates.projectId, projectId), eq(workflowStepStates.stepDefId, stepDefId)))
+    .limit(1)
+  const current = existing?.fulfilledKinds ?? []
+  return current.includes(kind) ? current : [...current, kind]
+}
 
 /**
  * Complete (or skip) a graph step for a project, then return the freshly
@@ -193,7 +213,11 @@ export async function completeGraphStep(opts: {
     return { ok: true, actionable: await getActionableSteps(projectId, step.graph) }
   }
 
-  if (STATE_GATED_KINDS.includes(step.kind)) {
+  // v2.0 Phase 18.1: a step's required kinds are primary + additionalKinds.
+  // Only the subset that are STATE_GATED_KINDS need a workflow_step_states
+  // fulfillment record; every one of those must appear in fulfilledKinds.
+  const gatedRequiredKinds = stepRequiredKinds(step).filter((k) => STATE_GATED_KINDS.includes(k))
+  if (gatedRequiredKinds.length > 0) {
     const [state] = await db
       .select()
       .from(workflowStepStates)
@@ -201,7 +225,8 @@ export async function completeGraphStep(opts: {
         and(eq(workflowStepStates.projectId, projectId), eq(workflowStepStates.stepDefId, stepDefId)),
       )
       .limit(1)
-    if (!state || state.status !== 'complete') throw new Error('step-not-fulfilled')
+    const fulfilled = state?.fulfilledKinds ?? []
+    if (!gatedRequiredKinds.every((k) => fulfilled.includes(k))) throw new Error('step-not-fulfilled')
   }
 
   await db.insert(projectStepCompletions).values({
@@ -227,6 +252,7 @@ export async function submitYesNoUpload(opts: {
   uploadName?: string | null
 }): Promise<void> {
   const now = new Date()
+  const fulfilledKinds = await appendFulfilledKind(opts.projectId, opts.stepDefId, 'yes_no_upload')
   await db
     .insert(workflowStepStates)
     .values({
@@ -237,6 +263,7 @@ export async function submitYesNoUpload(opts: {
       uploadData: opts.uploadData ?? null,
       uploadName: opts.uploadName ?? null,
       actedBy: opts.actorId,
+      fulfilledKinds,
       updatedAt: now,
     })
     .onConflictDoUpdate({
@@ -247,6 +274,7 @@ export async function submitYesNoUpload(opts: {
         uploadData: opts.uploadData ?? null,
         uploadName: opts.uploadName ?? null,
         actedBy: opts.actorId,
+        fulfilledKinds,
         updatedAt: now,
       },
     })
@@ -297,9 +325,10 @@ export async function receiveApproval(opts: {
   if (!state || state.status !== 'sent') throw new Error('approval-not-sent')
   if (state.sentBy === opts.actorId) throw new Error('approval-requires-two-parties')
 
+  const fulfilledKinds = await appendFulfilledKind(opts.projectId, opts.stepDefId, 'approval')
   await db
     .update(workflowStepStates)
-    .set({ status: 'complete', receivedBy: opts.actorId, updatedAt: new Date() })
+    .set({ status: 'complete', receivedBy: opts.actorId, fulfilledKinds, updatedAt: new Date() })
     .where(
       and(
         eq(workflowStepStates.projectId, opts.projectId),
@@ -337,6 +366,7 @@ export async function assignUser(opts: {
   }
 
   const now = new Date()
+  const fulfilledKinds = await appendFulfilledKind(opts.projectId, opts.stepDefId, 'assignment')
   await db
     .insert(workflowStepStates)
     .values({
@@ -345,6 +375,7 @@ export async function assignUser(opts: {
       status: 'complete',
       assignedUserId: opts.assignedUserId,
       actedBy: opts.actorId,
+      fulfilledKinds,
       updatedAt: now,
     })
     .onConflictDoUpdate({
@@ -353,6 +384,7 @@ export async function assignUser(opts: {
         status: 'complete',
         assignedUserId: opts.assignedUserId,
         actedBy: opts.actorId,
+        fulfilledKinds,
         updatedAt: now,
       },
     })
@@ -522,6 +554,7 @@ export async function createGraphStep(opts: {
   label: string
   role: WorkflowRole
   fulfillmentKind: StepKind
+  additionalKinds?: StepKind[] | null
   checklistSlug?: string | null
   targetRoles?: WorkflowRole[] | null
   requiredPosition?: string | null
@@ -540,6 +573,7 @@ export async function createGraphStep(opts: {
       label: opts.label,
       role: opts.role,
       fulfillmentKind: opts.fulfillmentKind,
+      additionalKinds: opts.additionalKinds?.length ? opts.additionalKinds : null,
       checklistSlug: opts.checklistSlug ?? null,
       targetRoles: opts.targetRoles ?? null,
       requiredPosition: opts.requiredPosition ?? null,
@@ -584,6 +618,7 @@ export async function updateGraphStep(opts: {
   label?: string
   role?: WorkflowRole
   fulfillmentKind?: StepKind
+  additionalKinds?: StepKind[] | null
   checklistSlug?: string | null
   targetRoles?: WorkflowRole[] | null
   requiredPosition?: string | null
@@ -593,10 +628,97 @@ export async function updateGraphStep(opts: {
   if (opts.label !== undefined) updates.label = opts.label
   if (opts.role !== undefined) updates.role = opts.role
   if (opts.fulfillmentKind !== undefined) updates.fulfillmentKind = opts.fulfillmentKind
+  if (opts.additionalKinds !== undefined) updates.additionalKinds = opts.additionalKinds?.length ? opts.additionalKinds : null
   if (opts.checklistSlug !== undefined) updates.checklistSlug = opts.checklistSlug
   if (opts.targetRoles !== undefined) updates.targetRoles = opts.targetRoles
   if (opts.requiredPosition !== undefined) updates.requiredPosition = opts.requiredPosition
   if (opts.isOptional !== undefined) updates.isOptional = opts.isOptional
   await db.update(workflowStepDefinitions).set(updates).where(eq(workflowStepDefinitions.id, opts.stepId))
   return { ok: true, message: 'Step updated.' }
+}
+
+/**
+ * Persists a node's canvas position (Configurator graph view). Purely
+ * cosmetic — never read by getActionableSteps or any execution-order logic,
+ * only by the canvas layout on next load.
+ */
+export async function updateGraphStepPosition(opts: {
+  stepId: string
+  x: number
+  y: number
+}): Promise<{ ok: boolean; message: string }> {
+  await db
+    .update(workflowStepDefinitions)
+    .set({ positionX: opts.x, positionY: opts.y, updatedAt: new Date() })
+    .where(eq(workflowStepDefinitions.id, opts.stepId))
+  return { ok: true, message: 'Position saved.' }
+}
+
+/**
+ * Direct edge creation for the Configurator graph view (dragging a
+ * connection between two node handles). Unlike moveGraphStep/
+ * moveGraphStepToIndex (which preserve a single linear order plus the one
+ * known branch/join), this lets an admin build arbitrary topology — no
+ * "simple step" guardrail, since the whole point of the graph view is
+ * direct topology control. Rejects a self-loop or an edge that already
+ * exists.
+ */
+export async function createGraphEdge(opts: {
+  graph: string
+  fromStepId: string
+  toStepId: string
+}): Promise<{ ok: boolean; message: string }> {
+  if (opts.fromStepId === opts.toStepId) {
+    return { ok: false, message: 'A step cannot connect to itself.' }
+  }
+  const [from] = await db.select({ id: workflowStepDefinitions.id }).from(workflowStepDefinitions).where(eq(workflowStepDefinitions.id, opts.fromStepId)).limit(1)
+  const [to] = await db.select({ id: workflowStepDefinitions.id }).from(workflowStepDefinitions).where(eq(workflowStepDefinitions.id, opts.toStepId)).limit(1)
+  if (!from || !to) return { ok: false, message: 'One of these steps could not be found.' }
+
+  const inserted = await db
+    .insert(workflowStepEdges)
+    .values({ graph: opts.graph, fromStepId: opts.fromStepId, toStepId: opts.toStepId })
+    .onConflictDoNothing()
+    .returning({ id: workflowStepEdges.id })
+  if (inserted.length === 0) {
+    return { ok: false, message: 'That connection already exists.' }
+  }
+  return { ok: true, message: 'Connected.' }
+}
+
+/**
+ * Direct edge deletion for the Configurator graph view. Refuses to delete
+ * an edge if it would leave the destination step with zero incoming edges
+ * AND that step isn't the graph's first step (orderIndex 1) — an
+ * unreachable step is a real misconfiguration, not a stylistic choice, so
+ * this is a hard guard rather than a warning.
+ */
+export async function deleteGraphEdge(opts: {
+  graph: string
+  fromStepId: string
+  toStepId: string
+}): Promise<{ ok: boolean; message: string }> {
+  const edges = await getGraphEdges(opts.graph)
+  const toIncoming = edges.filter((e) => e.toStepId === opts.toStepId)
+  if (toIncoming.length <= 1) {
+    const [toStep] = await db.select({ orderIndex: workflowStepDefinitions.orderIndex }).from(workflowStepDefinitions).where(eq(workflowStepDefinitions.id, opts.toStepId)).limit(1)
+    if (toStep && toStep.orderIndex !== 1) {
+      return {
+        ok: false,
+        message: 'Removing this would leave that step unreachable — connect it from somewhere else first.',
+      }
+    }
+  }
+  const deleted = await db
+    .delete(workflowStepEdges)
+    .where(
+      and(
+        eq(workflowStepEdges.graph, opts.graph),
+        eq(workflowStepEdges.fromStepId, opts.fromStepId),
+        eq(workflowStepEdges.toStepId, opts.toStepId),
+      ),
+    )
+    .returning({ id: workflowStepEdges.id })
+  if (deleted.length === 0) return { ok: false, message: 'That connection was not found.' }
+  return { ok: true, message: 'Disconnected.' }
 }
