@@ -1,7 +1,9 @@
 import { eq } from 'drizzle-orm'
+import { redirect } from 'next/navigation'
 import { db } from '@/db'
 import { projects } from '@/db/schema'
-import { requireAdmin } from '@/lib/dal'
+import { verifySession } from '@/lib/dal'
+import { isAdminRole, roleDashboard, type UserRole } from '@/lib/workflow'
 import PaymentConfirmationForm from './payment-confirmation-form'
 
 export const dynamic = 'force-dynamic'
@@ -11,42 +13,23 @@ export default async function PaymentConfirmationPage({
 }: {
   searchParams: Promise<{ projectId?: string }>
 }) {
-  await requireAdmin()
+  const { role } = await verifySession()
+  if (!isAdminRole(role as UserRole)) {
+    redirect(roleDashboard(role))
+  }
   const { projectId } = await searchParams
 
   if (!projectId) {
-    return (
-      <div className="mx-auto max-w-xl px-6 py-8">
-        <h1 className="mb-2 text-2xl font-bold text-gray-900">Payment Confirmation & Timeline</h1>
-        <p className="rounded-lg border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-400">
-          Missing project. Open this from the project board or timeline.
-        </p>
-      </div>
-    )
+    redirect(roleDashboard(role))
   }
 
   const [proj] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
   if (!proj) {
-    return (
-      <div className="mx-auto max-w-xl px-6 py-8">
-        <h1 className="mb-2 text-2xl font-bold text-gray-900">Payment Confirmation & Timeline</h1>
-        <p className="rounded-lg border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-400">
-          Project not found.
-        </p>
-      </div>
-    )
+    redirect(roleDashboard(role))
   }
 
   if (proj.currentStep !== 2) {
-    return (
-      <div className="mx-auto max-w-xl px-6 py-8">
-        <h1 className="mb-2 text-2xl font-bold text-gray-900">Payment Confirmation & Timeline</h1>
-        <p className="rounded-lg border border-dashed border-gray-200 bg-white p-6 text-center text-sm text-gray-400">
-          &quot;{proj.name}&quot; is not awaiting payment confirmation (it&apos;s already past this
-          step, or hasn&apos;t reached it).
-        </p>
-      </div>
-    )
+    redirect(roleDashboard(role))
   }
 
   return (

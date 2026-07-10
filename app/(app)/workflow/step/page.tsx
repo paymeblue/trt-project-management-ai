@@ -1,4 +1,5 @@
 import { eq, inArray } from 'drizzle-orm'
+import { redirect } from 'next/navigation'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
@@ -29,38 +30,17 @@ export default async function WorkflowStepPage({
   const dashboard = roleDashboard(role)
 
   if (!projectId || !stepKey) {
-    return (
-      <div className="mx-auto max-w-2xl px-6 py-8">
-        <a href={dashboard} className="text-sm text-primary hover:underline">
-          ← Dashboard
-        </a>
-        <p className="mt-6 text-gray-500">Missing projectId or step.</p>
-      </div>
-    )
+    redirect(dashboard)
   }
 
   const step = await getStepByKey(graph, stepKey)
 
   if (!step) {
-    return (
-      <div className="mx-auto max-w-2xl px-6 py-8">
-        <a href={dashboard} className="text-sm text-primary hover:underline">
-          ← Dashboard
-        </a>
-        <p className="mt-6 text-gray-500">This workflow step could not be found.</p>
-      </div>
-    )
+    redirect(dashboard)
   }
 
   if (!canRoleActOnStep(step.role, role as UserRole)) {
-    return (
-      <div className="mx-auto max-w-2xl px-6 py-8">
-        <a href={dashboard} className="text-sm text-primary hover:underline">
-          ← Dashboard
-        </a>
-        <p className="mt-6 text-gray-500">It is not your turn to act on this step.</p>
-      </div>
-    )
+    redirect(dashboard)
   }
 
   // v2.0 Phase 19: a step may additionally be narrowed to one exact
@@ -70,16 +50,7 @@ export default async function WorkflowStepPage({
   if (step.requiredPosition) {
     const [actingUser] = await db.select({ position: users.position }).from(users).where(eq(users.id, userId)).limit(1)
     if (actingUser?.position !== step.requiredPosition) {
-      return (
-        <div className="mx-auto max-w-2xl px-6 py-8">
-          <a href={dashboard} className="text-sm text-primary hover:underline">
-            ← Dashboard
-          </a>
-          <p className="mt-6 text-gray-500">
-            This step is restricted to a specific title, and your account is not set to it.
-          </p>
-        </div>
-      )
+      redirect(dashboard)
     }
   }
 
