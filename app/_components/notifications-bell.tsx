@@ -25,8 +25,10 @@ function ago(iso: string): string {
   return `${Math.floor(s / 86_400)}d ago`
 }
 
-// Super-admin in-app alerts: polls /api/notifications and shows an unread badge
-// with a dropdown panel. Mounted only for super admins (they are the recipients).
+// In-app alerts: polls /api/notifications (per-user, session-scoped) and shows
+// an unread badge with a dropdown panel. Mounted for every authenticated role —
+// super admins get escalation/flag/bypass alerts (REQ-G10), any role can get
+// 'assignment' alerts when picked from a workflow assignment step's target pool.
 export default function NotificationsBell() {
   const router = useRouter()
   const [feed, setFeed] = useState<Feed>({ items: [], unread: 0 })
@@ -77,8 +79,10 @@ export default function NotificationsBell() {
     })
     await markNotificationsReadAction(item.id)
     // Escalations/flags/bypasses carry a project — land the admin on its
-    // discussion thread so they can act (REQ-G10).
-    if (item.projectId) {
+    // discussion thread so they can act (REQ-G10). /disputes is a
+    // super-admin-only destination, so 'assignment' notifications (any role)
+    // must never route there — just mark read and refresh.
+    if (item.projectId && item.type !== 'assignment') {
       setOpen(false)
       router.push(`/disputes/${item.projectId}`)
     } else {
