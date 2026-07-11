@@ -52,6 +52,18 @@ const ROLES: { name: string; icon: string; blurb: string }[] = [
       'Production department shell is live; its workflow steps (production authorization, factory process, QC) are being rolled out and will appear here once configured.',
   },
   {
+    name: 'Factory Operations',
+    icon: 'precision_manufacturing',
+    blurb:
+      'Runs the Production Process checklist on the factory floor — the optimisation document, then cutting, edging, drilling & grooving, spray, hardwood & upholstery, and glass/accessories.',
+  },
+  {
+    name: 'Factory Manager',
+    icon: 'verified',
+    blurb:
+      'Performs Quality Control immediately before Materials / Accessories Readiness — uploads the Material, Accessories and Upholstery readiness forms, prompting Factory PM and Site PM simultaneously.',
+  },
+  {
     name: 'Super Admin',
     icon: 'admin_panel_settings',
     blurb:
