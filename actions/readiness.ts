@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
 import { readinessForms } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
-import { advanceProjectStep } from '@/actions/workflow'
+import { advanceOrConfirmDualRole } from '@/actions/workflow'
 
 export type ReadinessInput = {
   mode: 'digital' | 'upload'
@@ -80,7 +80,7 @@ export async function submitReadinessAction(
 
   let advanced = false
   if (input?.projectId && input?.expectedStepN) {
-    advanced = await advanceProjectStep({
+    advanced = await advanceOrConfirmDualRole({
       projectId: String(input.projectId),
       expectedStepN: Number(input.expectedStepN),
     })

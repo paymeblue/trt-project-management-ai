@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { findStep, stepHref, workflowRoleLabel } from '@/lib/workflow'
+import { findStep, stepHref, workflowRoleLabel, type UserRole } from '@/lib/workflow'
 import { completeAckStepAction, type AckStepState } from '@/actions/workflow'
 import { useMyWork } from '@/app/_components/my-work-provider'
 import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
@@ -29,7 +29,7 @@ function isStepRoute(pathname: string) {
   )
 }
 
-export default function PendingStepGate() {
+export default function PendingStepGate({ viewerRole }: { viewerRole: UserRole }) {
   const { pending, refresh } = useMyWork()
   const steps = useWorkflowSteps()
   const pathname = usePathname()
@@ -74,7 +74,7 @@ export default function PendingStepGate() {
     (p) => p !== item && !dismissed.has(keyOf(p.projectId, p.stepN)),
   ).length
 
-  const href = stepHref(step, item.projectId)
+  const href = stepHref(step, item.projectId, viewerRole)
   const deadlineText = item.deadline ? new Date(item.deadline).toLocaleDateString() : 'No deadline'
 
   return (

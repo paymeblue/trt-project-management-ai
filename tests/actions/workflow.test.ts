@@ -104,31 +104,31 @@ describe('advanceProjectStep', () => {
     expect(insertValuesMock).not.toHaveBeenCalled()
   })
 
-  it('Close Out (step 25) advances to Sign Off (26) but is NOT yet delivered', async () => {
-    // step 25 = close_out (site_pm); delivery only happens after Sign Off (REQ-G04)
+  it('Close Out (step 23) advances to Sign Off (24) but is NOT yet delivered', async () => {
+    // step 23 = close_out (site_pm); delivery only happens after Sign Off (REQ-G04)
     verifyMock.mockResolvedValue({ userId: 'u1', role: 'site_pm' })
-    selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 25, status: 'not_delivered' }])
+    selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 23, status: 'not_delivered' }])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
-    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 25 })
+    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 23 })
 
     expect(ok).toBe(true)
     expect(setMock).toHaveBeenCalledWith(
-      expect.objectContaining({ currentStep: 26, status: 'not_delivered' }),
+      expect.objectContaining({ currentStep: 24, status: 'not_delivered' }),
     )
   })
 
-  it('marks the project delivered after Sign Off (step 26) completes', async () => {
-    // step 26 = sign_off (super_admin) — the new final step
+  it('marks the project delivered after Sign Off (step 24) completes', async () => {
+    // step 24 = sign_off (super_admin) — the new final step
     verifyMock.mockResolvedValue({ userId: 'admin1', role: 'super_admin' })
-    selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 26, status: 'not_delivered' }])
+    selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 24, status: 'not_delivered' }])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
-    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 26 })
+    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 24 })
 
     expect(ok).toBe(true)
     expect(setMock).toHaveBeenCalledWith(
-      expect.objectContaining({ currentStep: 27, status: 'delivered' }),
+      expect.objectContaining({ currentStep: 25, status: 'delivered' }),
     )
   })
 

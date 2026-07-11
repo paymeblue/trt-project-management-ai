@@ -139,7 +139,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <PaulArredo />
 
       {/* Forcing "action required" modal for steps on this user's desk */}
-      <PendingStepGate />
+      <PendingStepGate viewerRole={role as UserRole} />
     </div>
     </WorkflowStepsProvider>
     </MyWorkProvider>

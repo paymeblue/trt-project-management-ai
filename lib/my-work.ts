@@ -3,7 +3,7 @@ import { inArray } from 'drizzle-orm'
 import { db } from '@/db'
 import { projects, projectStepDeadlines } from '@/db/schema'
 import {
-  canRoleActOnStep,
+  canActOnGraphStep,
   findStep,
   lastStepN,
   projectComplete,
@@ -61,7 +61,7 @@ export async function getMyWork(role: UserRole): Promise<MyWork> {
   const pending = active
     .filter((p) => {
       const step = findStep(steps, p.currentStep)
-      return step ? canRoleActOnStep(step.role, role) : false
+      return step ? canActOnGraphStep(step, role) : false
     })
     .map((p) => ({
       projectId: p.id,

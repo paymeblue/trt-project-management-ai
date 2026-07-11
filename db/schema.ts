@@ -102,6 +102,18 @@ export const workflowStepDefinitions = pgTable('workflow_step_definitions', {
   targetRoles:     roleEnum('target_role').array(),       // set only when fulfillmentKind = 'assignment' — pool of roles the actor may pick a user from (v2.0 Phase 19: was a single role, widened to a list so e.g. Head Designer can pick from design OR architect)
   requiredPosition: text('required_position'),            // v2.0 Phase 19 (ad hoc, pre-formal-enum): narrows a role-gated step to one exact users.position value (e.g. 'head_designer'). null = today's behavior unchanged (any user with the step's role may act). Deliberately left as free text for now, not a DB enum — converting users.position to a real Postgres enum is deferred to formal Phase 19 execution to avoid migration risk under this ad hoc build.
   receiverRequiredPosition: text('receiver_required_position'), // v2.0 Phase 22 (ad hoc): approval-kind steps only — narrows the RECEIVER (2nd party) to one exact users.position, distinct from requiredPosition which gates the SENDER. null = receive stays open to anyone eligible who isn't the sender (legacy behavior).
+  // v2.0 Phase 22e (ad hoc): approval-kind steps only — narrows the RECEIVER
+  // to one exact ROLE (distinct from receiverRequiredPosition, which narrows
+  // by exact position within the sender's role). Used for cross-role
+  // send/receive, e.g. Delivery: factory_pm sends, site_pm receives — two
+  // DIFFERENT roles, not two positions within one role.
+  receiverRole:    roleEnum('receiver_role'),
+  // v2.0 Phase 22e (ad hoc): legacy-engine (readiness/checklist) steps only —
+  // when set, this step requires ALL of these roles to independently confirm
+  // (via workflow_step_states.confirmed_roles, see confirmDualRoleStep in
+  // actions/workflow.ts) before it advances. null = today's single-actor
+  // behavior unchanged (first submission advances immediately).
+  dualRoles:       roleEnum('dual_roles').array(),
   isOptional:      boolean('is_optional').default(false).notNull(),
   // Graph-canvas node placement (Configurator graph view) — cosmetic only;
   // null until an admin drags the node at least once, at which point an
@@ -155,6 +167,11 @@ export const workflowStepStates = pgTable('workflow_step_states', {
   // receiveApproval) appends its own kind here. completeGraphStep requires
   // this to be a superset of the step's full required-kinds set.
   fulfilledKinds: text('fulfilled_kinds').array(),
+  // v2.0 Phase 22e (ad hoc): which roles have confirmed so far, for a
+  // legacy-engine (readiness/checklist) step with `dualRoles` set on its
+  // definition — see confirmDualRoleStep in actions/workflow.ts. Distinct
+  // from fulfilledKinds (that's for the newer graph-engine kinds).
+  confirmedRoles: text('confirmed_roles').array(),
   updatedAt:      timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
   unique().on(t.projectId, t.stepDefId),
@@ -200,7 +217,7 @@ export const checklistDefinitions = pgTable('checklist_definitions', {
 // ── Template Items (CHK-01: schema-as-data) ──────────────────────────────
 export const checklistTemplateItems = pgTable('checklist_template_items', {
   id:              uuid('id').primaryKey().defaultRandom(),
-  definitionId:    uuid('definition_id').notNull().references(() => checklistDefinitions.id),
+  definitionId:    uuid('definition_id').notNull(), // FK below (explicit short name — default name exceeds Postgres' 63-char identifier limit and gets silently truncated, causing drizzle-kit push non-idempotency; same bug class as psc_step_def_id_fk/wse_from_step_id_fk/wss_step_def_id_fk)
   step:            integer('step').notNull().default(1),
   sectionTitle:    text('section_title'), // e.g. "Kitchen · Boxes" — groups a step
   sortOrder:       integer('sort_order').notNull().default(0),
@@ -211,7 +228,13 @@ export const checklistTemplateItems = pgTable('checklist_template_items', {
   isPhotoRequired: boolean('is_photo_required').default(false).notNull(),
   helpText:        text('help_text'),
   isActive:        boolean('is_active').default(true).notNull(),
-})
+}, (t) => [
+  foreignKey({
+    columns: [t.definitionId],
+    foreignColumns: [checklistDefinitions.id],
+    name: 'cti_definition_id_fk',
+  }),
+])
 
 // ── Checklist Instances ───────────────────────────────────────────────────
 export const checklists = pgTable('checklists', {
@@ -230,13 +253,19 @@ export const checklists = pgTable('checklists', {
 export const checklistResponses = pgTable('checklist_responses', {
   id:             uuid('id').primaryKey().defaultRandom(),
   checklistId:    uuid('checklist_id').notNull().references(() => checklists.id, { onDelete: 'cascade' }),
-  templateItemId: uuid('template_item_id').notNull().references(() => checklistTemplateItems.id),
+  templateItemId: uuid('template_item_id').notNull(), // FK below (explicit short name — default name exceeds Postgres' 63-char identifier limit; same bug class as psc_step_def_id_fk/wse_from_step_id_fk/wss_step_def_id_fk)
   value:          responseValueEnum('value'),
   textValue:      text('text_value'),
   notes:          text('notes'),
   createdAt:      timestamp('created_at').defaultNow().notNull(),
   updatedAt:      timestamp('updated_at').defaultNow().notNull(),
-})
+}, (t) => [
+  foreignKey({
+    columns: [t.templateItemId],
+    foreignColumns: [checklistTemplateItems.id],
+    name: 'cr_template_item_id_fk',
+  }),
+])
 
 // ── Attachments ───────────────────────────────────────────────────────────
 export const attachments = pgTable('attachments', {

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   Roles,
-  canRoleActOnStep,
+  canActOnGraphStep,
   workflowRoleLabel,
   stepHref,
   findStep,
@@ -346,8 +346,8 @@ function StepsModal({
           {steps.map((step) => {
             const done = step.n < project.currentStep
             const current = step.n === project.currentStep
-            const mine = !paused && canRoleActOnStep(step.role, viewerRole)
-            const href = current && mine ? stepHref(step, project.id) : null
+            const mine = !paused && canActOnGraphStep(step, viewerRole)
+            const href = current && mine ? stepHref(step, project.id, viewerRole) : null
 
             const tip = done
               ? 'Completed — this step is locked.'
@@ -520,7 +520,7 @@ export default function ProjectStepsBoard({
   function needsViewer(p: BoardProject) {
     if (p.status === 'paused' || projectComplete(p.currentStep, lastN)) return false
     const step = findStep(steps, p.currentStep)
-    return step ? canRoleActOnStep(step.role, viewerRole) : false
+    return step ? canActOnGraphStep(step, viewerRole) : false
   }
 
   if (projects.length === 0) {

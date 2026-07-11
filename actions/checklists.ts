@@ -10,7 +10,7 @@ import {
   checklistResponses,
 } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
-import { advanceProjectStep } from '@/actions/workflow'
+import { advanceOrConfirmDualRole } from '@/actions/workflow'
 import { REQUIRED_PHOTOS, canEditChecklist } from '@/lib/workflow'
 
 type ResponseValue = 'yes' | 'no' | 'na'
@@ -111,7 +111,7 @@ export async function submitChecklistAction(
 
   let advanced = false
   if (projectId && input?.expectedStepN) {
-    advanced = await advanceProjectStep({
+    advanced = await advanceOrConfirmDualRole({
       projectId,
       expectedStepN: Number(input.expectedStepN),
     })

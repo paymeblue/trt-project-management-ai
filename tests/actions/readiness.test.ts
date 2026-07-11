@@ -9,7 +9,7 @@ const { dbMock, verifyMock, insertValuesMock, advanceMock } = vi.hoisted(() => {
 vi.mock('server-only', () => ({}))
 vi.mock('@/db', () => ({ db: dbMock }))
 vi.mock('@/lib/dal', () => ({ verifySession: verifyMock }))
-vi.mock('@/actions/workflow', () => ({ advanceProjectStep: advanceMock }))
+vi.mock('@/actions/workflow', () => ({ advanceOrConfirmDualRole: advanceMock }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 const PHOTO = 'data:image/png;base64,AAAA'

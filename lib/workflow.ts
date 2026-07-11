@@ -118,6 +118,17 @@ export type GraphStep = {
   // sender (legacy behavior, T-16-07). E.g. Send for Production: `requiredPosition`
   // = head_of_operations (sender), `receiverRequiredPosition` = chief_production_officer.
   receiverRequiredPosition?: string | null
+  // v2.0 Phase 22e (ad hoc): approval-kind steps only — narrows the receiver
+  // to one exact ROLE (cross-role send/receive, e.g. factory_pm sends,
+  // site_pm receives), distinct from receiverRequiredPosition (same-role,
+  // different position). null = receive gates on the step's normal role
+  // (legacy behavior unchanged).
+  receiverRole?: WorkflowRole | null
+  // v2.0 Phase 22e (ad hoc): legacy-engine (readiness/checklist) steps only —
+  // when set, ALL of these roles must independently confirm before the step
+  // advances (see confirmDualRoleStep in actions/workflow.ts). null = today's
+  // single-actor behavior unchanged.
+  dualRoles?: WorkflowRole[] | null
   isOptional: boolean
   orderIndex: number
   // Graph-canvas node placement only (Configurator graph view) — cosmetic,
@@ -188,7 +199,7 @@ const USER_ROLE_LABELS: Record<UserRole, string> = {
   production: 'Production',
   customer_care: 'Customer Care',
   architect: 'Architect',
-  factory_operations: 'Factory Operations Head',
+  factory_operations: 'Factory Operations',
   factory_manager: 'Factory Manager',
 }
 
@@ -228,6 +239,21 @@ export function canRoleActOnStep(stepRole: WorkflowRole, userRole: UserRole): bo
   return stepRole === userRole
 }
 
+// v2.0 Phase 22e: like canRoleActOnStep, but also true for a step's
+// `dualRoles` (e.g. the merged Materials/Delivery Readiness step — BOTH
+// factory_pm and site_pm can act on it, not just the step's primary `role`).
+// Every "can this user act on / see this as pending work" check must use
+// this instead of the bare role check, or the second dualRole silently never
+// sees the step as theirs (see lib/my-work.ts, header-project-switcher.tsx,
+// project-steps-board.tsx, admin/timeline).
+export function canActOnGraphStep(
+  step: { role: WorkflowRole; dualRoles?: WorkflowRole[] | null },
+  userRole: UserRole,
+): boolean {
+  if (canRoleActOnStep(step.role, userRole)) return true
+  return (step.dualRoles as string[] | null | undefined)?.includes(userRole) ?? false
+}
+
 // Checklist slugs that require photo evidence before submit. (The 2-image
 // requirement lives on the Materials / Accessories Readiness Form, not here.)
 export const REQUIRED_PHOTOS: Record<string, number> = {
@@ -242,9 +268,20 @@ export const REQUIRED_PHOTOS: Record<string, number> = {
 
 // Destination for an actionable step. `ack` steps are completed inline from the
 // modal (no destination).
-export function stepHref(step: WorkflowStep, projectId: string): string | null {
+export function stepHref(
+  step: WorkflowStep & { dualRoles?: WorkflowRole[] | null },
+  projectId: string,
+  viewerRole?: UserRole,
+): string | null {
   const q = `?projectId=${projectId}&step=${step.n}`
   if (step.kind === 'checklist' && step.slug) return `/checklists/${step.slug}${q}`
+  // v2.0 Phase 22e: a dualRoles 'readiness' step (e.g. merged Materials/
+  // Delivery Readiness) still routes factory_pm to the rich readiness form,
+  // but any OTHER dualRole (e.g. site_pm) gets the checklist page instead —
+  // the readiness form/route is factory_pm-specific, not role-agnostic.
+  if (step.kind === 'readiness' && step.dualRoles?.length && viewerRole && viewerRole !== Roles.FactoryPm) {
+    return step.slug ? `/checklists/${step.slug}${q}` : null
+  }
   if (step.kind === 'readiness') return `/factory-pm/readiness${q}`
   if (step.kind === 'payment_confirmation') return `/admin/payment-confirmation${q}`
   if (step.kind === 'timeline_setting') return `/admin/invoice-timeline${q}`

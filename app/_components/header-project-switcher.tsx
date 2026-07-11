@@ -6,7 +6,7 @@ import {
   findStep,
   stepHref,
   workflowRoleLabel,
-  canRoleActOnStep,
+  canActOnGraphStep,
   lastStepN,
   type UserRole,
 } from '@/lib/workflow'
@@ -54,8 +54,8 @@ export default function HeaderProjectSwitcher({ viewerRole }: { viewerRole: User
   const selected = projects.find((p) => p.id === selectedId) ?? projects[0]
   const lastN = lastStepN(steps)
   const step = findStep(steps, selected.stepN)
-  const mine = step ? canRoleActOnStep(step.role, viewerRole) : false
-  const href = step && mine ? stepHref(step, selected.id) : null
+  const mine = step ? canActOnGraphStep(step, viewerRole) : false
+  const href = step && mine ? stepHref(step, selected.id, viewerRole) : null
 
   function choose(id: string) {
     setSelectedId(id)
@@ -108,7 +108,7 @@ export default function HeaderProjectSwitcher({ viewerRole }: { viewerRole: User
         <div className="absolute left-0 top-full z-50 mt-1 max-h-80 w-80 overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-low p-1 shadow-lg">
           {projects.map((p) => {
             const s = findStep(steps, p.stepN)
-            const youract = s ? canRoleActOnStep(s.role, viewerRole) : false
+            const youract = s ? canActOnGraphStep(s, viewerRole) : false
             return (
               <button
                 key={p.id}

@@ -1,9 +1,9 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { projects, projectStepCompletions } from '@/db/schema'
+import { projects, projectStepCompletions, workflowStepStates } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { canRoleActOnStep, findStep, lastStepN, type UserRole } from '@/lib/workflow'
 import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
@@ -63,6 +63,110 @@ export async function advanceProjectStep(opts: {
 
   revalidateBoards()
   return true
+}
+
+/**
+ * v2.0 Phase 22e: for a legacy-engine (readiness/checklist) step with
+ * `dualRoles` set — e.g. the merged Materials/Delivery Readiness step
+ * (factory_pm + site_pm both required) — records the caller's role as
+ * confirmed, and only advances the project once EVERY dualRole has
+ * independently confirmed. Unlike `advanceProjectStep` (immediate,
+ * single-actor), this can be called multiple times by different actors
+ * before the step actually completes; each call before the last is a no-op
+ * on `projects.currentStep` but still persists partial progress.
+ *
+ * Returns `advanced: true` only on the call that completes the LAST
+ * required role's confirmation.
+ */
+export async function confirmDualRoleStep(opts: {
+  projectId: string
+  expectedStepN: number
+  notes?: string | null
+}): Promise<{ ok: boolean; advanced: boolean; message?: string }> {
+  const { userId, role } = await verifySession()
+  const { projectId, expectedStepN } = opts
+
+  const [proj] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
+  if (!proj) return { ok: false, advanced: false, message: 'Project not found.' }
+  if (proj.currentStep !== expectedStepN) {
+    return { ok: false, advanced: false, message: 'This step is no longer awaiting action.' }
+  }
+
+  const steps = await getLiveWorkflowSteps()
+  const step = findStep(steps, expectedStepN)
+  if (!step || !step.dualRoles?.length) {
+    return { ok: false, advanced: false, message: 'This step is not configured for dual-role confirmation.' }
+  }
+  if (!(step.dualRoles as string[]).includes(role)) {
+    return { ok: false, advanced: false, message: 'Not your step.' }
+  }
+
+  const [existing] = await db
+    .select({ confirmedRoles: workflowStepStates.confirmedRoles })
+    .from(workflowStepStates)
+    .where(and(eq(workflowStepStates.projectId, projectId), eq(workflowStepStates.stepDefId, step.stepDefId)))
+    .limit(1)
+  const confirmedRoles = existing?.confirmedRoles ?? []
+  if (!confirmedRoles.includes(role)) confirmedRoles.push(role)
+
+  await db
+    .insert(workflowStepStates)
+    .values({ projectId, stepDefId: step.stepDefId, status: 'pending', confirmedRoles, actedBy: userId, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: [workflowStepStates.projectId, workflowStepStates.stepDefId],
+      set: { confirmedRoles, actedBy: userId, updatedAt: new Date() },
+    })
+
+  const allConfirmed = step.dualRoles.every((r) => confirmedRoles.includes(r))
+  if (!allConfirmed) {
+    revalidateBoards()
+    return { ok: true, advanced: false, message: 'Your confirmation was recorded — waiting on the other role.' }
+  }
+
+  await db
+    .update(workflowStepStates)
+    .set({ status: 'complete', updatedAt: new Date() })
+    .where(and(eq(workflowStepStates.projectId, projectId), eq(workflowStepStates.stepDefId, step.stepDefId)))
+
+  await db.insert(projectStepCompletions).values({
+    projectId,
+    stepKey: step.key,
+    stepN: step.n,
+    stepDefId: step.stepDefId,
+    graph: 'live',
+    completedBy: userId,
+    notes: opts.notes?.trim() || null,
+  })
+
+  const nextStep = proj.currentStep + 1
+  const done = nextStep > lastStepN(steps)
+  await db
+    .update(projects)
+    .set({ currentStep: nextStep, status: done ? 'delivered' : proj.status, updatedAt: new Date() })
+    .where(eq(projects.id, projectId))
+
+  revalidateBoards()
+  return { ok: true, advanced: true, message: 'Both roles confirmed — step completed.' }
+}
+
+/**
+ * Shared dispatcher for the readiness/checklist submission actions: most
+ * steps advance immediately on a single submission (advanceProjectStep), but
+ * a step with `dualRoles` configured (v2.0 Phase 22e) needs BOTH roles to
+ * independently confirm first (confirmDualRoleStep). Callers just want a
+ * single boolean — this picks the right engine transparently.
+ */
+export async function advanceOrConfirmDualRole(opts: {
+  projectId: string
+  expectedStepN: number
+  notes?: string | null
+}): Promise<boolean> {
+  const step = findStep(await getLiveWorkflowSteps(), opts.expectedStepN)
+  if (step?.dualRoles?.length) {
+    const res = await confirmDualRoleStep(opts)
+    return res.advanced
+  }
+  return advanceProjectStep(opts)
 }
 
 export type AckStepState = { ok: boolean; message?: string }

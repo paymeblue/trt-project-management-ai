@@ -37,6 +37,8 @@ function toGraphStep(row: typeof workflowStepDefinitions.$inferSelect): GraphSte
     targetRoles: row.targetRoles as WorkflowRole[] | null,
     requiredPosition: row.requiredPosition,
     receiverRequiredPosition: row.receiverRequiredPosition,
+    receiverRole: row.receiverRole as WorkflowRole | null,
+    dualRoles: row.dualRoles as WorkflowRole[] | null,
     isOptional: row.isOptional,
     orderIndex: row.orderIndex,
     positionX: row.positionX,
@@ -58,7 +60,7 @@ export async function getGraphSteps(graph = 'live'): Promise<GraphStep[]> {
 // stand in for the array-based WorkflowStep shape without changing its
 // consumers' expected shape. `stepDefId` is carried alongside so a caller can
 // still resolve back to the DB row (e.g. for completeGraphStep).
-export type LiveWorkflowStep = WorkflowStep & { stepDefId: string }
+export type LiveWorkflowStep = WorkflowStep & { stepDefId: string; dualRoles?: WorkflowRole[] | null }
 
 export async function getLiveWorkflowSteps(): Promise<LiveWorkflowStep[]> {
   const steps = await getGraphSteps('live')
@@ -70,6 +72,7 @@ export async function getLiveWorkflowSteps(): Promise<LiveWorkflowStep[]> {
     kind: g.kind,
     slug: g.slug ?? undefined,
     stepDefId: g.id,
+    dualRoles: g.dualRoles,
   }))
 }
 
@@ -693,6 +696,8 @@ export async function createGraphStep(opts: {
   targetRoles?: WorkflowRole[] | null
   requiredPosition?: string | null
   receiverRequiredPosition?: string | null
+  receiverRole?: WorkflowRole | null
+  dualRoles?: WorkflowRole[] | null
   isOptional?: boolean
 }): Promise<{ ok: boolean; message: string; stepId?: string }> {
   const steps = await getGraphSteps(opts.graph)
@@ -713,6 +718,8 @@ export async function createGraphStep(opts: {
       targetRoles: opts.targetRoles ?? null,
       requiredPosition: opts.requiredPosition ?? null,
       receiverRequiredPosition: opts.receiverRequiredPosition ?? null,
+      receiverRole: opts.receiverRole ?? null,
+      dualRoles: opts.dualRoles?.length ? opts.dualRoles : null,
       isOptional: opts.isOptional ?? false,
       orderIndex: maxOrder + 1,
     })
@@ -778,6 +785,8 @@ export async function updateGraphStep(opts: {
   targetRoles?: WorkflowRole[] | null
   requiredPosition?: string | null
   receiverRequiredPosition?: string | null
+  receiverRole?: WorkflowRole | null
+  dualRoles?: WorkflowRole[] | null
   isOptional?: boolean
 }): Promise<{ ok: boolean; message: string }> {
   const updates: Record<string, unknown> = { updatedAt: new Date() }
@@ -789,6 +798,8 @@ export async function updateGraphStep(opts: {
   if (opts.targetRoles !== undefined) updates.targetRoles = opts.targetRoles
   if (opts.requiredPosition !== undefined) updates.requiredPosition = opts.requiredPosition
   if (opts.receiverRequiredPosition !== undefined) updates.receiverRequiredPosition = opts.receiverRequiredPosition
+  if (opts.receiverRole !== undefined) updates.receiverRole = opts.receiverRole
+  if (opts.dualRoles !== undefined) updates.dualRoles = opts.dualRoles?.length ? opts.dualRoles : null
   if (opts.isOptional !== undefined) updates.isOptional = opts.isOptional
   await db.update(workflowStepDefinitions).set(updates).where(eq(workflowStepDefinitions.id, opts.stepId))
   return { ok: true, message: 'Step updated.' }

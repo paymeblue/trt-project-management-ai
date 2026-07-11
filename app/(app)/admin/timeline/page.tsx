@@ -6,7 +6,7 @@ import {
   findStep,
   lastStepN,
   projectComplete,
-  canRoleActOnStep,
+  canActOnGraphStep,
   stepHref,
   workflowRoleLabel,
   type UserRole,
@@ -113,8 +113,8 @@ export default async function AdminTimelinePage() {
                 !!step &&
                 step.kind !== 'creation' &&
                 step.role === 'operations' &&
-                canRoleActOnStep(step.role, role as UserRole)
-              const actHref = canAct && step ? stepHref(step, p.id) : null
+                canActOnGraphStep(step, role as UserRole)
+              const actHref = canAct && step ? stepHref(step, p.id, role as UserRole) : null
 
               const history = byProject.get(p.id) ?? []
 

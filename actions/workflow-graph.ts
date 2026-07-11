@@ -63,11 +63,16 @@ type StepAuth = { ok: true; userId: string } | { ok: false; message: string }
 // Head of Operations (`requiredPosition`), receiver must be Chief Production
 // Officer (`receiverRequiredPosition`). When unset, receive falls back to the
 // step's normal `requiredPosition` gate (legacy behavior unchanged).
+// v2.0 Phase 22e: approval-kind steps can ALSO gate the receiver to a
+// DIFFERENT ROLE entirely via `receiverRole` — e.g. Delivery: factory_pm
+// sends, site_pm receives. When set, this replaces the normal
+// canRoleActOnStep(step.role, ...) gate for the receive action only.
 async function authorizeStep(stepDefId: string, forReceive = false): Promise<StepAuth> {
   const { userId, role } = await verifySession()
   const step = await getStepById(stepDefId)
   if (!step) return { ok: false, message: 'That step could not be found.' }
-  if (!canRoleActOnStep(step.role, role)) return { ok: false, message: 'Not your step.' }
+  const roleGate = forReceive && step.receiverRole ? step.receiverRole : step.role
+  if (!canRoleActOnStep(roleGate, role)) return { ok: false, message: 'Not your step.' }
   const requiredPos = forReceive ? (step.receiverRequiredPosition ?? step.requiredPosition) : step.requiredPosition
   if (requiredPos) {
     const [actingUser] = await db.select({ position: users.position }).from(users).where(eq(users.id, userId)).limit(1)
