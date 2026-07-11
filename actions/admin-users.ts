@@ -50,14 +50,12 @@ export async function createUserAction(input: {
   name: string
   email: string
   role: string
-  position?: string
 }): Promise<CreateUserResult> {
   await requireAdmin()
 
   const name = String(input?.name ?? '').trim()
   const email = String(input?.email ?? '').toLowerCase().trim()
   const role = String(input?.role ?? '') as UserRole
-  const position = String(input?.position ?? '').trim() || null
 
   if (name.length < 2) return { ok: false, error: 'Name must be at least 2 characters.' }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, error: 'Enter a valid email.' }
@@ -73,7 +71,6 @@ export async function createUserAction(input: {
     email,
     name,
     role,
-    position,
     hashedPassword: hashed,
     emailVerified: new Date(), // admin-created accounts are pre-verified
   })

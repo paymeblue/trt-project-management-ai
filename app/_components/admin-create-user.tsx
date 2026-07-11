@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createUserAction } from '@/actions/admin-users';
-import { KNOWN_POSITIONS } from '@/app/_components/workflow-configurator-shared';
 
 const ROLES = [
   { value: 'factory_pm', label: 'Factory PM' },
@@ -21,7 +20,6 @@ export default function AdminCreateUser() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('factory_pm');
-  const [position, setPosition] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<{
@@ -33,7 +31,7 @@ export default function AdminCreateUser() {
     setError('');
     setResult(null);
     setBusy(true);
-    const res = await createUserAction({ name, email, role, position });
+    const res = await createUserAction({ name, email, role });
     setBusy(false);
     if (!res.ok) {
       setError(res.error ?? 'Could not create the user.');
@@ -42,7 +40,6 @@ export default function AdminCreateUser() {
     setResult({ tempPassword: res.tempPassword, emailed: res.emailed });
     setName('');
     setEmail('');
-    setPosition('');
     router.refresh();
   }
 
@@ -87,32 +84,6 @@ export default function AdminCreateUser() {
               </option>
             ))}
           </select>
-        </div>
-        <div>
-          <label className={labelCls}>Position (optional)</label>
-          <input
-            value={position}
-            onChange={(e) => setPosition(e.target.value)}
-            placeholder="e.g. Lead Factory PM"
-            list="known-positions"
-            className={inputCls}
-          />
-          {/* Several workflow steps gate on an EXACT position match (e.g.
-              "chief_production_officer") — free text is easy to typo, so
-              suggest the known machine values while still allowing any
-              other free-text title. */}
-          <datalist id="known-positions">
-            {KNOWN_POSITIONS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </datalist>
-          <p className="mt-1 text-[11px] text-gray-500">
-            To unlock a step restricted to a specific title (e.g. Chief
-            Production Officer, Head of Operations, Head Designer), enter it
-            exactly as suggested.
-          </p>
         </div>
       </div>
 

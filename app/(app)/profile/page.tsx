@@ -4,7 +4,7 @@ import { users } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { updateProfileAction } from '@/actions/profile'
 import ProfileAvatarField from '@/app/_components/profile-avatar-field'
-import { userRoleLabel, roleDashboard } from '@/lib/workflow'
+import { userRoleLabel, roleDashboard, POSITION_VALUES, POSITION_LABELS } from '@/lib/workflow'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,24 +37,21 @@ export default async function ProfilePage() {
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Position</label>
-          <input
+          <select
             name="position"
             defaultValue={u?.position ?? ''}
-            placeholder="e.g. Senior Site Manager"
-            list="known-positions"
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-          />
-          <datalist id="known-positions">
-            <option value="head_designer" />
-            <option value="head_of_operations" />
-            <option value="chief_production_officer" />
-          </datalist>
+          >
+            <option value="">— none —</option>
+            {POSITION_VALUES.map((v) => (
+              <option key={v} value={v}>
+                {POSITION_LABELS[v] ?? v}
+              </option>
+            ))}
+          </select>
           <p className="mt-1 text-xs text-gray-400">
-            Some workflow steps are restricted to an exact position — use{' '}
-            <code className="rounded bg-gray-100 px-1">head_designer</code>,{' '}
-            <code className="rounded bg-gray-100 px-1">head_of_operations</code>, or{' '}
-            <code className="rounded bg-gray-100 px-1">chief_production_officer</code> if you hold one of
-            those titles. Must match exactly (case and spelling) — start typing to see suggestions.
+            Choose your position from the recognized list. Some workflow steps are restricted to an
+            exact position, so this gates whether those steps are available to you.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-4">
