@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { updateConfigStepAction, deleteConfigStepAction, type ConfigActionState } from '@/actions/workflow-config'
 import type { WorkflowRole, StepKind, GraphStep } from '@/lib/workflow'
+import { POSITION_VALUES, POSITION_LABELS } from '@/lib/workflow'
 
 // Shared between the list view (workflow-configurator-editor.tsx) and the
 // graph view's side panel (workflow-configurator-graph.tsx) — one form,
@@ -30,15 +31,6 @@ export const KIND_OPTIONS: { value: StepKind; label: string; hint: string }[] = 
   { value: 'yes_no_upload', label: 'Yes/No + optional upload', hint: 'A simple yes/no answer, with an optional file attached.' },
   { value: 'approval', label: 'Approval (send/receive)', hint: 'One person sends it, a different person must receive/approve it.' },
   { value: 'assignment', label: 'Assignment', hint: 'The actor picks a specific person (from one or more roles) to hand this off to.' },
-]
-
-// Known `users.position` values that already gate a step somewhere in the
-// app — offered as one-click choices so configuring "required position"
-// never requires typing an exact snake_case string from memory.
-export const KNOWN_POSITIONS = [
-  { value: 'head_designer', label: 'Head Designer' },
-  { value: 'head_of_operations', label: 'Operations Manager (Admin)' },
-  { value: 'chief_production_officer', label: 'Chief Production Officer' },
 ]
 
 // Role accent colors — shared with trt-flow-diagram.tsx's palette for
@@ -79,12 +71,8 @@ export function StepFieldsPanel({ step, onSaved }: { step: GraphStep; onSaved: (
   const [additionalKinds, setAdditionalKinds] = useState<StepKind[]>(step.additionalKinds ?? [])
   const [checklistSlug, setChecklistSlug] = useState(step.slug ?? '')
   const [targetRoles, setTargetRoles] = useState<WorkflowRole[]>(step.targetRoles ?? [])
-  const isKnownPosition = KNOWN_POSITIONS.some((p) => p.value === step.requiredPosition)
-  const [positionChoice, setPositionChoice] = useState<string>(
-    !step.requiredPosition ? '' : isKnownPosition ? step.requiredPosition : '__custom__',
-  )
-  const [customPosition, setCustomPosition] = useState(!step.requiredPosition || isKnownPosition ? '' : step.requiredPosition!)
-  const requiredPosition = positionChoice === '__custom__' ? customPosition : positionChoice
+  const [positionChoice, setPositionChoice] = useState<string>(step.requiredPosition ?? '')
+  const requiredPosition = positionChoice
   const [isOptional, setIsOptional] = useState(step.isOptional)
   // v2.0 Phase 22e: dualRoles (readiness/checklist kinds — ALL checked roles
   // must independently confirm) and receiverRole (approval kind only — who
@@ -144,7 +132,7 @@ export function StepFieldsPanel({ step, onSaved }: { step: GraphStep; onSaved: (
         additionalKinds,
         checklistSlug: kind === 'checklist' || additionalKinds.includes('checklist') ? checklistSlug || null : null,
         targetRoles: usesTargetRoles ? targetRoles : null,
-        requiredPosition: requiredPosition.trim() || null,
+        requiredPosition: positionChoice.trim() || null,
         isOptional,
         dualRoles: usesDualRoles ? dualRoles : null,
         receiverRole: usesReceiverRole && receiverRole ? (receiverRole as WorkflowRole) : null,
@@ -341,32 +329,18 @@ export function StepFieldsPanel({ step, onSaved }: { step: GraphStep; onSaved: (
         <label className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
           Restrict to a specific title? (optional)
         </label>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          {[{ value: '', label: 'Anyone with this role' }, ...KNOWN_POSITIONS, { value: '__custom__', label: 'Other title…' }].map(
-            (o) => (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => setPositionChoice(o.value)}
-                className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
-                  positionChoice === o.value
-                    ? 'border-primary bg-primary/10 font-semibold text-primary'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                }`}
-              >
-                {o.label}
-              </button>
-            ),
-          )}
-        </div>
-        {positionChoice === '__custom__' && (
-          <input
-            value={customPosition}
-            onChange={(e) => setCustomPosition(e.target.value)}
-            placeholder="e.g. senior_architect"
-            className="mt-2 w-full max-w-xs rounded-md border border-gray-200 px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
-          />
-        )}
+        <select
+          value={positionChoice}
+          onChange={(e) => setPositionChoice(e.target.value)}
+          className="mt-1 w-full max-w-xs rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs focus:border-primary focus:outline-none"
+        >
+          <option value="">Anyone with this role</option>
+          {POSITION_VALUES.map((v) => (
+            <option key={v} value={v}>
+              {POSITION_LABELS[v] ?? v}
+            </option>
+          ))}
+        </select>
         <p className="mt-1 text-[11px] text-gray-400">
           When set, only a user with BOTH the role above AND this exact title may act on this step.
         </p>
