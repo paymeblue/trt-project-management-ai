@@ -94,6 +94,18 @@ const NAV: Record<string, Entry[]> = {
     { href: '/profile', icon: 'person', label: 'Profile' },
     { href: '/about', icon: 'info', label: 'About TRT' },
   ],
+  factory_operations: [
+    { href: '/factory-operations/dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { href: '/processes', icon: 'account_tree', label: 'Processes' },
+    { href: '/profile', icon: 'person', label: 'Profile' },
+    { href: '/about', icon: 'info', label: 'About TRT' },
+  ],
+  factory_manager: [
+    { href: '/factory-manager/dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { href: '/processes', icon: 'account_tree', label: 'Processes' },
+    { href: '/profile', icon: 'person', label: 'Profile' },
+    { href: '/about', icon: 'info', label: 'About TRT' },
+  ],
 }
 
 export default function SidebarNav({ role }: { role: string }) {

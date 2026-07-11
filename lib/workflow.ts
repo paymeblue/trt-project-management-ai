@@ -248,11 +248,8 @@ const ROLE_DASHBOARD: Record<UserRole, string> = {
   production: '/production/dashboard',
   customer_care: '/customer-care/dashboard',
   architect: '/architect/dashboard',
-  // v2.0 Phase 22: no bespoke dashboard shell built for these yet — reuse the
-  // Production dashboard (closest existing factory-floor analog) rather than
-  // build new pages beyond what was asked.
-  factory_operations: '/production/dashboard',
-  factory_manager: '/production/dashboard',
+  factory_operations: '/factory-operations/dashboard',
+  factory_manager: '/factory-manager/dashboard',
 }
 
 export function roleDashboard(role: string): string {
