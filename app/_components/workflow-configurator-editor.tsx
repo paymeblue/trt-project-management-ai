@@ -91,9 +91,9 @@ export default function ConfiguratorEditor({
             <span className="material-symbols-outlined mt-0.5 text-base text-primary">drag_indicator</span>
             <p className="text-xs text-gray-600">
               <span className="font-semibold text-gray-800">Drag any step by its handle to reorder it.</span>{' '}
-              Steps involved in the delivery branch/join only move display position — their connections
-              are left untouched to avoid breaking the join. Switch to Graph view to see and edit
-              branches/joins directly.
+              Steps involved in any branch/join only move display position — their connections
+              are left untouched to avoid breaking the branch or join. Switch to Graph view to see
+              and edit branches/joins directly.
             </p>
           </div>
           <StatusNote state={moveState} />

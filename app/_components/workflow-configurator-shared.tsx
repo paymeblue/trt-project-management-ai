@@ -17,6 +17,8 @@ export const ROLE_OPTIONS: { value: WorkflowRole; label: string }[] = [
   { value: 'customer_care', label: 'Customer Care' },
   { value: 'design', label: 'Design' },
   { value: 'architect', label: 'Architect' },
+  { value: 'factory_operations', label: 'Factory Operations' },
+  { value: 'factory_manager', label: 'Factory Manager' },
 ]
 
 // Friendlier, plain-language framing for what each fulfillment kind means —

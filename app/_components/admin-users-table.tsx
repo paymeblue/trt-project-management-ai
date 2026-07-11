@@ -12,8 +12,11 @@ const ROLES = [
   { value: 'super_admin', label: 'Super Admin' },
   { value: 'operations', label: 'Operations' },
   { value: 'design', label: 'Design' },
+  { value: 'architect', label: 'Architect' },
   { value: 'production', label: 'Production' },
   { value: 'customer_care', label: 'Customer Care' },
+  { value: 'factory_operations', label: 'Factory Operations' },
+  { value: 'factory_manager', label: 'Factory Manager' },
 ]
 
 const ADMIN_ROLES = ['super_admin', 'operations']
