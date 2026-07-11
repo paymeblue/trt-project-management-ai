@@ -11,9 +11,15 @@ import {
   foreignKey,
   doublePrecision,
 } from 'drizzle-orm/pg-core'
+import { POSITION_VALUES } from '@/lib/workflow'
 
 // ── Enums ────────────────────────────────────────────────────────────────
 export const roleEnum = pgEnum('role', ['factory_pm', 'site_pm', 'super_admin', 'operations', 'design', 'production', 'customer_care', 'architect', 'factory_operations', 'factory_manager'])
+// v2.0 Phase 19 (plan 19-01): DB-enforced enum backing `users.position` —
+// sourced from lib/workflow.ts's POSITION_VALUES (single source of truth
+// shared with every position-picking UI). See scripts/migrate-position-enum.ts
+// for the additive-safe text->enum conversion of the live column.
+export const positionEnum = pgEnum('position', POSITION_VALUES as unknown as [string, ...string[]])
 export const projectStatusEnum = pgEnum('project_status', ['not_delivered', 'delivered', 'paused'])
 export const paymentStatusEnum = pgEnum('payment_status', ['unpaid', 'paid'])
 export const targetRoleEnum = pgEnum('target_role', ['factory_pm', 'site_pm', 'both'])
@@ -32,7 +38,7 @@ export const users = pgTable('users', {
   name:           text('name').notNull(),
   role:           roleEnum('role').notNull(),          // 'factory_pm' | 'site_pm' | 'super_admin'
   emailVerified:  timestamp('email_verified'),         // null until verified
-  position:       text('position'),
+  position:       positionEnum('position'),
   bio:            text('bio'),                          // optional self-description
   avatarData:     text('avatar_data'),                  // profile image as base64 data URL
   imageKey:       text('image_key'),                   // S3 key for ID card (Phase 2)
@@ -383,20 +389,33 @@ export const messages = pgTable('messages', {
 })
 
 // ── Message reactions (quick-260706-bpg — Slack-like reactions) ─────────
-// quick-260711: composite unique moved from the anonymous array form
-// (`[unique().on(...)]`) to the named object form (matching
-// workflowStepDefinitions/projectStepDeadlines below), which is the only
-// change that stops drizzle-kit push from re-diffing this constraint on
-// every run — same generated SQL constraint name
-// (message_reactions_message_id_user_id_emoji_unique), same columns/order,
-// no live migration needed.
+// quick-260711 root cause + fix: `drizzle-kit push`'s live introspection of
+// composite unique constraints (information_schema.constraint_column_usage
+// joined to information_schema.columns, no ORDER BY) does NOT preserve the
+// constraint's declared/conkey column order — it comes back alphabetized
+// (confirmed by direct query: this constraint introspects as
+// emoji,message_id,user_id, not the message_id,user_id,emoji declaration
+// order below). drizzle-kit's diff engine compares the declared column
+// order against that alphabetized introspected order as part of the same
+// squashed string, so this constraint churned (DROP+ADD, same name) on
+// EVERY push. workflowStepDefinitions' (graph, stepKey) and
+// projectStepDeadlines' (projectId, stepN) never hit this because their
+// declared order already happens to be alphabetical. Fix: declare the
+// columns in the alphabetical order push always introspects them in
+// (emoji, messageId, userId) and give the constraint its existing stable
+// name explicitly so no rename statement is emitted either — same
+// underlying Postgres constraint (message_reactions_message_id_user_id_
+// emoji_unique already existed with this exact name/column set), zero DB
+// migration required.
 export const messageReactions = pgTable('message_reactions', {
   id:        uuid('id').primaryKey().defaultRandom(),
   messageId: uuid('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
   userId:    uuid('user_id').notNull().references(() => users.id),
   emoji:     text('emoji').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-}, (t) => ({ messageReactionsUq: unique().on(t.messageId, t.userId, t.emoji) }))
+}, (t) => ({
+  messageReactionsUq: unique('message_reactions_message_id_user_id_emoji_unique').on(t.emoji, t.messageId, t.userId),
+}))
 
 // ── Auth Tokens (Phase 1 — email verification + password reset) ─────────
 export const verificationTokens = pgTable('verification_tokens', {
