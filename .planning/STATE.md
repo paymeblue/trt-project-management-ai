@@ -140,6 +140,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 | 2026-07-10 | fix-blank-screen-on-workflow-step-pages | Blank-screen fix on workflow step + payment-confirmation pages — redirect(roleDashboard) for all no-access/indeterminate branches, loading.tsx skeletons, (app)/error.tsx boundary | complete ✓ |
 | 2026-07-10 | post-assignment-ux-show-clear-confirmati | Post-assignment UX — named "{name} assigned to {step} on {project}" confirmation + delayed redirect to role dashboard in AssignmentStep | complete ✓ |
 | 2026-07-11 | finish-phase-22e-dualroles-receiverrole | Finished Phase 22e ad hoc — live schema push (receiver_role/dual_roles/confirmed_roles), merged Materials/Delivery Readiness into one dual-confirmation step (24→23 steps), Configurator UI fields for receiverRole/dualRoles | complete ✓ |
+| 2026-07-11 | cleanup-deferred-items | Retired dead step keys from db/seed-workflow-graph.ts (23-step live graph); fixed message_reactions unique-constraint db:push churn (introspection column-order root cause) | complete ✓ |
 
 ## Deferred Items
 
