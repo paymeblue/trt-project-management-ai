@@ -104,9 +104,26 @@ describe('advanceProjectStep', () => {
     expect(insertValuesMock).not.toHaveBeenCalled()
   })
 
-  it('Close Out (step 23) advances to Sign Off (24) but is NOT yet delivered', async () => {
-    // step 23 = close_out (site_pm); delivery only happens after Sign Off (REQ-G04)
+  it('Close Out (step 22) advances to Sign Off (23) but is NOT yet delivered', async () => {
+    // step 22 = close_out (site_pm); delivery only happens after Sign Off (REQ-G04).
+    // v2.0 Phase 22e (ad hoc): step numbers shifted down by 1 (24->23 steps
+    // total) after materials_readiness/delivery_readiness merged into one
+    // dual-confirmation step — see scripts/migrate-merge-readiness-dualroles.ts.
     verifyMock.mockResolvedValue({ userId: 'u1', role: 'site_pm' })
+    selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 22, status: 'not_delivered' }])
+
+    const { advanceProjectStep } = await import('@/actions/workflow')
+    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 22 })
+
+    expect(ok).toBe(true)
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({ currentStep: 23, status: 'not_delivered' }),
+    )
+  })
+
+  it('marks the project delivered after Sign Off (step 23) completes', async () => {
+    // step 23 = sign_off (super_admin) — the final step
+    verifyMock.mockResolvedValue({ userId: 'admin1', role: 'super_admin' })
     selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 23, status: 'not_delivered' }])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
@@ -114,21 +131,7 @@ describe('advanceProjectStep', () => {
 
     expect(ok).toBe(true)
     expect(setMock).toHaveBeenCalledWith(
-      expect.objectContaining({ currentStep: 24, status: 'not_delivered' }),
-    )
-  })
-
-  it('marks the project delivered after Sign Off (step 24) completes', async () => {
-    // step 24 = sign_off (super_admin) — the new final step
-    verifyMock.mockResolvedValue({ userId: 'admin1', role: 'super_admin' })
-    selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 24, status: 'not_delivered' }])
-
-    const { advanceProjectStep } = await import('@/actions/workflow')
-    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 24 })
-
-    expect(ok).toBe(true)
-    expect(setMock).toHaveBeenCalledWith(
-      expect.objectContaining({ currentStep: 25, status: 'delivered' }),
+      expect.objectContaining({ currentStep: 24, status: 'delivered' }),
     )
   })
 

@@ -53,9 +53,7 @@ const DETAIL: Record<string, string> = {
     'Factory Manager uploads the 3 readiness forms (material, upholstery, accessories), prompting Factory PM and Site PM simultaneously.',
   confirmation: 'Site PM confirms the project details to start the workflow.',
   materials_readiness:
-    'Factory PM confirms materials & accessories are complete — sign digitally or upload the signed form.',
-  delivery_readiness:
-    'Site PM confirms the site is ready to receive the delivery.',
+    'Dual confirmation (v2.0 Phase 22e): Factory PM confirms materials & accessories are complete (sign digitally or upload the signed form) AND Site PM confirms the site is ready to receive the delivery — both must confirm independently before the project advances.',
   delivery_project_check:
     'Factory PM completes production QA (labelled, fragile-wrapped, ready to dispatch) and records the final project check report.',
   approval_installation:

@@ -1,50 +1,60 @@
 /**
- * CLI verification harness (Phase 17 Plan 01, WF-06): proves the two claims
- * this migration's entire risk profile rests on, against the REAL 'live'
- * graph (not a synthetic test graph) — no mocks:
+ * CLI verification harness (Phase 17 Plan 01, WF-06; updated v2.0 Phase 22e
+ * ad hoc, 2026-07-11): proves the two claims this migration's entire risk
+ * profile rests on, against the REAL 'live' graph (not a synthetic test
+ * graph) — no mocks:
  *
  * - PARITY: getLiveWorkflowSteps() (lib/workflow-graph.ts) deep-equals the
  *   canonical LIVE_WORKFLOW_STEPS array (db/workflow-live-steps.ts) on n/key/label/role/kind/
- *   slug, for all 11 steps, in order. This is the proof that the DB is a
+ *   slug, for all 23 steps, in order. This is the proof that the DB is a
  *   faithful copy of the hardcoded array before ANY caller is cut over to it.
- * - JOIN: the live graph's delivery_readiness + delivery_project ->
- *   project_check_report parallel/join (seeded in Task 2 of this plan)
- *   resolves correctly through getActionableSteps in BOTH completion orders.
+ * - DUAL-ROLE CONFIRMATION: the live graph's merged Materials/Delivery
+ *   Readiness step (`materials_readiness`, dualRoles=[factory_pm, site_pm] —
+ *   see scripts/migrate-merge-readiness-dualroles.ts, which collapsed the
+ *   graph's former parallel branch/join into this single step) resolves
+ *   correctly through confirmDualRoleStepAs (actions/workflow.ts) in BOTH
+ *   confirmation orders: it must NOT advance after only one role confirms,
+ *   and MUST advance once both have.
  *
  * Run via: npm run verify:live-workflow
  *
  * Exits 0 iff every assertion passes; exits 1 on the first structural error
  * or after printing a full report if one or more assertions failed.
  *
- * Operates on graph='live' STEP DEFINITIONS (read-only) and two uniquely-
- * named throwaway PROJECTS — never modifies a real project row (currentStep
- * 3/5/12 projects are untouched) and never touches graph='test'. Cleans up
- * its own rows in a finally block (cascade delete via projects.id FK).
+ * Operates on graph='live' STEP DEFINITIONS (read-only) and throwaway
+ * PROJECTS uniquely named per run — never modifies a real project row and
+ * never touches graph='test'. Cleans up its own rows in a finally block
+ * (cascade delete via projects.id FK).
  */
 
 import { config } from 'dotenv'
 config({ path: '.env.local' })
 
-// ── server-only shim ──────────────────────────────────────────────────────
+// ── server-only / next-cache shim ─────────────────────────────────────────
 // lib/workflow-graph.ts and db/index.ts both start with `import 'server-only'`
 // — correct for app code, but the `server-only` package throws unconditionally
-// when required outside of Next's webpack build. This harness IS a trusted
-// server-side CLI entrypoint, so we short-circuit that one package before
-// requiring the engine. Must be a plain `require()` (not a static `import`):
-// tsx's ESM->CJS transform hoists static imports above other top-level
-// statements, which would run the throwing require before any patch could
-// apply (mirrors scripts/verify-workflow-engine.ts, Phase 16 Plan 04).
+// when required outside of Next's webpack build. actions/workflow.ts also
+// calls `revalidatePath` (next/cache) at the end of confirmDualRoleStepAs,
+// which throws/no-ops incorrectly outside a real Next request context. This
+// harness IS a trusted server-side CLI entrypoint, so both are short-circuited
+// before requiring the engine/actions. Must be a plain `require()` (not a
+// static `import`): tsx's ESM->CJS transform hoists static imports above
+// other top-level statements, which would run the throwing require before any
+// patch could apply (mirrors scripts/verify-workflow-engine.ts, Phase 16 Plan 04).
 type NodeModuleLoader = (request: string, parent: unknown, isMain: boolean) => unknown
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- must run before the static import below; see comment above
 const NodeModule = require('node:module') as { _load: NodeModuleLoader }
 const originalLoad = NodeModule._load
 NodeModule._load = function (this: unknown, request: string, ...rest: [unknown, boolean]) {
   if (request === 'server-only') return {}
+  if (request === 'next/cache') return { revalidatePath: () => {} }
   return originalLoad.apply(this, [request, ...rest])
 } as NodeModuleLoader
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const wg = require('../lib/workflow-graph') as typeof import('../lib/workflow-graph')
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const wf = require('../actions/workflow') as typeof import('../actions/workflow')
 
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
@@ -89,23 +99,9 @@ function recordFail(label: string, detail?: unknown) {
   failures.push(`[${groupLabel}] ${label}`)
 }
 
-async function assertOk(label: string, fn: () => Promise<unknown>) {
-  try {
-    await fn()
-    recordPass(label)
-  } catch (err) {
-    recordFail(`${label} (expected success, threw)`, err instanceof Error ? err.message : err)
-  }
-}
-
-function assertIncludes(label: string, steps: { key: string }[], key: string) {
-  if (steps.some((s) => s.key === key)) recordPass(label)
-  else recordFail(`${label} (expected "${key}" in actionable set, got [${steps.map((s) => s.key).join(', ')}])`)
-}
-
-function assertExcludes(label: string, steps: { key: string }[], key: string) {
-  if (!steps.some((s) => s.key === key)) recordPass(label)
-  else recordFail(`${label} (expected "${key}" NOT in actionable set, got [${steps.map((s) => s.key).join(', ')}])`)
+function assertEqual<T>(label: string, actual: T, expected: T) {
+  if (actual === expected) recordPass(label)
+  else recordFail(`${label} (expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)})`)
 }
 
 // ── setup helpers ──────────────────────────────────────────────────────────
@@ -129,10 +125,10 @@ async function resolveActor(role: RoleName, createdUserIds: string[]): Promise<A
   return { id: created.id, role }
 }
 
-async function createTestProject(createdBy: string, suffix: string): Promise<string> {
+async function createTestProject(createdBy: string, suffix: string, currentStep: number): Promise<string> {
   const [project] = await db
     .insert(schema.projects)
-    .values({ name: `LIVE-VERIFY-${Date.now()}-${suffix}`, createdBy })
+    .values({ name: `LIVE-VERIFY-${Date.now()}-${suffix}`, createdBy, currentStep })
     .returning({ id: schema.projects.id })
   return project.id
 }
@@ -171,58 +167,85 @@ async function main() {
     }
     endGroup()
 
-    // ── Resolve actors + step ids for the join tests ───────────────────────
+    // ── Resolve actors ───────────────────────────────────────────────────
     const ops = await resolveActor('operations', createdUserIds)
     const sitePm = await resolveActor('site_pm', createdUserIds)
     const factoryPm = await resolveActor('factory_pm', createdUserIds)
 
-    const deliveryReadiness = await wg.getStepByKey('live', 'delivery_readiness')
-    const deliveryProject = await wg.getStepByKey('live', 'delivery_project')
-    if (!deliveryReadiness || !deliveryProject) {
+    const materialsReadiness = await wg.getStepByKey('live', 'materials_readiness')
+    if (!materialsReadiness) {
       throw new Error(
-        'Missing "delivery_readiness" or "delivery_project" in graph=\'live\' — run npm run db:seed-workflow-graph first',
+        'Missing "materials_readiness" in graph=\'live\' — run npm run db:seed-workflow-graph first',
       )
     }
+    if (!materialsReadiness.dualRoles?.length) {
+      throw new Error(
+        '"materials_readiness" has no dualRoles set — run npx tsx scripts/migrate-merge-readiness-dualroles.ts first',
+      )
+    }
+    const stepN = materialsReadiness.orderIndex
 
-    // ── JOIN order A: delivery_readiness then delivery_project ────────────
-    startGroup('JOIN order A: delivery_readiness -> delivery_project -> project_check_report')
-    const projectA = await createTestProject(ops.id, 'join-order-a')
+    // ── DUAL-ROLE order A: factory_pm confirms first, then site_pm ────────
+    startGroup('DUAL-ROLE order A: factory_pm confirms -> site_pm confirms -> advances')
+    const projectA = await createTestProject(ops.id, 'dualrole-order-a', stepN)
     createdProjectIds.push(projectA)
 
-    await assertOk('complete delivery_readiness (site_pm)', () =>
-      wg.completeGraphStep({ projectId: projectA, stepDefId: deliveryReadiness.id, actorId: sitePm.id }),
-    )
+    const resA1 = await wf.confirmDualRoleStepAs({
+      projectId: projectA,
+      expectedStepN: stepN,
+      userId: factoryPm.id,
+      role: factoryPm.role,
+    })
+    assertEqual('factory_pm confirmation recorded (ok)', resA1.ok, true)
+    assertEqual('factory_pm confirmation alone does NOT advance', resA1.advanced, false)
     {
-      const actionable = await wg.getActionableSteps(projectA, 'live')
-      assertExcludes('project_check_report NOT actionable with only delivery_readiness complete', actionable, 'project_check_report')
+      const [proj] = await db.select({ currentStep: schema.projects.currentStep }).from(schema.projects).where(eq(schema.projects.id, projectA)).limit(1)
+      assertEqual('project still sitting at materials_readiness after only factory_pm confirms', proj?.currentStep, stepN)
     }
-    await assertOk('complete delivery_project (factory_pm)', () =>
-      wg.completeGraphStep({ projectId: projectA, stepDefId: deliveryProject.id, actorId: factoryPm.id }),
-    )
+
+    const resA2 = await wf.confirmDualRoleStepAs({
+      projectId: projectA,
+      expectedStepN: stepN,
+      userId: sitePm.id,
+      role: sitePm.role,
+    })
+    assertEqual('site_pm confirmation recorded (ok)', resA2.ok, true)
+    assertEqual('site_pm confirmation (2nd role) DOES advance', resA2.advanced, true)
     {
-      const actionable = await wg.getActionableSteps(projectA, 'live')
-      assertIncludes('project_check_report actionable once both branches complete', actionable, 'project_check_report')
+      const [proj] = await db.select({ currentStep: schema.projects.currentStep }).from(schema.projects).where(eq(schema.projects.id, projectA)).limit(1)
+      assertEqual('project advanced past materials_readiness once both roles confirmed', proj?.currentStep, stepN + 1)
     }
     endGroup()
 
-    // ── JOIN order B: delivery_project then delivery_readiness (reverse) ──
-    startGroup('JOIN order B: delivery_project -> delivery_readiness -> project_check_report (reverse order)')
-    const projectB = await createTestProject(ops.id, 'join-order-b')
+    // ── DUAL-ROLE order B: site_pm confirms first, then factory_pm (reverse) ──
+    startGroup('DUAL-ROLE order B: site_pm confirms -> factory_pm confirms -> advances (order-independent)')
+    const projectB = await createTestProject(ops.id, 'dualrole-order-b', stepN)
     createdProjectIds.push(projectB)
 
-    await assertOk('complete delivery_project first (factory_pm)', () =>
-      wg.completeGraphStep({ projectId: projectB, stepDefId: deliveryProject.id, actorId: factoryPm.id }),
-    )
+    const resB1 = await wf.confirmDualRoleStepAs({
+      projectId: projectB,
+      expectedStepN: stepN,
+      userId: sitePm.id,
+      role: sitePm.role,
+    })
+    assertEqual('site_pm confirmation recorded (ok)', resB1.ok, true)
+    assertEqual('site_pm confirmation alone does NOT advance', resB1.advanced, false)
     {
-      const actionable = await wg.getActionableSteps(projectB, 'live')
-      assertExcludes('project_check_report NOT actionable with only delivery_project complete', actionable, 'project_check_report')
+      const [proj] = await db.select({ currentStep: schema.projects.currentStep }).from(schema.projects).where(eq(schema.projects.id, projectB)).limit(1)
+      assertEqual('project still sitting at materials_readiness after only site_pm confirms', proj?.currentStep, stepN)
     }
-    await assertOk('complete delivery_readiness second (site_pm)', () =>
-      wg.completeGraphStep({ projectId: projectB, stepDefId: deliveryReadiness.id, actorId: sitePm.id }),
-    )
+
+    const resB2 = await wf.confirmDualRoleStepAs({
+      projectId: projectB,
+      expectedStepN: stepN,
+      userId: factoryPm.id,
+      role: factoryPm.role,
+    })
+    assertEqual('factory_pm confirmation recorded (ok)', resB2.ok, true)
+    assertEqual('factory_pm confirmation (2nd role) DOES advance', resB2.advanced, true)
     {
-      const actionable = await wg.getActionableSteps(projectB, 'live')
-      assertIncludes('project_check_report actionable once both branches complete (order-independent)', actionable, 'project_check_report')
+      const [proj] = await db.select({ currentStep: schema.projects.currentStep }).from(schema.projects).where(eq(schema.projects.id, projectB)).limit(1)
+      assertEqual('project advanced past materials_readiness once both roles confirmed (order-independent)', proj?.currentStep, stepN + 1)
     }
     endGroup()
   } catch (err) {
@@ -248,7 +271,7 @@ async function main() {
     for (const f of failures) console.log(`  - ${f}`)
     process.exit(1)
   }
-  console.log('RESULT: PASS — PARITY and both JOIN orders verified against the live graph.')
+  console.log('RESULT: PASS — PARITY and both dualRoles confirmation orders verified against the live graph.')
   process.exit(0)
 }
 

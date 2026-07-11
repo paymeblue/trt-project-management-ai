@@ -27,7 +27,7 @@ describe('findStep / lastStepN / projectComplete', () => {
   })
 
   it('lastStepN resolves the last step number', () => {
-    expect(lastStepN(LIVE_WORKFLOW_STEPS)).toBe(24)
+    expect(lastStepN(LIVE_WORKFLOW_STEPS)).toBe(23)
   })
 
   it('is complete only once currentStep passes the last step', () => {

@@ -60,6 +60,22 @@
 // "Operations Manager" everywhere in the UI (the underlying `users.position`
 // slug `head_of_operations` is unchanged for gating stability). See
 // scripts/migrate-remove-design-meeting-merge-checks.ts for that migration.
+//
+// Shrank from 24 to 23 steps (v2.0 Phase 22e, ad hoc, 2026-07-11): merged
+// 'materials_readiness' + 'delivery_readiness' into one dual-confirmation
+// step — the graph's only remaining parallel branch/join collapsed to
+// linear. Survivor is 'materials_readiness' (id preserved, factory_pm,
+// kind=readiness), now carrying dualRoles=[factory_pm, site_pm] +
+// checklistSlug='delivery_site_readiness' (site_pm's half routes to the
+// same checklist 'delivery_readiness' used to own — see stepHref() in
+// lib/workflow.ts). Both roles must independently confirm via
+// confirmDualRoleStep (actions/workflow.ts) before the project advances.
+// 'delivery_readiness' is removed; everything after it shifts orderIndex
+// down by 1. See scripts/migrate-merge-readiness-dualroles.ts for that
+// migration. receiverRole (also added this session) has NO live migration
+// target — the only approval-kind step is still 'send_for_production'
+// (operations -> chief_production_officer), not a factory_pm/site_pm
+// delivery approval — so it ships Configurator-UI-only for future use.
 
 import type { WorkflowStep } from '@/lib/workflow';
 
@@ -180,22 +196,22 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'factory_manager_readiness',
   },
   {
+    // v2.0 Phase 22e (ad hoc): merged with the former 'delivery_readiness'
+    // step — this is now a dual-confirmation step (dualRoles=[factory_pm,
+    // site_pm] on the live DB row; not representable on the base
+    // WorkflowStep type here, see lib/workflow-graph.ts's LiveWorkflowStep).
+    // checklistSlug carries over from delivery_readiness so the site_pm
+    // dualRole routes to the same checklist (see stepHref() in
+    // lib/workflow.ts).
     n: 17,
     key: 'materials_readiness',
     label: 'Materials / Accessories Readiness',
     role: 'factory_pm',
     kind: 'readiness',
-  },
-  {
-    n: 18,
-    key: 'delivery_readiness',
-    label: 'Delivery Readiness',
-    role: 'site_pm',
-    kind: 'checklist',
     slug: 'delivery_site_readiness',
   },
   {
-    n: 19,
+    n: 18,
     key: 'delivery_project_check',
     label: 'Delivery & Project Check',
     role: 'factory_pm',
@@ -203,7 +219,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'delivery_project_check',
   },
   {
-    n: 20,
+    n: 19,
     key: 'approval_installation',
     label: 'Approval to Commence Installation',
     role: 'operations',
@@ -211,7 +227,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'approval_to_commence_installation',
   },
   {
-    n: 21,
+    n: 20,
     key: 'installation_readiness',
     label: 'Installation Readiness',
     role: 'site_pm',
@@ -219,7 +235,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'installation_readiness',
   },
   {
-    n: 22,
+    n: 21,
     key: 'sorting',
     label: 'Sorting',
     role: 'site_pm',
@@ -227,7 +243,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'sorting',
   },
   {
-    n: 23,
+    n: 22,
     key: 'close_out',
     label: 'Close Out',
     role: 'site_pm',
@@ -235,7 +251,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'close_out',
   },
   {
-    n: 24,
+    n: 23,
     key: 'sign_off',
     label: 'Sign Off',
     role: 'super_admin',

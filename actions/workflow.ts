@@ -84,7 +84,27 @@ export async function confirmDualRoleStep(opts: {
   notes?: string | null
 }): Promise<{ ok: boolean; advanced: boolean; message?: string }> {
   const { userId, role } = await verifySession()
-  const { projectId, expectedStepN } = opts
+  return confirmDualRoleStepAs({ ...opts, userId, role })
+}
+
+/**
+ * v2.0 Phase 22e: the auth-free core of confirmDualRoleStep, parameterized by
+ * an explicit userId/role instead of reading them from verifySession(). Real
+ * callers MUST go through confirmDualRoleStep (which enforces auth) — this is
+ * exported only so scripts/verify-live-workflow.ts (a trusted CLI harness
+ * with no request/session context) can exercise the exact same mechanics,
+ * mirroring how the harness already calls lib/workflow-graph.ts's
+ * completeGraphStep directly with an explicit actorId instead of going
+ * through an auth-gated action wrapper.
+ */
+export async function confirmDualRoleStepAs(opts: {
+  projectId: string
+  expectedStepN: number
+  notes?: string | null
+  userId: string
+  role: UserRole
+}): Promise<{ ok: boolean; advanced: boolean; message?: string }> {
+  const { userId, role, projectId, expectedStepN } = opts
 
   const [proj] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
   if (!proj) return { ok: false, advanced: false, message: 'Project not found.' }
