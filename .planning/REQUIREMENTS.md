@@ -231,20 +231,27 @@
 
 ### Roles & assignment
 
-- [ ] **ROLE-01**: New roles `customer_care`, `ops_factory`, and `factory_manager` exist in the role enum, each with their own dashboard shell (nav + landing page), following the pattern established for `design`/`production` in Phase 15. (`customer_care` already shipped ad hoc, commit f72573d — see traceability.)
+- [x] **ROLE-01**: New roles `customer_care`, `ops_factory`, and `factory_manager` exist in the role enum, each with their own dashboard shell (nav + landing page), following the pattern established for `design`/`production` in Phase 15. (`customer_care` already shipped ad hoc, commit f72573d — see traceability.)
   - *Success:* A user created with each new role lands on a role-appropriate dashboard and only sees their own nav.
-- [ ] **ROLE-02**: An "assignment" step lets its actor (e.g., Head Designer) pick a user from a target pool that may span more than one role (e.g. `design` and `architect` both), and notifies that user they've been assigned.
+  - *Verified 2026-07-11 (delivered by 19-02-PLAN.md — `app/(app)/factory-operations/dashboard/page.tsx` and `app/(app)/factory-manager/dashboard/page.tsx`, both confirmed present on disk and committed in 19-02-SUMMARY.md's self-check).*
+  - *Note (D-19-04-A):* The earlier roadmap wording "ops_factory" is reconciled here to the already-shipped enum value `factory_operations` (see `db/schema.ts` roleEnum) — there is no `ops_factory` value in the live enum and none is to be added. Documentation reconciliation only, no code/enum rename.
+- [~] **ROLE-02**: An "assignment" step lets its actor (e.g., Head Designer) pick a user from a target pool that may span more than one role (e.g. `design` and `architect` both), and notifies that user they've been assigned.
   - *Success:* Picking a user records the assignment against the project/step and fires a notification to the assignee, for both single-role and multi-role target pools.
-- [ ] **ROLE-03**: `users.position` continues to carry super-admin "titles" — Head of Operations, Head of Projects, MD, ED, COO, Chief Production Officer — with no new enum roles for these; permissions stay governed by `role = super_admin`. (Head of Design/Head Designer is NOT a super-admin title — see ROLE-06, it's a `design`-role position.)
+  - *Partially verified 2026-07-11 by `scripts/verify-role-assignment.ts`:* the pool-membership half is genuinely confirmed against the real `assign_designer_brief` live step — a `design`/`architect`-role user is accepted, an out-of-pool `factory_pm` user is rejected (`assignee-role-mismatch`). The assignee-notification half is **NOT implemented**: `assignUser` (lib/workflow-graph.ts) and `assignUserAction` (actions/workflow-graph.ts) record the assignment but never write to the `notifications` table for the assignee — confirmed by the verification script's own FAIL (no notification row appears after assignment). This is a genuine gap, not assumed complete; left `[~]` rather than `[x]` per this plan's own must_haves truth ("any genuine gap found during verification is recorded as a finding, not silently marked complete"). Remaining work: wire a per-user notify call into `assignUser`/`assignUserAction` — deferred, not built here (out of this plan's `files_modified` scope).
+- [x] **ROLE-03**: `users.position` continues to carry super-admin "titles" — Head of Operations, Head of Projects, MD, ED, COO, Chief Production Officer — with no new enum roles for these; permissions stay governed by `role = super_admin`. (Head of Design/Head Designer is NOT a super-admin title — see ROLE-06, it's a `design`-role position.)
   - *Success:* No new role enum values added for any super_admin title; UI can display the title from `position` where relevant (e.g., CPO review step).
+  - *Verified 2026-07-11 by `scripts/verify-role-assignment.ts`:* `roleEnum` (`db/schema.ts`) contains none of `managing_director`, `executive_director`, `chief_operating_officer`, `head_of_operations`, `head_of_projects`, `chief_production_officer`.
 - [x] **ROLE-04**: `users.position` converts from free text to a DB-enforced Postgres enum, and a step/graph definition can carry an optional `requiredPosition` narrowing a role-gated step to one exact title (e.g. only `head_of_operations`, not any `super_admin`; only `head_designer`, not any `design`-role user).
   - *Success:* A step with `requiredPosition` set is only actionable by a user matching both `role` and `position`; the 12 existing live steps are unaffected (`requiredPosition = null`).
-- [ ] **ROLE-05**: Position is not collected at account creation (signup or admin-created-user flow) — users are created with `role` only, and set their own `position` afterward via a self-service profile flow.
+- [x] **ROLE-05**: Position is not collected at account creation (signup or admin-created-user flow) — users are created with `role` only, and set their own `position` afterward via a self-service profile flow.
   - *Success:* A newly created user is not prompted for position at creation; a profile screen lets them set it afterward, constrained to the position enum's valid values.
-- [ ] **ROLE-06**: `architect` exists as its own role-enum value, separated from `design` (resolved 2026-07-09, overturning an earlier draft assumption that `design` role + `position` alone would cover Head Designer/Designer/Architect) — with its own dashboard shell following the Phase 15 pattern. Head Designer (`design` role + `requiredPosition = head_designer`) is the one who assigns work into either the `design` or `architect` pool.
+  - *Verified 2026-07-11 (delivered by 19-03-PLAN.md — profile `<select>` bound to `POSITION_VALUES`, server-side guard in `actions/profile.ts`, `position` removed from admin user creation; confirmed by 19-03-SUMMARY.md's self-check).*
+- [x] **ROLE-06**: `architect` exists as its own role-enum value, separated from `design` (resolved 2026-07-09, overturning an earlier draft assumption that `design` role + `position` alone would cover Head Designer/Designer/Architect) — with its own dashboard shell following the Phase 15 pattern. Head Designer (`design` role + `requiredPosition = head_designer`) is the one who assigns work into either the `design` or `architect` pool.
   - *Success:* A user created with role `architect` lands on a role-appropriate dashboard; Head Designer's assignment steps (STG-02, STG-06) can pick from either `design` or `architect` users.
-- [ ] **ROLE-07**: `workflow_step_definitions.targetRole` changes from a single role to a list of allowed roles (resolved 2026-07-09, retroactive change to already-shipped Phase 16 schema), so an assignment-kind step can target a pool spanning more than one role (e.g. `[design, architect]`) rather than exactly one.
+  - *Verified 2026-07-11 by `scripts/verify-role-assignment.ts`:* `architect` present in `roleEnum`, and `app/(app)/architect/dashboard/page.tsx` exists on disk.
+- [x] **ROLE-07**: `workflow_step_definitions.targetRole` changes from a single role to a list of allowed roles (resolved 2026-07-09, retroactive change to already-shipped Phase 16 schema), so an assignment-kind step can target a pool spanning more than one role (e.g. `[design, architect]`) rather than exactly one.
   - *Success:* An assignment step with a multi-role target list lets the actor pick from users of any listed role. Existing/future single-role assignment steps continue to work unchanged (1-item list). Migrated additively/idempotently — no orphaned `project_step_completions`, matching the discipline of Phase 17's cutover.
+  - *Verified 2026-07-11 by `scripts/verify-role-assignment.ts`:* `workflow_step_definitions.target_role` is a real Postgres `ARRAY` column (`information_schema.columns.data_type = 'ARRAY'`), and the live `assign_designer_brief` step carries `targetRoles = [design, architect]` (length 2).
 
 ### Payment & timeline
 
@@ -292,7 +299,8 @@
 | WF-01, WF-02, WF-03, WF-04, WF-05 | Phase 16 | Complete ✓ |
 | WF-06 | Phase 17 | Complete |
 | CFG-01, CFG-02, CFG-03 | Phase 18 | Complete ✓ |
-| ROLE-01, ROLE-02, ROLE-03, ROLE-04, ROLE-05, ROLE-06, ROLE-07 | Phase 19 | Pending |
+| ROLE-01, ROLE-03, ROLE-04, ROLE-05, ROLE-06, ROLE-07 | Phase 19 | Complete ✓ |
+| ROLE-02 | Phase 19 | Partial (pool-membership gating confirmed; assignee notification not implemented — see requirement note) |
 | PAY-01 | Phase 20 (delivered ad hoc, commit f72573d) | Complete ✓ |
 | PAY-02 | Phase 20 (partially delivered ad hoc; role-gating narrowing depends on Phase 19) | Partial |
 | PAY-03 | Phase 20 (delivered ad hoc, commit f72573d) | Complete ✓ |

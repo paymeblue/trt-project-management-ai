@@ -36,7 +36,7 @@ Milestone v2.0 (phases 16-22) replaces the hardcoded 11-step `WORKFLOW_STEPS` ar
 - [x] **Phase 17: Confirmation → Sign Off Migration** - The existing 10-step tail (Confirmation through Sign Off) cut over onto the new engine with explicit zero-regression verification (WF-06) (completed 2026-07-09)
 - [x] **Phase 18: Workflow Configurator** - Super-admin-only, separately PIN-gated screen to add/remove/reorder/edit steps in the live graph (CFG-01, CFG-02, CFG-03) (completed 2026-07-09)
 - [ ] **Phase 18.1: Composable Fulfillment Kinds** (INSERTED) - Super Admin composes a step's fulfillment from building-block primitives (text/upload, yes/no, checklist ref, assignment) instead of a fixed enum
-- [ ] **Phase 19: New Roles & Assignment** - `ops_factory`/`factory_manager`/`architect` roles with dashboards (`customer_care` already shipped); `users.position` becomes a DB-enforced enum with an optional `requiredPosition` step gate; self-service position entry post-signup; assignment steps can target a multi-role pool (ROLE-01..07)
+- [x] **Phase 19: New Roles & Assignment** - `ops_factory`/`factory_manager`/`architect` roles with dashboards (`customer_care` already shipped); `users.position` becomes a DB-enforced enum with an optional `requiredPosition` step gate; self-service position entry post-signup; assignment steps can target a multi-role pool (ROLE-01..07) (completed 2026-07-11; ROLE-02 partial — see Phase Details)
 - [ ] **Phase 20: Payment & Timeline Gating** - `paid`/`unpaid` toggle + per-step deadlines — PAY-01/PAY-03 already shipped ad hoc, PAY-02 partial pending Phase 19 (PAY-01, PAY-02, PAY-03)
 - [ ] **Phase 21: Front-of-Funnel Stages — Designer Assignment Through Design Approval** - Two distinct designer-assignment moments, Kickoff/Design Meeting/Brief Taking, Design Stage — arriving at the existing Confirmation step unchanged (Project Intent/STG-01 already shipped ad hoc) (STG-02..07)
 - [ ] **Phase 22: Production-Authorization Insert — Site Confirmation Assignment Through Quality Control** - Site PM confirmation assignment (before Confirmation), correction, internal approval, production authorization, and QC inserted ahead of the existing Materials/Accessories Readiness step (STG-08..14)
@@ -356,12 +356,13 @@ Plans:
   4. A newly created user is not asked for a position at creation; they can later set their own position from a self-service profile screen, constrained to the position enum's valid values
   5. Super-admin titles (Head of Operations, MD, ED, COO, Chief Production Officer) continue to live in `users.position` with no new role-enum values added for them; permission checks still key off `role = super_admin` (narrowed by `requiredPosition` where a step requires it). Head of Design is a `design`-role position (`head_designer`), not a super-admin title.
 **Plans**: 4 plans
+**Status**: Complete ✓ (2026-07-11) — all 4 plans executed. ROLE-01, ROLE-03, ROLE-04, ROLE-05, ROLE-06, ROLE-07 fully verified against real shipped code/live data (19-04, `scripts/verify-role-assignment.ts`). **ROLE-02 is PARTIAL**: pool-membership gating (a `design`/`architect`-role user accepted, an out-of-pool user rejected) is genuinely confirmed on the live `assign_designer_brief` step, but the assignee-notification half is NOT implemented — `assignUser`/`assignUserAction` record the assignment yet never write a notification row for the assignee. Surfaced as an honest finding (not silently marked complete) per this plan's own must_haves truth; see REQUIREMENTS.md's ROLE-02 note for detail. Wiring the notification is deferred — out of 19-04's `files_modified` scope. Separately, `scripts/verify-design-pipeline.ts` (the pre-existing corroborating harness) is now stale against the live graph (`design_meeting` step was removed by later, unrelated ad hoc work outside Phase 19) and fails for that pre-existing reason — not fixed here, logged as a deferred item.
 
 Plans:
 - [x] 19-01-PLAN.md — Position free-text → DB-enforced Postgres enum (ROLE-04), the isolated high-risk live migration [Wave 1]
-- [ ] 19-02-PLAN.md — factory_operations + factory_manager dashboard shells (ROLE-01) [Wave 2]
-- [ ] 19-03-PLAN.md — Self-service position select + strip position from creation + enum-backed configurator (ROLE-05) [Wave 2]
-- [ ] 19-04-PLAN.md — Reconcile/verify already-shipped ROLE-02/03/06/07 + finalize phase docs [Wave 3]
+- [x] 19-02-PLAN.md — factory_operations + factory_manager dashboard shells (ROLE-01) [Wave 2]
+- [x] 19-03-PLAN.md — Self-service position select + strip position from creation + enum-backed configurator (ROLE-05) [Wave 2]
+- [x] 19-04-PLAN.md — Reconcile/verify already-shipped ROLE-02/03/06/07 + finalize phase docs [Wave 3]
 **UI hint**: yes
 
 ### Phase 20: Payment & Timeline Gating
@@ -433,7 +434,7 @@ v2.0 phases execute in numeric order: 16 → 17 → 18 → 19 → 20 → 21 → 
 | 16. Workflow Engine Core | 5/5 | Complete   | 2026-07-09 |
 | 17. Confirmation → Sign Off Migration | 6/6 | Complete   | 2026-07-09 |
 | 18. Workflow Configurator | 1/1 | Complete ✓ | 2026-07-09 |
-| 19. New Roles & Assignment | 1/4 | In Progress | - |
+| 19. New Roles & Assignment | 4/4 | Complete ✓ (ROLE-02 partial, see Phase Details) | 2026-07-11 |
 | 20. Payment & Timeline Gating | 0/? | Not started | - |
 | 21. Front-of-Funnel Stages — Intake Through Design Approval | 0/? | Not started | - |
 | 22. Production-Authorization Insert — Confirmation2 Through Factory Manager QC | 0/? | Not started | - |
