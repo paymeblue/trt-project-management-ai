@@ -383,13 +383,20 @@ export const messages = pgTable('messages', {
 })
 
 // ── Message reactions (quick-260706-bpg — Slack-like reactions) ─────────
+// quick-260711: composite unique moved from the anonymous array form
+// (`[unique().on(...)]`) to the named object form (matching
+// workflowStepDefinitions/projectStepDeadlines below), which is the only
+// change that stops drizzle-kit push from re-diffing this constraint on
+// every run — same generated SQL constraint name
+// (message_reactions_message_id_user_id_emoji_unique), same columns/order,
+// no live migration needed.
 export const messageReactions = pgTable('message_reactions', {
   id:        uuid('id').primaryKey().defaultRandom(),
   messageId: uuid('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
   userId:    uuid('user_id').notNull().references(() => users.id),
   emoji:     text('emoji').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-}, (t) => [unique().on(t.messageId, t.userId, t.emoji)])
+}, (t) => ({ messageReactionsUq: unique().on(t.messageId, t.userId, t.emoji) }))
 
 // ── Auth Tokens (Phase 1 — email verification + password reset) ─────────
 export const verificationTokens = pgTable('verification_tokens', {
