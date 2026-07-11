@@ -86,6 +86,11 @@ export function StepFieldsPanel({ step, onSaved }: { step: GraphStep; onSaved: (
   const [customPosition, setCustomPosition] = useState(!step.requiredPosition || isKnownPosition ? '' : step.requiredPosition!)
   const requiredPosition = positionChoice === '__custom__' ? customPosition : positionChoice
   const [isOptional, setIsOptional] = useState(step.isOptional)
+  // v2.0 Phase 22e: dualRoles (readiness/checklist kinds — ALL checked roles
+  // must independently confirm) and receiverRole (approval kind only — who
+  // receives, a different role than the sender).
+  const [dualRoles, setDualRoles] = useState<WorkflowRole[]>(step.dualRoles ?? [])
+  const [receiverRole, setReceiverRole] = useState<string>(step.receiverRole ?? '')
   const [state, setState] = useState<ConfigActionState>({ status: 'idle' })
   const [pending, startTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -98,6 +103,9 @@ export function StepFieldsPanel({ step, onSaved }: { step: GraphStep; onSaved: (
     return a.length === bb.length && a.every((r) => bb.includes(r))
   }
 
+  const usesDualRoles = kind === 'readiness' || kind === 'checklist'
+  const usesReceiverRole = kind === 'approval'
+
   const dirty =
     label.trim() !== step.label ||
     role !== step.role ||
@@ -106,10 +114,16 @@ export function StepFieldsPanel({ step, onSaved }: { step: GraphStep; onSaved: (
     checklistSlug !== (step.slug ?? '') ||
     !sameArr(targetRoles, step.targetRoles) ||
     requiredPosition !== (step.requiredPosition ?? '') ||
-    isOptional !== step.isOptional
+    isOptional !== step.isOptional ||
+    !sameArr(dualRoles, step.dualRoles) ||
+    receiverRole !== (step.receiverRole ?? '')
 
   function toggleTargetRole(r: WorkflowRole) {
     setTargetRoles((cur) => (cur.includes(r) ? cur.filter((x) => x !== r) : [...cur, r]))
+  }
+
+  function toggleDualRole(r: WorkflowRole) {
+    setDualRoles((cur) => (cur.includes(r) ? cur.filter((x) => x !== r) : [...cur, r]))
   }
 
   function toggleAdditionalKind(k: StepKind) {
@@ -132,6 +146,8 @@ export function StepFieldsPanel({ step, onSaved }: { step: GraphStep; onSaved: (
         targetRoles: usesTargetRoles ? targetRoles : null,
         requiredPosition: requiredPosition.trim() || null,
         isOptional,
+        dualRoles: usesDualRoles ? dualRoles : null,
+        receiverRole: usesReceiverRole && receiverRole ? (receiverRole as WorkflowRole) : null,
       })
       setState(res)
       if (res.status === 'success') onSaved()
@@ -269,6 +285,55 @@ export function StepFieldsPanel({ step, onSaved }: { step: GraphStep; onSaved: (
               </label>
             ))}
           </div>
+        </div>
+      )}
+
+      {usesDualRoles && (
+        <div className="mt-3 rounded-lg bg-gray-50 p-2.5">
+          <label className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+            Require BOTH roles to confirm (dual-confirmation)? (optional — check 2 or more; ALL
+            checked roles must independently confirm before this step advances)
+          </label>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {ROLE_OPTIONS.map((o) => (
+              <label
+                key={o.value}
+                className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                  dualRoles.includes(o.value)
+                    ? 'border-primary bg-primary/10 font-semibold text-primary'
+                    : 'border-gray-200 bg-white text-gray-600'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={dualRoles.includes(o.value)}
+                  onChange={() => toggleDualRole(o.value)}
+                  className="sr-only"
+                />
+                {o.label}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {usesReceiverRole && (
+        <div className="mt-3 rounded-lg bg-gray-50 p-2.5">
+          <label className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+            Who receives/approves? (a different role than the sender)
+          </label>
+          <select
+            value={receiverRole}
+            onChange={(e) => setReceiverRole(e.target.value)}
+            className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs focus:border-primary focus:outline-none"
+          >
+            <option value="">— none —</option>
+            {ROLE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 

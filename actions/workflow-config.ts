@@ -102,6 +102,13 @@ export type AddStepInput = {
   checklistSlug?: string
   targetRoles?: WorkflowRole[]
   requiredPosition?: string
+  // v2.0 Phase 22e: approval-kind steps only — narrows the RECEIVER to one
+  // exact role, distinct from requiredPosition (which narrows the SENDER).
+  receiverRole?: WorkflowRole | null
+  // v2.0 Phase 22e: readiness/checklist-kind steps only — when set, ALL of
+  // these roles must independently confirm (confirmDualRoleStep) before the
+  // step advances.
+  dualRoles?: WorkflowRole[] | null
   isOptional?: boolean
 }
 
@@ -120,6 +127,8 @@ export async function addConfigStepAction(input: AddStepInput): Promise<ConfigAc
     checklistSlug: input.checklistSlug || null,
     targetRoles: input.targetRoles?.length ? input.targetRoles : null,
     requiredPosition: input.requiredPosition?.trim() || null,
+    receiverRole: input.receiverRole || null,
+    dualRoles: input.dualRoles?.length ? input.dualRoles : null,
     isOptional: input.isOptional ?? false,
   })
   revalidatePath('/admin/workflow-configurator')
@@ -136,6 +145,9 @@ export type UpdateStepInput = {
   checklistSlug?: string | null
   targetRoles?: WorkflowRole[] | null
   requiredPosition?: string | null
+  // v2.0 Phase 22e: see AddStepInput above.
+  receiverRole?: WorkflowRole | null
+  dualRoles?: WorkflowRole[] | null
   isOptional?: boolean
 }
 
@@ -148,6 +160,7 @@ export async function updateConfigStepAction(input: UpdateStepInput): Promise<Co
     ...input,
     targetRoles: input.targetRoles?.length ? input.targetRoles : input.targetRoles === null ? null : undefined,
     additionalKinds: input.additionalKinds?.length ? input.additionalKinds : input.additionalKinds === null ? null : undefined,
+    dualRoles: input.dualRoles?.length ? input.dualRoles : input.dualRoles === null ? null : undefined,
   })
   revalidatePath('/admin/workflow-configurator')
   revalidatePath('/about')
