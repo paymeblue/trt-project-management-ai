@@ -1,16 +1,17 @@
 /**
- * Structural seed: copy the canonical 11 live steps (db/workflow-live-steps.ts)
+ * Structural seed: copy the canonical 23 live steps (db/workflow-live-steps.ts)
  * 1:1 into the workflow_step_definitions / workflow_step_edges tables under
  * graph='live'.
  *
- * Edges (Phase 17 Plan 01, WF-06/D-03): an explicit edge list, by step key,
- * rather than a linear n->n+1 chain — every step is still sequential EXCEPT
- * the delivery cluster, which natively encodes the existing
- * Delivery Readiness + Delivery Project Checklist -> Project Check Report
- * parallel/join (both branches must complete, in either order, before
- * Project Check Report is actionable; see lib/workflow-graph.ts
- * getActionableSteps). This is a STRUCTURAL/behavioral seed only — it
- * mirrors the existing steps' shape and gating so the read engine
+ * Edges: an explicit edge list, by step key, rather than a positional n->n+1
+ * loop (Phase 17 Plan 01, WF-06/D-03) — historically this encoded a
+ * parallel/join around the delivery cluster, but that branch/join collapsed
+ * to linear in Phase 22e when the two readiness steps were merged into one
+ * dual-confirmation step (see db/workflow-live-steps.ts's header comments
+ * for the full history). The live graph today is a single linear
+ * chain across all 23 keys, confirmed by read-only inspection of the live DB
+ * before this edit. This is a STRUCTURAL/behavioral seed only — it mirrors
+ * the existing steps' shape and gating so the read engine
  * (lib/workflow-graph.ts) has real data to query, proven byte-identical to
  * LIVE_WORKFLOW_STEPS by scripts/verify-live-workflow.ts.
  *
@@ -54,7 +55,7 @@ async function main() {
     design_initiation: { targetRoles: ['design', 'architect'], requiredPosition: 'head_designer' },
   }
 
-  // Insert the 18 step definitions as a 1:1 structural copy of LIVE_WORKFLOW_STEPS.
+  // Insert the 23 step definitions as a 1:1 structural copy of LIVE_WORKFLOW_STEPS.
   const idByStepN = new Map<number, string>()
   for (const step of LIVE_WORKFLOW_STEPS) {
     const assignmentConfig = ASSIGNMENT_STEP_CONFIG[step.key]
@@ -77,31 +78,38 @@ async function main() {
     console.log(`  + step ${step.n}: "${step.key}" (${inserted.id})`)
   }
 
-  // Explicit edge list by step key (Phase 17 Plan 01, D-03): every step stays
-  // sequential EXCEPT the delivery cluster, which fans out from
-  // materials_readiness into delivery_readiness AND delivery_project, both
-  // converging on project_check_report (the parallel/join this milestone
-  // requires to be natively modeled, not incidental numbering).
+  // Explicit edge list by step key, over the current 23-step live graph.
+  // Confirmed via read-only inspection of the live DB (workflow_step_definitions
+  // + workflow_step_edges for graph='live') that the graph is a single linear
+  // chain with no fan-out/join: the one parallel/join that used to exist around
+  // the delivery cluster collapsed to linear in Phase 22e when the two
+  // readiness steps were merged into one dual-confirmation step, and again
+  // in Phase 22d when the two delivery-checklist steps were merged into
+  // delivery_project_check (see db/workflow-live-steps.ts for the full history).
   const idByKey = new Map<string, string>()
   for (const step of LIVE_WORKFLOW_STEPS) {
     idByKey.set(step.key, idByStepN.get(step.n)!)
   }
 
   const EDGES: [string, string][] = [
-    ['new_project', 'payment_confirmation'],
-    ['payment_confirmation', 'assign_designer_brief'],
+    ['new_project', 'assign_designer_brief'],
     ['assign_designer_brief', 'brief_taking'],
-    ['brief_taking', 'design_initiation'],
+    ['brief_taking', 'invoice_upload'],
+    ['invoice_upload', 'invoice_timeline'],
+    ['invoice_timeline', 'design_initiation'],
     ['design_initiation', 'kickoff_meeting'],
-    ['kickoff_meeting', 'design_meeting'],
-    ['design_meeting', 'design_stage'],
-    ['design_stage', 'confirmation'],
-    ['confirmation', 'materials_readiness'],
-    ['materials_readiness', 'delivery_readiness'],
-    ['materials_readiness', 'delivery_project'],
-    ['delivery_readiness', 'project_check_report'],
-    ['delivery_project', 'project_check_report'],
-    ['project_check_report', 'approval_installation'],
+    ['kickoff_meeting', 'design_stage'],
+    ['design_stage', 'ops_design_confirmation'],
+    ['ops_design_confirmation', 'confirmation_correction'],
+    ['confirmation_correction', 'internal_approval'],
+    ['internal_approval', 'send_for_production'],
+    ['send_for_production', 'project_review_authorisation'],
+    ['project_review_authorisation', 'production_process'],
+    ['production_process', 'confirmation'],
+    ['confirmation', 'factory_manager_readiness'],
+    ['factory_manager_readiness', 'materials_readiness'],
+    ['materials_readiness', 'delivery_project_check'],
+    ['delivery_project_check', 'approval_installation'],
     ['approval_installation', 'installation_readiness'],
     ['installation_readiness', 'sorting'],
     ['sorting', 'close_out'],
@@ -115,7 +123,7 @@ async function main() {
     await db.insert(workflowStepEdges).values({ graph: GRAPH, fromStepId: fromId, toStepId: toId })
     edgeCount++
   }
-  console.log(`  + ${edgeCount} edges (incl. fan-out materials_readiness->{delivery_readiness,delivery_project} and join ->project_check_report)`)
+  console.log(`  + ${edgeCount} edges (fully linear chain, new_project -> ... -> sign_off, no fan-out/join)`)
 
   console.log('Done.')
 }
