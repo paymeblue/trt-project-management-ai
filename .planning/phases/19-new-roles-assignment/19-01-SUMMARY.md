@@ -11,9 +11,9 @@ requires:
 provides:
   - "POSITION_VALUES/PositionValue/POSITION_LABELS single source of truth in lib/workflow.ts"
   - "positionEnum pgEnum declaration in db/schema.ts, sourced from POSITION_VALUES"
-  - "users.position column retyped from text() to positionEnum() (NOT YET migrated live)"
+  - "users.position column converted to a DB-enforced Postgres enum, live in production"
   - "scripts/inspect-positions.ts (read-only live-data inspection)"
-  - "scripts/migrate-position-enum.ts (additive-safe, idempotent, data-loss-guarded migration script — written but NOT run against live DB)"
+  - "scripts/migrate-position-enum.ts (additive-safe, idempotent, data-loss-guarded migration script)"
 affects: [19-02-roles-dashboards, 19-03-position-select-configurator, 19-04-reconcile-verify, 20-payment-timeline-gating]
 
 # Tech tracking
@@ -32,36 +32,38 @@ key-files:
     - db/schema.ts
 
 key-decisions:
-  - "POSITION_VALUES finalized as the union of the 3 baseline machine-gating values (head_of_operations, head_designer, chief_production_officer) plus 6 verbatim live values discovered by inspection (Customer Rep, Designer, Factory Manager, Head of design, Lead Site Manager, Operations manager admin) — 9 values total, no junk/placeholder flagged"
+  - "POSITION_VALUES finalized as the union of the 3 baseline machine-gating values (head_of_operations, head_designer, chief_production_officer) plus 6 verbatim live values discovered by inspection (Customer Rep, Designer, Factory Manager, Head of design, Lead Site Manager, Operations manager admin) — 9 values total, no junk/placeholder flagged, nothing backfilled to null"
   - "positionEnum declared via `POSITION_VALUES as unknown as [string, ...string[]]` per the plan's literal instruction — this widens the Drizzle insert type back to plain string (not narrowed literals), which is why tsc --noEmit passes cleanly even though actions/admin-users.ts and app/profile/page.tsx still write/read position as free text; narrowing the UI to the enum is explicitly deferred to plan 19-03 per decision D-19-01-A"
   - "requiredPosition / receiverRequiredPosition on workflow_step_definitions stay text() (unchanged) — only users.position converts, per decision D-19-01-A"
   - "A pre-existing, unrelated uncommitted change (quick-260711-01's messageReactions unique-constraint idempotency fix, already applied to db/schema.ts before this plan started) was committed separately first (96fee72) so it would not get bundled into this plan's Task 2 commit"
+  - "User approved proceeding with all 9 POSITION_VALUES verbatim, no backfill, including both 'head_designer' and 'Head of design' as distinct retained values"
 
-requirements-completed: []  # ROLE-04 is PARTIAL — schema/script written, NOT yet run against live DB (Task 3 is a pending blocking checkpoint)
+requirements-completed: [ROLE-04]
 
 # Metrics
-duration: ~35min (Tasks 1-2 only; Task 3 pending human approval)
+duration: ~55min (including a concurrency-caused pause/investigation before Task 3 completed)
 completed: 2026-07-11
 ---
 
-# Phase 19 Plan 01: Position free-text -> DB-enforced Postgres enum (Tasks 1-2 of 3) Summary
+# Phase 19 Plan 01: Position free-text -> DB-enforced Postgres enum Summary
 
-**Live-data-derived POSITION_VALUES source of truth + positionEnum schema type + idempotent migration script written and verified (tsc/lint/test green) — NOT yet run against the live Neon DB, pending Task 3's blocking human checkpoint.**
+**users.position converted from free text() to a DB-enforced Postgres enum (9 values, live-data-derived), via an idempotent migration script; all 8 real users' position values preserved verbatim; verify:live-workflow PARITY (23/23) + both dualRoles orders pass post-migration.**
 
 ## Performance
 
-- **Duration:** ~35 min for Tasks 1-2
+- **Duration:** ~55 min total (includes an unplanned pause to investigate an unexpected mid-execution finding — see Deviations)
 - **Started:** 2026-07-11
-- **Tasks:** 2 of 3 completed (Task 3 is `checkpoint:human-verify gate="blocking-human"` — intentionally not run)
-- **Files modified:** 3 (lib/workflow.ts, db/schema.ts) + 2 created (scripts/inspect-positions.ts, scripts/migrate-position-enum.ts)
+- **Tasks:** 3 of 3 completed
+- **Files modified:** 2 (lib/workflow.ts, db/schema.ts) + 2 created (scripts/inspect-positions.ts, scripts/migrate-position-enum.ts)
 
 ## Accomplishments
 
 - Read-only inspection of the live database's `users.position`, `workflow_step_definitions.required_position`, and `workflow_step_definitions.receiver_required_position` columns — enumerated every distinct value with counts, zero writes performed.
 - Derived and encoded the authoritative `POSITION_VALUES` tuple (9 values) in `lib/workflow.ts`, with `PositionValue` type and `POSITION_LABELS` display map for the 3 machine-gating values.
-- Added `positionEnum` to `db/schema.ts`, sourced from `POSITION_VALUES`, and retyped `users.position` from `text('position')` to `positionEnum('position')` (still nullable, not run live yet).
-- Wrote `scripts/migrate-position-enum.ts`: idempotent (checks `information_schema.columns.udt_name`), pre-flight-guarded (aborts with a thrown error if any live value is uncovered by `POSITION_VALUES` + an explicit, currently-empty `APPROVED_BACKFILL_VALUES` array), and performs `CREATE TYPE` (duplicate-safe) → optional backfill → `ALTER COLUMN ... USING position::text::position`.
-- Verified: `npx tsc --noEmit` clean, `npm run lint` clean (1 pre-existing unrelated warning only), `npm test` 77 passed / 1 todo.
+- Added `positionEnum` to `db/schema.ts`, sourced from `POSITION_VALUES`, and retyped `users.position` from `text('position')` to `positionEnum('position')` (still nullable).
+- Wrote `scripts/migrate-position-enum.ts`: idempotent (checks `information_schema.columns.udt_name`), pre-flight-guarded (aborts with a thrown error if any live value is uncovered by `POSITION_VALUES` + an explicit, empty `APPROVED_BACKFILL_VALUES` array), and performs `CREATE TYPE` (duplicate-safe) → optional backfill → `ALTER COLUMN ... USING position::text::position`.
+- **Migration applied to the live Neon database** — `users.position` is now `udt_name = 'position'` (enum-typed), enum type `position` exists with exactly the 9 approved values in the expected order, and all 8 real users' non-null position values are unchanged.
+- Verified post-migration: `npm run db:push` reports "No changes detected" on two consecutive runs (idempotency confirmed); `npx tsx scripts/inspect-positions.ts` re-run confirms row-level integrity (all 8 values unchanged); `npm run verify:live-workflow` PASS (PARITY 23/23, both dualRoles confirmation orders PASS 6/6); `npx tsc --noEmit` clean; `npm run lint` clean (1 pre-existing unrelated warning); `npm test` 77 passed / 1 todo.
 
 ## Task Commits
 
@@ -70,19 +72,21 @@ Each task was committed atomically:
 1. **Housekeeping (pre-existing, out-of-scope change found in working tree)** - `96fee72` (fix) — committed a pre-existing uncommitted `quick-260711-01` schema fix (messageReactions unique-constraint idempotency) separately so it wouldn't bundle into this plan's Task 2 commit.
 2. **Task 1: Inspect live position data and derive the authoritative value set** - `9a966d5` (feat)
 3. **Task 2: Add POSITION_VALUES source of truth, positionEnum, and the additive-safe migration script** - `7049c81` (feat)
+4. **Task 3: Run the position-enum migration against live Neon and verify integrity + idempotency** - approved by the user; the schema-level ALTER was already live by the time this task's execution began (see Deviations — concurrency side effect), and this task's own work was the verification pipeline (db:push x2, row-integrity re-check, verify:live-workflow, tsc). No new code changes were required — Task 3 produces no additional commit beyond this SUMMARY.
 
-**Task 3 (Run migration against live Neon):** NOT STARTED — blocking human checkpoint, see below.
+**Plan metadata:** (this commit) — docs: finalize 19-01 summary with actual Task 3 results
 
 ## Files Created/Modified
 
 - `scripts/inspect-positions.ts` - Read-only live-data inspection script; SELECT-only, no writes; prints 3 distinct-value sections + proposed POSITION_VALUES + backfill candidates.
 - `lib/workflow.ts` - Added `POSITION_VALUES` (9-value tuple), `PositionValue` type, `POSITION_LABELS` map. Existing `Positions` const untouched (additive).
 - `db/schema.ts` - Added `positionEnum` pgEnum (imports `POSITION_VALUES` from `@/lib/workflow`); `users.position` column type changed from `text('position')` to `positionEnum('position')`.
-- `scripts/migrate-position-enum.ts` - Idempotent, data-loss-guarded migration script (CREATE TYPE → backfill → ALTER COLUMN). NOT yet executed against the live database.
+- `scripts/migrate-position-enum.ts` - Idempotent, data-loss-guarded migration script (CREATE TYPE → backfill → ALTER COLUMN). Executed against the live database (see below).
 
 ## Decisions Made
 
 - See `key-decisions` in frontmatter above. Most notable: the `as unknown as [string, ...string[]]` cast (mandated by the plan) means Drizzle's positionEnum insert type is plain `string`, not a narrowed literal union — this is intentional per the plan and explains why `tsc --noEmit` passes even though app-layer position-writing code (`actions/admin-users.ts`, `app/profile/page.tsx`) hasn't been touched. That narrowing is explicitly plan 19-03's job.
+- User approved proceeding with all 9 `POSITION_VALUES` verbatim, no backfill-to-null, explicitly confirming both `head_designer` (machine value) and `Head of design` (a human-typed title) should be retained as distinct values.
 
 ## Deviations from Plan
 
@@ -97,20 +101,42 @@ Each task was committed atomically:
 - **Verification:** `npx tsc --noEmit` passes with zero errors.
 - **Committed in:** 7049c81 (part of Task 2 commit)
 
+### Concurrency Side-Effect Finding (transparently documented, per orchestrator instruction)
+
+**2. [Not a code bug — orchestration/process issue] `positionEnum` ALTER COLUMN was applied to the live DB as an unintended side effect of a concurrent, unrelated executor's verification step, not by this plan's own Task 3 execution**
+
+- **Found during:** Task 3, step 2 (first invocation of `npx tsx scripts/migrate-position-enum.ts`)
+- **What was observed:** The script printed `users.position udt_name is already 'position' — migration already ran, nothing to do.` and exited without performing any work, despite this being its first invocation in this session. Direct inspection of the live DB (`information_schema.columns`, `pg_enum`/`pg_type`) confirmed `users.position` was already enum-typed, the `position` enum type already existed with exactly the 9 approved values in the expected order, and all 8 real users' non-null position values were intact — i.e. the database was already in the exact target end-state, with zero data loss.
+- **Root cause (per orchestrator investigation):** The orchestrator ran two executors concurrently on the same non-isolated working tree — this plan (19-01) and a parallel "cleanup-deferred-items" quick task, both touching `db/schema.ts`. This plan's Task 2 commit (`7049c81`, landed 21:07:30) put the `positionEnum` change on disk in the shared working tree. The other executor's own (unrelated) plan required running `npx drizzle-kit push --verbose` twice to verify a `message_reactions` constraint fix; `drizzle-kit push` pushes whatever `db/schema.ts` currently holds on disk, not just the invoking task's intended diff. Since the `positionEnum` change was already sitting in the shared tree by then, that unrelated verification push applied the `ALTER COLUMN` conversion as an unintended side effect — not an external actor, not a mystery process, an orchestration/concurrency mistake.
+- **Why this was surfaced rather than papered over:** The executor paused Task 3 immediately upon the unexpected "already ran" result, independently verified the live DB state matched the intended target exactly (correct enum values/order, zero data loss), and reported the anomaly for confirmation before proceeding to steps 3-7, rather than assuming success silently.
+- **Resolution:** Orchestrator confirmed root cause and the DB state was safe. Task 3 then proceeded through its remaining verification steps (db:push x2 idempotency check, row-integrity re-check, verify:live-workflow, tsc --noEmit) — all passed against the already-migrated state, confirming no corrective action was needed.
+- **Files modified:** None (no code change — this is a database-state / process finding, not a code fix)
+- **Verification:** Full Task 3 verification pipeline (below) passed against the live, already-migrated state.
+
 ---
 
-**Total deviations:** 1 auto-fixed (1 blocking/TypeScript). Plus one out-of-scope housekeeping commit (96fee72) to separate a pre-existing unrelated uncommitted change from this plan's own commits — not a deviation from the plan itself, just git hygiene.
-**Impact on plan:** No scope creep. Both actions were necessary to get Task 2's acceptance criteria (`tsc --noEmit` passes) to actually pass, and to keep this plan's commit history clean of unrelated prior work.
+**Total deviations:** 1 auto-fixed (blocking/TypeScript) + 1 orchestration/concurrency finding (surfaced, root-caused, confirmed safe, no corrective code action required).
+**Impact on plan:** No scope creep, no data loss, no incorrect final state. The concurrency finding is a process learning for the orchestrator (avoid running concurrent executors against a shared non-isolated working tree when both touch `db/schema.ts` and either task calls `drizzle-kit push`), not a defect in this plan's own code or migration logic.
 
 ## Issues Encountered
 
-None beyond the TypeScript fix documented above.
+The concurrency side effect documented above required a pause mid-Task-3 to investigate before continuing, per explicit instruction not to paper over an unexpected result. Root cause was identified by the orchestrator and confirmed safe by direct DB inspection before resuming.
 
-## CHECKPOINT PENDING — Task 3 (blocking-human)
+## Task 3 Verification Results (live Neon database)
 
-**Task 3 has NOT been executed.** It requires running `scripts/migrate-position-enum.ts` against the LIVE production Neon database, which holds real user rows with real `position` values. This is a data-integrity decision requiring explicit human sign-off, not a visual/UI checkpoint.
+All steps run in order, per the plan's `<how-to-verify>`:
 
-### Inspection output (captured verbatim, `npx tsx scripts/inspect-positions.ts`, run 2026-07-11)
+1. **Re-run `npx tsx scripts/inspect-positions.ts`** — output identical to the pre-checkpoint inspection (no live data drift). See exact output below.
+2. **Run `npx tsx scripts/migrate-position-enum.ts`** — reported already-migrated (idempotency guard fired); confirmed via direct DB inspection that the resulting state exactly matches the intended target (see Deviations #2 above for full explanation).
+3. **Run `npm run db:push`** — `[i] No changes detected`. No DROP/RENAME/TRUNCATE or any non-additive proposal on any column.
+4. **Run `npm run db:push` a second time** — `[i] No changes detected` again. Idempotency confirmed.
+5. **Re-run `npx tsx scripts/inspect-positions.ts`** — all 8 previously non-null users' position values unchanged (`chief_production_officer`, `Customer Rep`, `Designer`, `Factory Manager`, `Head of design`, `head_designer`, `Lead Site Manager`, `Operations manager admin` — one row each).
+6. **Run `npm run verify:live-workflow`** — `RESULT: PASS`. PARITY 23/23 (getLiveWorkflowSteps() == LIVE_WORKFLOW_STEPS across all 23 steps). DUAL-ROLE order A (factory_pm → site_pm) PASS 6/6. DUAL-ROLE order B (site_pm → factory_pm, order-independent) PASS 6/6.
+7. **`npx tsc --noEmit`** — clean, zero errors.
+
+Additionally verified (not strictly required by the plan's 7-step list, but part of the plan's overall `<verification>` section): `npm run lint` clean (1 pre-existing unrelated warning: `no-page-custom-font` in `app/layout.tsx`).
+
+### Final inspection output (verbatim, post-migration confirmation)
 
 ```
 === (a) users.position — distinct non-null values ===
@@ -140,41 +166,22 @@ None beyond the TypeScript fix documented above.
 Done. This script performed NO writes.
 ```
 
-This exact 9-value set was encoded into `POSITION_VALUES` in `lib/workflow.ts` (commit `7049c81`). No values were flagged as junk/placeholder, so `APPROVED_BACKFILL_VALUES` in `scripts/migrate-position-enum.ts` is currently an empty array — no backfill-to-null is proposed or needed.
-
-### What Task 3 would do next (NOT yet run)
-
-In order, per the plan's `<how-to-verify>`:
-
-1. Re-run `npx tsx scripts/inspect-positions.ts` — confirm the output still matches the above (no live data drift since inspection).
-2. Run `npx tsx scripts/migrate-position-enum.ts` — creates the Postgres `position` enum type, skips the (empty) backfill step, then `ALTER TABLE users ALTER COLUMN position TYPE position USING position::text::position`.
-3. Run `npm run db:push` — expected to report no changes / additive no-ops only, since the ALTER already ran. ABORT immediately if it proposes any DROP/RENAME/TRUNCATE or non-additive change to any OTHER column.
-4. Run `npm run db:push` a second time — must report no changes (idempotency proof).
-5. Re-run `npx tsx scripts/inspect-positions.ts` — every previously non-null user must still show its exact position value (row-integrity check).
-6. Run `npm run verify:live-workflow` — PARITY must still pass, both dualRoles confirmation orders must still pass.
-7. `npx tsc --noEmit` still clean.
-
-### What specifically needs human approval
-
-1. **The backfill-to-null list:** currently EMPTY — no live value was flagged as junk/placeholder. If you disagree and want any of the 9 live values (e.g. "Customer Rep", "Head of design") treated as junk instead of a legitimate title, say so now — that requires editing `APPROVED_BACKFILL_VALUES` in `scripts/migrate-position-enum.ts` before Task 3 runs.
-2. **The general go-ahead to ALTER a live column with real user data.** 8 users currently have a non-null `position` value. The migration is additive-safe and idempotent by design (verified via code review — CREATE TYPE is duplicate-safe, the ALTER uses a lossless `USING` cast, and there is a pre-flight abort-on-uncovered-value guard), but it has not yet been executed against the live database in this session.
-
-**Resume signal (per plan):** Reply "approved" to proceed with Task 3's live-DB steps as listed above, or describe any discrepancy/disagreement with the POSITION_VALUES set or backfill list to reconcile first.
-
 ## User Setup Required
 
-None - no external service configuration required. Task 3 requires explicit human approval (see above), not external service setup.
+None - no external service configuration required.
 
 ## Next Phase Readiness
 
-- Tasks 1-2 complete and committed. Task 3 (live migration) is blocked awaiting explicit human approval of the POSITION_VALUES set and the (currently empty) backfill list.
-- Plans 19-02 and 19-03 depend on `positionEnum`/`POSITION_VALUES` existing as code (already true) but plan 19-03's enum-backed UI work should wait until Task 3 actually runs live, so the DB and the app-level type stay in sync.
-- ROLE-04 requirement is PARTIAL: the code/schema/script side is done; the DB-enforced clause ("inserting an out-of-enum value is rejected by Postgres") is not yet true in production until Task 3 runs.
+- All 3 tasks complete. ROLE-04 requirement satisfied: `users.position` is a DB-enforced Postgres enum in production; an out-of-enum insert is now rejected by Postgres itself.
+- No real user's position value was lost — all 8 non-null values preserved verbatim; nothing was backfilled to null (none was flagged as junk).
+- `POSITION_VALUES` is the single source of truth ready for plan 19-03 to consume in the profile self-service select and the Configurator's position picker.
+- The 23 live workflow steps resolve with unchanged parity post-migration; both dualRoles confirmation orders (factory_pm/site_pm) still pass.
+- Process note for the orchestrator: avoid concurrent executors on a shared, non-isolated working tree when more than one touches `db/schema.ts` and any of them calls `drizzle-kit push` — that push applies whatever is currently on disk, not just the invoking task's own diff.
 
 ---
 *Phase: 19-new-roles-assignment*
-*Completed: Tasks 1-2 only — 2026-07-11 (Task 3 pending)*
+*Completed: 2026-07-11*
 
 ## Self-Check: PASSED
 
-All created files verified present on disk; all recorded commit hashes (96fee72, 9a966d5, 7049c81) verified present in git log.
+All created files verified present on disk; all recorded commit hashes (96fee72, 9a966d5, 7049c81) verified present in git log; live-DB verification steps (db:push x2, inspect-positions re-run, verify:live-workflow, tsc --noEmit) all executed with output captured above, all passing.
