@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: executing
-stopped_at: Phase 18 (Workflow Configurator) COMPLETE. Ad hoc post-Phase-18 work additionally shipped directly to the live graph, ahead of formal Phase 19/20/21/22 execution: commit f72573d (Project Intent + Payment Confirmation & Timeline, STG-01/PAY-01/PAY-02-partial/PAY-03) and commit 0d8bacd (full Design pipeline STG-02..07 — designer/architect assignment with position gating, Configurator rebuilt with drag-and-drop for non-technical self-service). See Decisions log for both. Demo-ready and pushed to origin/main.
-last_updated: "2026-07-11T11:42:00.000Z"
-last_activity: 2026-07-11 -- shipped Phase 22e ad hoc (dualRoles + receiverRole): merged Materials/Delivery Readiness into one dual-confirmation step (live graph 24->23 steps), pushed schema, wired Configurator UI; verified (tsc/lint/test green, verify:live-workflow PARITY 23/23 + both dualRoles orders)
+stopped_at: Phase 19 (New Roles & Assignment) COMPLETE (4/4 plans) — ROLE-01, ROLE-03, ROLE-04, ROLE-05, ROLE-06, ROLE-07 verified complete; ROLE-02 left honestly Partial (pool-membership gating confirmed, assignee notification not implemented — see Decisions log, plan 19-04). Ready for Phase 20 (Payment & Timeline Gating), which is mostly delivered ad hoc already (PAY-01/PAY-03 complete, PAY-02 partial).
+last_updated: "2026-07-11T21:45:00.000Z"
+last_activity: 2026-07-11 -- Completed 19-04-PLAN.md: scripts/verify-role-assignment.ts (real-code checks for ROLE-02/03/06/07), REQUIREMENTS.md/ROADMAP.md reconciled to true Phase 19 completion state; Phase 19 marked complete with ROLE-02 documented as a genuine partial finding
 progress:
   total_phases: 21
   completed_phases: 4
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-09)
 
 **Core value:** A PM on the floor or on-site can complete a structured checklist (with photo evidence) on their phone and have it permanently recorded — replacing paper, with role-scoped visibility and read-only Super Admin oversight.
-**Current focus:** Phase 19 -- New Roles & Assignment (next; ops_factory/factory_manager roles + position-enum/requiredPosition gating still pending; architect role + target_roles-array + required_position column already shipped ad hoc, see Decisions log)
+**Current focus:** Phase 20 -- Payment & Timeline Gating (next; mostly delivered ad hoc already — PAY-01/PAY-03 complete, PAY-02 partial pending head_of_operations requiredPosition narrowing + extending the toggle to customer_care, both now unblocked by Phase 19's completed position-enum work)
 
 ## Current Position
 
-Phase: 18 (Workflow Configurator) — COMPLETE. Design pipeline (Phase 21 core, STG-02..07) also shipped ad hoc — see Decisions log.
-Plan: 1 of 1
-Status: Phase complete — ready for Phase 19 (formal plan-phase should account for what's already ad hoc-shipped, not re-plan it)
-Last activity: 2026-07-11 -- Completed quick task 260711-gs6: finished Phase 22e ad hoc (dualRoles + receiverRole) — live DB schema push, Materials/Delivery Readiness merge migration (24->23 steps), Configurator UI wiring, full verify green
+Phase: 19 (New Roles & Assignment) — COMPLETE (4/4 plans). ROLE-02 left honestly Partial — see Decisions log.
+Plan: 4 of 4
+Status: Phase complete — ready for Phase 20 (mostly delivered ad hoc already; scope is narrow, see ROADMAP.md Phase 20 section)
+Last activity: 2026-07-11 -- Completed 19-04-PLAN.md: verify-role-assignment.ts + REQUIREMENTS.md/ROADMAP.md reconciliation, closing out Phase 19
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Last activity: 2026-07-11 -- Completed quick task 260711-gs6: finished Phase 22e
 | Phase 19 P01 | 55min | 3 tasks | 4 files |
 | Phase 19 P02 | 15min | 2 tasks | 5 files |
 | Phase 19 P03 | 6min | 2 tasks | 5 files |
+| Phase 19 P04 | 35min | 2 tasks | 3 files |
 
 ### Decisions
 
@@ -114,6 +115,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 19-01 process note, 2026-07-11]: The orchestrator ran two executors concurrently on a shared, non-isolated working tree — this plan (19-01) and an unrelated "cleanup-deferred-items" quick task — both touching db/schema.ts. The other executor's own verification step (`drizzle-kit push`, run to check an unrelated `message_reactions` constraint fix) applied this plan's already-on-disk `positionEnum` `ALTER COLUMN` as an unintended side effect, ahead of this plan's own Task 3 invocation. Confirmed safe via direct DB inspection (correct 9-value enum, correct order, zero data loss) before proceeding with the remaining verification steps. Root cause: concurrent executors sharing one working tree when more than one touches db/schema.ts and any of them calls `drizzle-kit push` — not an external actor. Separately, the GSD SDK's `state.record-metric`/`state add-decision` handlers were found to recompute unrelated STATE.md frontmatter fields (`status`, `stopped_at`, `progress` counters) to different, seemingly-stale values as a side effect of any invocation in this project's current state — those SDK calls were reverted via `git checkout -- .planning/STATE.md` and this entry plus the Phase 19 P01 metrics row were applied by direct edit instead, to avoid clobbering the manually-curated frontmatter.
 - [Phase 19-02, 2026-07-11]: `factory_operations` and `factory_manager` (ROLE-01) each got their own Phase-15-pattern dashboard shell (`app/(app)/factory-operations/dashboard/page.tsx`, `app/(app)/factory-manager/dashboard/page.tsx`) + sidebar NAV entries, replacing their prior `ROLE_DASHBOARD` fallback to `/production/dashboard`. About page organogram (`ROLES` array) grew to cover both, describing their real live workflow steps (Production Process checklist, Quality Control readiness forms — both already shipped ad hoc in Phase 22e). `trt-flow-diagram.tsx` needed zero changes — its `ROLE_COLOR`/legend/`DETAIL` maps already covered both roles from that same Phase 22e ad hoc work. Continued the Phase 19-01 precedent of direct-editing STATE.md rather than invoking `gsd-sdk query state.*` handlers, to avoid the same frontmatter-clobbering side effect.
 - [Phase 19-03, 2026-07-11]: Closed ROLE-05's remaining gap — profile page's free-text position `<input list=datalist>` replaced with a `<select>` bound to `POSITION_VALUES`/`POSITION_LABELS` (lib/workflow.ts, 19-01), `actions/profile.ts` gained a server-side `POSITION_VALUES.includes()` guard coercing any out-of-enum value to `null` before the DB write, admin user creation (`admin-create-user.tsx` + `createUserAction`) had `position` removed entirely (D: position is not collected at account creation), and the Workflow Configurator's `requiredPosition` control (workflow-configurator-shared.tsx) was converted from `KNOWN_POSITIONS` one-click-buttons + `__custom__` free-text fallback to a plain enum-backed `<select>` — the free-text fallback is gone so a super admin can no longer author a `requiredPosition` gate value that could never match any real user. `KNOWN_POSITIONS` export removed (no longer imported anywhere after admin-create-user.tsx stopped using it). Verified: `tsc --noEmit` and `npm run lint` clean after each task. Continued the direct-STATE.md-edit precedent from 19-01/19-02.
+- [Phase 19-04, 2026-07-11]: Wrote `scripts/verify-role-assignment.ts` to prove ROLE-02/03/06/07 against real shipped code + live DB data (throwaway users/project, cleaned up after). ROLE-07 (targetRoles array widening), ROLE-03 (roleEnum excludes all 6 super-admin title strings), and ROLE-06 (architect role + dashboard) all PASS. ROLE-02's pool-membership half also PASSES (design/architect-role user accepted on the live `assign_designer_brief` step, out-of-pool `factory_pm` user rejected with `assignee-role-mismatch`) — but the script's assignee-notification assertion genuinely FAILS: neither `assignUser` (lib/workflow-graph.ts) nor `assignUserAction` (actions/workflow-graph.ts) ever writes a `notifications` row for the assignee. Per this plan's own must_haves truth ("any genuine gap found during verification is recorded as a finding, not silently marked complete"), ROLE-02 was left `[~]` Partial in REQUIREMENTS.md rather than force-flipped to `[x]` — the missing notification wiring is new production code outside this plan's `files_modified` scope (verification + docs only) and is deferred to a future plan/quick-task. REQUIREMENTS.md: ROLE-01/03/05/06/07 flipped to Complete with verification notes; D-19-04-A reconciliation note added under ROLE-01 clarifying the roadmap's "ops_factory" wording maps to the already-shipped `factory_operations` enum value (no rename, note only). ROADMAP.md: Phase 19 marked Complete (4/4 plans), with an explicit Status caveat documenting both the ROLE-02 partial finding and a separately-discovered, out-of-scope staleness in `scripts/verify-design-pipeline.ts` (its hardcoded `design_meeting` step no longer exists in the live graph — removed by later, unrelated ad hoc work; not fixed here, logged as deferred). Phase 19 is now complete; Phase 20 is next (mostly already delivered ad hoc, narrow remaining scope).
 
 ### Pending Todos
 
@@ -147,6 +149,6 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 
 ## Session Continuity
 
-Last session: 2026-07-11T21:36:00.000Z
-Stopped at: Completed 19-03-PLAN.md (profile position select + server-side validation, admin creation stripped of position, Configurator requiredPosition enum-backed select, ROLE-05) — Phase 19 (New Roles & Assignment) Wave 2 plan 03 of N complete; orchestrator to continue with remaining plan (19-04, REQUIREMENTS.md ROLE-01..07 checkbox/traceability updates)
+Last session: 2026-07-11T21:45:00.000Z
+Stopped at: Completed 19-04-PLAN.md (scripts/verify-role-assignment.ts + REQUIREMENTS.md/ROADMAP.md reconciliation) — Phase 19 (New Roles & Assignment) COMPLETE, all 4 plans done. ROLE-02 left honestly Partial (assignee notification not implemented, see Decisions log). Orchestrator to continue with Phase 20 (Payment & Timeline Gating) — mostly delivered ad hoc already, narrow remaining scope per ROADMAP.md.
 Resume file: None
