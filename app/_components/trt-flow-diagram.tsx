@@ -48,7 +48,7 @@ const DETAIL: Record<string, string> = {
   project_review_authorisation:
     'Chief Production Officer reviews the drawing and confirms it has been reviewed.',
   production_process:
-    'Factory Operations Head works through the production checklist (optimisation, cutting, edging, drilling & grooving, spray, hardwood & upholstery, glass).',
+    'Factory Operations works through the production checklist (optimisation, cutting, edging, drilling & grooving, spray, hardwood & upholstery, glass).',
   factory_manager_readiness:
     'Factory Manager uploads the 3 readiness forms (material, upholstery, accessories), prompting Factory PM and Site PM simultaneously.',
   confirmation: 'Site PM confirms the project details to start the workflow.',
