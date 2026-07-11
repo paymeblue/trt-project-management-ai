@@ -4,8 +4,8 @@ milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: executing
 stopped_at: Phase 18 (Workflow Configurator) COMPLETE. Ad hoc post-Phase-18 work additionally shipped directly to the live graph, ahead of formal Phase 19/20/21/22 execution: commit f72573d (Project Intent + Payment Confirmation & Timeline, STG-01/PAY-01/PAY-02-partial/PAY-03) and commit 0d8bacd (full Design pipeline STG-02..07 — designer/architect assignment with position gating, Configurator rebuilt with drag-and-drop for non-technical self-service). See Decisions log for both. Demo-ready and pushed to origin/main.
-last_updated: "2026-07-10T02:30:00.000Z"
-last_activity: 2026-07-10 -- shipped Design pipeline (STG-02..07) + Configurator drag-and-drop rebuild ahead of Phase 19/21 execution; verified (PARITY 19/19, design-pipeline harness 15/15, tsc+lint clean) and pushed
+last_updated: "2026-07-11T11:42:00.000Z"
+last_activity: 2026-07-11 -- shipped Phase 22e ad hoc (dualRoles + receiverRole): merged Materials/Delivery Readiness into one dual-confirmation step (live graph 24->23 steps), pushed schema, wired Configurator UI; verified (tsc/lint/test green, verify:live-workflow PARITY 23/23 + both dualRoles orders)
 progress:
   total_phases: 21
   completed_phases: 4
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 Phase: 18 (Workflow Configurator) — COMPLETE. Design pipeline (Phase 21 core, STG-02..07) also shipped ad hoc — see Decisions log.
 Plan: 1 of 1
 Status: Phase complete — ready for Phase 19 (formal plan-phase should account for what's already ad hoc-shipped, not re-plan it)
-Last activity: 2026-07-10 -- Completed quick task 260710-d32: post-assignment confirmation + redirect in AssignmentStep
+Last activity: 2026-07-11 -- Completed quick task 260711-gs6: finished Phase 22e ad hoc (dualRoles + receiverRole) — live DB schema push, Materials/Delivery Readiness merge migration (24->23 steps), Configurator UI wiring, full verify green
 
 ## Performance Metrics
 
@@ -130,6 +130,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 | 2026-07-06 | slack-like-group-chat-group-conversation | Slack-like group chat — group conversations with title, emoji picker + reactions, typing indicator, GSAP fullscreen expand (like Paul Arredo) | complete ✓ |
 | 2026-07-10 | fix-blank-screen-on-workflow-step-pages | Blank-screen fix on workflow step + payment-confirmation pages — redirect(roleDashboard) for all no-access/indeterminate branches, loading.tsx skeletons, (app)/error.tsx boundary | complete ✓ |
 | 2026-07-10 | post-assignment-ux-show-clear-confirmati | Post-assignment UX — named "{name} assigned to {step} on {project}" confirmation + delayed redirect to role dashboard in AssignmentStep | complete ✓ |
+| 2026-07-11 | finish-phase-22e-dualroles-receiverrole | Finished Phase 22e ad hoc — live schema push (receiver_role/dual_roles/confirmed_roles), merged Materials/Delivery Readiness into one dual-confirmation step (24→23 steps), Configurator UI fields for receiverRole/dualRoles | complete ✓ |
 
 ## Deferred Items
 
