@@ -355,7 +355,13 @@ Plans:
   3. A step with `requiredPosition` set (e.g. `head_of_operations`, `head_designer`) is only actionable by a user matching both `role` and `position` — any other user of the same `role` but wrong/no `position` is rejected server-side
   4. A newly created user is not asked for a position at creation; they can later set their own position from a self-service profile screen, constrained to the position enum's valid values
   5. Super-admin titles (Head of Operations, MD, ED, COO, Chief Production Officer) continue to live in `users.position` with no new role-enum values added for them; permission checks still key off `role = super_admin` (narrowed by `requiredPosition` where a step requires it). Head of Design is a `design`-role position (`head_designer`), not a super-admin title.
-**Plans**: TBD (set at /gsd-plan-phase 19)
+**Plans**: 4 plans
+
+Plans:
+- [x] 19-01-PLAN.md — Position free-text → DB-enforced Postgres enum (ROLE-04), the isolated high-risk live migration [Wave 1]
+- [ ] 19-02-PLAN.md — factory_operations + factory_manager dashboard shells (ROLE-01) [Wave 2]
+- [ ] 19-03-PLAN.md — Self-service position select + strip position from creation + enum-backed configurator (ROLE-05) [Wave 2]
+- [ ] 19-04-PLAN.md — Reconcile/verify already-shipped ROLE-02/03/06/07 + finalize phase docs [Wave 3]
 **UI hint**: yes
 
 ### Phase 20: Payment & Timeline Gating
@@ -427,7 +433,7 @@ v2.0 phases execute in numeric order: 16 → 17 → 18 → 19 → 20 → 21 → 
 | 16. Workflow Engine Core | 5/5 | Complete   | 2026-07-09 |
 | 17. Confirmation → Sign Off Migration | 6/6 | Complete   | 2026-07-09 |
 | 18. Workflow Configurator | 1/1 | Complete ✓ | 2026-07-09 |
-| 19. New Roles & Assignment | 0/? | Not started | - |
+| 19. New Roles & Assignment | 1/4 | In Progress | - |
 | 20. Payment & Timeline Gating | 0/? | Not started | - |
 | 21. Front-of-Funnel Stages — Intake Through Design Approval | 0/? | Not started | - |
 | 22. Production-Authorization Insert — Confirmation2 Through Factory Manager QC | 0/? | Not started | - |
