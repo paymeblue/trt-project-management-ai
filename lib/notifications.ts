@@ -43,6 +43,28 @@ export async function notifyAllSuperAdmins(input: {
   if (rows.length) await db.insert(notifications).values(rows)
 }
 
+// Notify a single recipient (e.g. a workflow-step assignee). Never self-notifies
+// when recipientId === actorId (mirrors notifyAllSuperAdmins' self-exclusion) —
+// covers the auto-assign path where a user is assigned to themselves.
+export async function notifyUser(input: {
+  recipientId: string
+  type: string
+  title: string
+  body?: string | null
+  projectId?: string | null
+  actorId?: string | null
+}): Promise<void> {
+  if (input.recipientId === input.actorId) return
+  await db.insert(notifications).values({
+    recipientId: input.recipientId,
+    type: input.type,
+    title: input.title,
+    body: input.body ?? null,
+    projectId: input.projectId ?? null,
+    actorId: input.actorId ?? null,
+  })
+}
+
 // The caller's own recent notifications + a total unread count.
 export async function getNotifications(userId: string): Promise<NotificationFeed> {
   const rows = await db

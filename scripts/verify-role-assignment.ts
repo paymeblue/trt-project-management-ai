@@ -181,11 +181,11 @@ async function main() {
         .select({ id: schema.notifications.id, type: schema.notifications.type })
         .from(schema.notifications)
         .where(eq(schema.notifications.recipientId, designerA))
-      if (notifRows.length > 0) {
-        recordPass('assignee received a notification row after being assigned')
+      if (notifRows.some((r) => r.type === 'assignment')) {
+        recordPass('assignee received an \'assignment\'-typed notification row after being assigned')
       } else {
         recordFail(
-          'assignee received NO notification row after being assigned — assignUser (lib/workflow-graph.ts) and assignUserAction (actions/workflow-graph.ts) record the assignment but do not fire any notification to the assignee; the "notifies that user they\'ve been assigned" half of ROLE-02 is not implemented',
+          'assignee did NOT receive an \'assignment\'-typed notification row after being assigned — the "notifies that user they\'ve been assigned" half of ROLE-02 is not satisfied',
         )
       }
     }

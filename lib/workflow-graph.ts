@@ -13,6 +13,7 @@ import {
 } from '@/db/schema'
 import type { GraphStep, StepKind, WorkflowRole, WorkflowStep } from '@/lib/workflow'
 import { stepRequiredKinds } from '@/lib/workflow'
+import { notifyUser } from '@/lib/notifications'
 
 // ── Read engine for the DB-driven workflow graph (Phase 16, WF-01/WF-02) ──
 // Every function reads live from the database on each call — no module-level
@@ -478,6 +479,19 @@ export async function assignUser(opts: {
         updatedAt: now,
       },
     })
+
+  const [proj] = await db
+    .select({ name: projects.name })
+    .from(projects)
+    .where(eq(projects.id, opts.projectId))
+    .limit(1)
+  await notifyUser({
+    recipientId: opts.assignedUserId,
+    actorId: opts.actorId,
+    type: 'assignment',
+    title: `You've been assigned: ${step.label} on ${proj?.name ?? 'a project'}`,
+    projectId: opts.projectId,
+  })
 }
 
 // ── Workflow Configurator (Phase 18, CFG-01/CFG-02/CFG-03) ────────────────
