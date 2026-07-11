@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: executing
-stopped_at: Phase 19 (New Roles & Assignment) COMPLETE (4/4 plans) — ROLE-01, ROLE-03, ROLE-04, ROLE-05, ROLE-06, ROLE-07 verified complete; ROLE-02 left honestly Partial (pool-membership gating confirmed, assignee notification not implemented — see Decisions log, plan 19-04). Ready for Phase 20 (Payment & Timeline Gating), which is mostly delivered ad hoc already (PAY-01/PAY-03 complete, PAY-02 partial).
-last_updated: "2026-07-11T21:45:00.000Z"
-last_activity: 2026-07-11 -- Completed 19-04-PLAN.md: scripts/verify-role-assignment.ts (real-code checks for ROLE-02/03/06/07), REQUIREMENTS.md/ROADMAP.md reconciled to true Phase 19 completion state; Phase 19 marked complete with ROLE-02 documented as a genuine partial finding
+stopped_at: Phase 19 (New Roles & Assignment) COMPLETE (4/4 plans) — ALL of ROLE-01..07 now verified complete. ROLE-02's assignee-notification gap (found by plan 19-04's verification) was closed same-day by quick task 260711-assignee-notification: notifyUser wired into assignUser, header bell mounted for every role. Ready for Phase 20 (Payment & Timeline Gating), which is mostly delivered ad hoc already (PAY-01/PAY-03 complete, PAY-02 partial).
+last_updated: "2026-07-11T23:40:00.000Z"
+last_activity: 2026-07-11 -- Completed quick task 260711-assignee-notification: notifyUser (lib/notifications.ts) wired into assignUser, header bell mounted for every authenticated role, ROLE-02 flipped to Complete — Phase 19 (ROLE-01..07) is now fully done
 progress:
   total_phases: 21
   completed_phases: 4
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 
 ## Current Position
 
-Phase: 19 (New Roles & Assignment) — COMPLETE (4/4 plans). ROLE-02 left honestly Partial — see Decisions log.
+Phase: 19 (New Roles & Assignment) — COMPLETE (4/4 plans). ROLE-01..07 all Complete (ROLE-02's assignee-notification gap closed by quick task 260711-assignee-notification).
 Plan: 4 of 4
 Status: Phase complete — ready for Phase 20 (mostly delivered ad hoc already; scope is narrow, see ROADMAP.md Phase 20 section)
-Last activity: 2026-07-11 -- Completed 19-04-PLAN.md: verify-role-assignment.ts + REQUIREMENTS.md/ROADMAP.md reconciliation, closing out Phase 19
+Last activity: 2026-07-11 -- Completed quick task 260711-assignee-notification: closed the ROLE-02 gap Phase 19 verification found
 
 ## Performance Metrics
 
@@ -141,6 +141,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 | 2026-07-10 | post-assignment-ux-show-clear-confirmati | Post-assignment UX — named "{name} assigned to {step} on {project}" confirmation + delayed redirect to role dashboard in AssignmentStep | complete ✓ |
 | 2026-07-11 | finish-phase-22e-dualroles-receiverrole | Finished Phase 22e ad hoc — live schema push (receiver_role/dual_roles/confirmed_roles), merged Materials/Delivery Readiness into one dual-confirmation step (24→23 steps), Configurator UI fields for receiverRole/dualRoles | complete ✓ |
 | 2026-07-11 | cleanup-deferred-items | Retired dead step keys from db/seed-workflow-graph.ts (23-step live graph); fixed message_reactions unique-constraint db:push churn (introspection column-order root cause) | complete ✓ |
+| 2026-07-11 | assignee-notification | Closed Phase 19's ROLE-02 gap — notifyUser wired into assignUser after durable write, header bell mounted for every role (was super_admin-only), markOne no longer routes assignment notifications to /disputes | complete ✓ |
 
 ## Deferred Items
 
