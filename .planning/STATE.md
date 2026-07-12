@@ -142,6 +142,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 | 2026-07-11 | finish-phase-22e-dualroles-receiverrole | Finished Phase 22e ad hoc — live schema push (receiver_role/dual_roles/confirmed_roles), merged Materials/Delivery Readiness into one dual-confirmation step (24→23 steps), Configurator UI fields for receiverRole/dualRoles | complete ✓ |
 | 2026-07-11 | cleanup-deferred-items | Retired dead step keys from db/seed-workflow-graph.ts (23-step live graph); fixed message_reactions unique-constraint db:push churn (introspection column-order root cause) | complete ✓ |
 | 2026-07-11 | assignee-notification | Closed Phase 19's ROLE-02 gap — notifyUser wired into assignUser after durable write, header bell mounted for every role (was super_admin-only), markOne no longer routes assignment notifications to /disputes | complete ✓ |
+| 2026-07-12 | fix-inconsistent-step-completion-feedbac | Live-QA audit found step advancement itself was correct on all 23 steps, but yes_no_upload/approval step renderers (10/23 steps) showed success and error messages in identical gray text with no auto-redirect; ported the working green/red + auto-redirect pattern from assignment-step.tsx into both, and replaced silent redirect() bounces on unauthorized-role/position-mismatch hits with a rendered message | complete ✓ |
 
 ## Deferred Items
 
@@ -151,6 +152,6 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 
 ## Session Continuity
 
-Last session: 2026-07-11T21:45:00.000Z
-Stopped at: Completed 19-04-PLAN.md (scripts/verify-role-assignment.ts + REQUIREMENTS.md/ROADMAP.md reconciliation) — Phase 19 (New Roles & Assignment) COMPLETE, all 4 plans done. ROLE-02 left honestly Partial (assignee notification not implemented, see Decisions log). Orchestrator to continue with Phase 20 (Payment & Timeline Gating) — mostly delivered ad hoc already, narrow remaining scope per ROADMAP.md.
+Last session: 2026-07-12T15:18:06.000Z
+Stopped at: Completed quick task 260712-mn3 (fix-inconsistent-step-completion-feedbac). Live-browser QA driven by "are you fully done?" found step advancement correct across all 23 live steps, but 10/23 (all yes_no_upload/approval steps) had identical-looking success/error feedback — fixed. Orchestrator to continue with Phase 20 (Payment & Timeline Gating) — mostly delivered ad hoc already, narrow remaining scope per ROADMAP.md.
 Resume file: None
