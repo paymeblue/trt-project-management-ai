@@ -1,13 +1,17 @@
 {
   "phase": "19",
   "phase_name": "New Roles & Assignment",
-  "timestamp": "2026-07-12T00:00:00.000Z",
-  "areas_completed": ["New role dashboards"],
-  "areas_remaining": ["Assignment notifications", "Assignment picker UX", "Reassignment / correction"],
+  "timestamp": "2026-07-12T00:10:00.000Z",
+  "areas_completed": ["New role dashboards", "Assignment notifications"],
+  "areas_remaining": ["Assignment picker UX", "Reassignment / correction"],
   "decisions": {
     "New role dashboards": [
       {"question": "What should ops_factory/factory_manager landing pages show with zero live steps today?", "answer": "Match Phase 15 exactly — nav + landing page with honest \"steps not yet configured for your role\" blurb, same as design/production.", "options_presented": ["Match Phase 15 exactly", "Preview of what's coming", "You decide"]},
       {"question": "Display labels and routes for the two new roles?", "answer": "\"Factory Ops\" / \"Factory Manager\" — routes /factory-ops and /factory-manager.", "options_presented": ["\"Factory Ops\" / \"Factory Manager\"", "\"Ops Factory\" / \"Factory Manager\"", "You decide"]}
+    ],
+    "Assignment notifications": [
+      {"question": "Should assignment notify in-app only, matching the v1.1 alerts-are-in-app-only decision?", "answer": "In-app only — reuse existing notifications table + bell/panel + poll pattern.", "options_presented": ["In-app only (Recommended)", "In-app + email", "You decide"]},
+      {"question": "What should the notification say to the assignee?", "answer": "Project + step name — e.g. \"You've been assigned to Design Stage on Usuma\", linking straight to that step.", "options_presented": ["Project + step name", "Generic + link only", "You decide"]}
     ]
   },
   "deferred_ideas": [],
