@@ -1,8 +1,14 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { submitYesNoUploadAction, completeStepAction } from '@/actions/workflow-graph'
 import { downscaleImage } from '@/lib/downscale-image'
+
+// Delay (ms) the success confirmation stays visible before redirecting, so
+// the user has time to read it before the page navigates. Matches
+// assignment-step.tsx's mechanism.
+const REDIRECT_DELAY_MS = 1400
 
 // Minimal renderer for the `yes_no_upload` fulfillment kind (WF-03): a
 // yes/no control plus an OPTIONAL file upload. Correctness over polish —
@@ -11,15 +17,33 @@ import { downscaleImage } from '@/lib/downscale-image'
 export default function YesNoUploadStep({
   projectId,
   stepDefId,
+  redirectTo,
 }: {
   projectId: string
   stepDefId: string
+  redirectTo?: string
 }) {
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [answer, setAnswer] = useState<'yes' | 'no' | null>(null)
   const [uploadData, setUploadData] = useState<string | null>(null)
   const [uploadName, setUploadName] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [ok, setOk] = useState(false)
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimer.current) clearTimeout(redirectTimer.current)
+    }
+  }, [])
+
+  function scheduleRedirect() {
+    if (!redirectTo) return
+    redirectTimer.current = setTimeout(() => {
+      router.push(redirectTo)
+    }, REDIRECT_DELAY_MS)
+  }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -31,12 +55,14 @@ export default function YesNoUploadStep({
       setUploadName(file.name)
     } catch {
       setMessage('Could not read that file. Please try another.')
+      setOk(false)
     }
   }
 
   function submit() {
     if (!answer) {
       setMessage('Choose yes or no first.')
+      setOk(false)
       return
     }
     setMessage(null)
@@ -50,10 +76,18 @@ export default function YesNoUploadStep({
       })
       if (!res.ok) {
         setMessage(res.message ?? 'Could not submit.')
+        setOk(false)
         return
       }
       const completeRes = await completeStepAction({ projectId, stepDefId })
-      setMessage(completeRes.message ?? (completeRes.ok ? 'Step completed.' : 'Could not complete step.'))
+      if (completeRes.ok) {
+        setMessage(`✓ Step completed.${redirectTo ? ' Redirecting…' : ''}`)
+        setOk(true)
+        scheduleRedirect()
+      } else {
+        setMessage(completeRes.message ?? 'Could not complete step.')
+        setOk(false)
+      }
     })
   }
 
@@ -61,7 +95,14 @@ export default function YesNoUploadStep({
     setMessage(null)
     startTransition(async () => {
       const res = await completeStepAction({ projectId, stepDefId })
-      setMessage(res.message ?? (res.ok ? 'Step completed.' : 'Could not complete step.'))
+      if (res.ok) {
+        setMessage(`✓ Step completed.${redirectTo ? ' Redirecting…' : ''}`)
+        setOk(true)
+        scheduleRedirect()
+      } else {
+        setMessage(res.message ?? 'Could not complete step.')
+        setOk(false)
+      }
     })
   }
 
@@ -122,7 +163,7 @@ export default function YesNoUploadStep({
         </button>
       </div>
 
-      {message && <p className="text-sm text-gray-700">{message}</p>}
+      {message && <p className={`text-sm ${ok ? 'text-green-700' : 'text-error'}`}>{message}</p>}
     </div>
   )
 }
