@@ -1,0 +1,15 @@
+{
+  "phase": "19",
+  "phase_name": "New Roles & Assignment",
+  "timestamp": "2026-07-12T00:00:00.000Z",
+  "areas_completed": ["New role dashboards"],
+  "areas_remaining": ["Assignment notifications", "Assignment picker UX", "Reassignment / correction"],
+  "decisions": {
+    "New role dashboards": [
+      {"question": "What should ops_factory/factory_manager landing pages show with zero live steps today?", "answer": "Match Phase 15 exactly — nav + landing page with honest \"steps not yet configured for your role\" blurb, same as design/production.", "options_presented": ["Match Phase 15 exactly", "Preview of what's coming", "You decide"]},
+      {"question": "Display labels and routes for the two new roles?", "answer": "\"Factory Ops\" / \"Factory Manager\" — routes /factory-ops and /factory-manager.", "options_presented": ["\"Factory Ops\" / \"Factory Manager\"", "\"Ops Factory\" / \"Factory Manager\"", "You decide"]}
+    ]
+  },
+  "deferred_ideas": [],
+  "canonical_refs": []
+}
