@@ -1,7 +1,13 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { sendApprovalAction, receiveApprovalAction, completeStepAction } from '@/actions/workflow-graph'
+
+// Delay (ms) the success confirmation stays visible before redirecting, so
+// the user has time to read it before the page navigates. Matches
+// assignment-step.tsx's mechanism.
+const REDIRECT_DELAY_MS = 1400
 
 // Minimal renderer for the `approval` fulfillment kind (WF-03): a two-party
 // send/receive control. Correctness over polish — proves the kind renders
@@ -9,18 +15,42 @@ import { sendApprovalAction, receiveApprovalAction, completeStepAction } from '@
 export default function ApprovalStep({
   projectId,
   stepDefId,
+  redirectTo,
 }: {
   projectId: string
   stepDefId: string
+  redirectTo?: string
 }) {
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [message, setMessage] = useState<string | null>(null)
+  const [ok, setOk] = useState(false)
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimer.current) clearTimeout(redirectTimer.current)
+    }
+  }, [])
+
+  function scheduleRedirect() {
+    if (!redirectTo) return
+    redirectTimer.current = setTimeout(() => {
+      router.push(redirectTo)
+    }, REDIRECT_DELAY_MS)
+  }
 
   function send() {
     setMessage(null)
     startTransition(async () => {
       const res = await sendApprovalAction({ projectId, stepDefId })
-      setMessage(res.message ?? (res.ok ? 'Sent for approval.' : 'Could not send.'))
+      if (res.ok) {
+        setMessage(res.message ?? '✓ Sent for approval.')
+        setOk(true)
+      } else {
+        setMessage(res.message ?? 'Could not send.')
+        setOk(false)
+      }
     })
   }
 
@@ -28,7 +58,13 @@ export default function ApprovalStep({
     setMessage(null)
     startTransition(async () => {
       const res = await receiveApprovalAction({ projectId, stepDefId })
-      setMessage(res.message ?? (res.ok ? 'Approval received.' : 'Could not receive.'))
+      if (res.ok) {
+        setMessage(res.message ?? '✓ Approval received.')
+        setOk(true)
+      } else {
+        setMessage(res.message ?? 'Could not receive.')
+        setOk(false)
+      }
     })
   }
 
@@ -36,7 +72,14 @@ export default function ApprovalStep({
     setMessage(null)
     startTransition(async () => {
       const res = await completeStepAction({ projectId, stepDefId })
-      setMessage(res.message ?? (res.ok ? 'Step completed.' : 'Could not complete step.'))
+      if (res.ok) {
+        setMessage(`✓ Step completed.${redirectTo ? ' Redirecting…' : ''}`)
+        setOk(true)
+        scheduleRedirect()
+      } else {
+        setMessage(res.message ?? 'Could not complete step.')
+        setOk(false)
+      }
     })
   }
 
@@ -69,7 +112,7 @@ export default function ApprovalStep({
         </button>
       </div>
 
-      {message && <p className="text-sm text-gray-700">{message}</p>}
+      {message && <p className={`text-sm ${ok ? 'text-green-700' : 'text-error'}`}>{message}</p>}
     </div>
   )
 }

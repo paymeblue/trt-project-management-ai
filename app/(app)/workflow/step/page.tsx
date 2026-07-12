@@ -44,8 +44,20 @@ export default async function WorkflowStepPage({
     redirect(dashboard)
   }
 
+  function denied(message: string) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+        <a href={dashboard} className="text-sm text-primary hover:underline">
+          ← Dashboard
+        </a>
+        <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">{step!.label}</h1>
+        <p className="text-sm text-error">{message}</p>
+      </div>
+    )
+  }
+
   if (!canRoleActOnStep(step.role, role as UserRole)) {
-    redirect(dashboard)
+    return denied('Not your step.')
   }
 
   // v2.0 Phase 19: a step may additionally be narrowed to one exact
@@ -55,7 +67,7 @@ export default async function WorkflowStepPage({
   if (step.requiredPosition) {
     const [actingUser] = await db.select({ position: users.position }).from(users).where(eq(users.id, userId)).limit(1)
     if (actingUser?.position !== step.requiredPosition) {
-      redirect(dashboard)
+      return denied('This step is restricted to a specific title, and your account is not set to it.')
     }
   }
 
@@ -71,9 +83,9 @@ export default async function WorkflowStepPage({
   async function renderKind(kind: StepKind): Promise<React.ReactNode> {
     switch (kind) {
       case 'yes_no_upload':
-        return <YesNoUploadStep projectId={projectId!} stepDefId={step!.id} />
+        return <YesNoUploadStep projectId={projectId!} stepDefId={step!.id} redirectTo={dashboard} />
       case 'approval':
-        return <ApprovalStep projectId={projectId!} stepDefId={step!.id} />
+        return <ApprovalStep projectId={projectId!} stepDefId={step!.id} redirectTo={dashboard} />
       case 'assignment': {
         const candidates = step!.targetRoles?.length
           ? await db
