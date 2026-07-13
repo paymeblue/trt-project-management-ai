@@ -4,8 +4,8 @@ milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: completed
 stopped_at: Phase 19 already complete (shipped 2026-07-11); a redundant discuss-phase session ran concurrently and its 19-CONTEXT.md/19-DISCUSSION-LOG.md are kept only as a historical record, not consumed for planning. Ready for Phase 20.
-last_updated: "2026-07-13T14:05:00.000Z"
-last_activity: "2026-07-13 -- Completed quick task 260713-ekr: assignee-scoped step gating — brief_taking/kickoff_meeting/design_stage now restricted server-side to the person assigned at the governing assignment step"
+last_updated: "2026-07-13T19:41:00.000Z"
+last_activity: "2026-07-13 -- Completed quick task 260713-c0d: Workflow Configurator List view reorder replaced native HTML5 drag-and-drop + confirm modal with up/down buttons and a move-to-position input"
 progress:
   total_phases: 22
   completed_phases: 4
@@ -146,6 +146,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 | 2026-07-11 | cleanup-deferred-items | Retired dead step keys from db/seed-workflow-graph.ts (23-step live graph); fixed message_reactions unique-constraint db:push churn (introspection column-order root cause) | complete ✓ |
 | 2026-07-11 | assignee-notification | Closed Phase 19's ROLE-02 gap — notifyUser wired into assignUser after durable write, header bell mounted for every role (was super_admin-only), markOne no longer routes assignment notifications to /disputes | complete ✓ |
 | 2026-07-12 | fix-inconsistent-step-completion-feedbac | Live-QA audit found step advancement itself was correct on all 23 steps, but yes_no_upload/approval step renderers (10/23 steps) showed success and error messages in identical gray text with no auto-redirect; ported the working green/red + auto-redirect pattern from assignment-step.tsx into both, and replaced silent redirect() bounces on unauthorized-role/position-mismatch hits with a rendered message | complete ✓ |
+| 2026-07-13 | 260713-c0d-replace-the-workflow-configurator-s-list | Replaced Workflow Configurator List view's native HTML5 drag-and-drop (+ confirm modal) with single-click up/down icon buttons and a per-row move-to-position number input, mirroring checklist-editor.tsx's ItemRow pattern; `moveConfigStepToIndexAction` and Graph view untouched | complete ✓ |
 
 ## Deferred Items
 
