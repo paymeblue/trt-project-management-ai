@@ -190,49 +190,83 @@ function PinSettings({
 function StepRow({
   step,
   stepNumber,
-  dragging,
+  stepIndex,
+  totalSteps,
   disabled,
-  onDragStartHandle,
-  onDragEndHandle,
+  onMoveToIndex,
   onSaved,
 }: {
   step: GraphStep
   stepNumber: number
-  dragging: boolean
+  stepIndex: number
+  totalSteps: number
   disabled: boolean
-  onDragStartHandle: () => void
-  onDragEndHandle: () => void
+  onMoveToIndex: (targetIndex: number) => void
   onSaved: () => void
 }) {
+  const [positionInput, setPositionInput] = useState(String(stepNumber))
+
+  function goToPosition() {
+    const parsed = parseInt(positionInput, 10)
+    if (!Number.isNaN(parsed)) {
+      onMoveToIndex(parsed - 1)
+    }
+  }
+
   return (
-    <div
-      className={`rounded-xl border bg-white p-3 shadow-sm transition-shadow ${
-        dragging ? 'border-primary opacity-50' : 'border-gray-200'
-      }`}
-    >
+    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition-shadow">
       <div className="flex items-start gap-3">
-        {/* Drag handle + big, clearly-spelled step number */}
+        {/* Up/down controls + big, clearly-spelled step number */}
         <div className="flex flex-col items-center gap-1 pt-1">
-          <span
-            draggable={!disabled}
-            onDragStart={(e) => {
-              e.dataTransfer.effectAllowed = 'move'
-              onDragStartHandle()
-            }}
-            onDragEnd={onDragEndHandle}
-            title="Drag to reorder"
-            className={`material-symbols-outlined cursor-grab select-none text-2xl text-gray-300 hover:text-primary active:cursor-grabbing ${
-              disabled ? 'pointer-events-none opacity-40' : ''
-            }`}
-          >
-            drag_indicator
-          </span>
+          <div className="flex flex-col">
+            <button
+              type="button"
+              onClick={() => onMoveToIndex(stepIndex - 1)}
+              disabled={disabled || stepIndex === 0}
+              title="Move up"
+              className="text-gray-400 hover:text-primary disabled:opacity-30"
+            >
+              <span className="material-symbols-outlined text-lg">keyboard_arrow_up</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onMoveToIndex(stepIndex + 1)}
+              disabled={disabled || stepIndex === totalSteps - 1}
+              title="Move down"
+              className="text-gray-400 hover:text-primary disabled:opacity-30"
+            >
+              <span className="material-symbols-outlined text-lg">keyboard_arrow_down</span>
+            </button>
+          </div>
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-base font-bold text-white">
             {stepNumber}
           </span>
           <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
             Step {stepNumber}
           </span>
+          <div className="mt-1 flex items-center gap-1">
+            <input
+              type="number"
+              min={1}
+              max={totalSteps}
+              value={positionInput}
+              onChange={(e) => setPositionInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') goToPosition()
+              }}
+              disabled={disabled}
+              className="w-14 rounded-md border border-gray-300 px-1.5 py-1 text-xs focus:border-primary focus:outline-none disabled:opacity-50"
+            />
+            <button
+              type="button"
+              onClick={goToPosition}
+              disabled={disabled}
+              title="Move to position"
+              className="rounded-md border border-gray-200 px-1.5 py-1 text-[10px] font-semibold text-gray-500 hover:bg-gray-50 disabled:opacity-30"
+            >
+              Go
+            </button>
+          </div>
         </div>
 
         <div className="flex-1">
