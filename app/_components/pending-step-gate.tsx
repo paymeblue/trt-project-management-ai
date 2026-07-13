@@ -19,12 +19,14 @@ const INITIAL_ACK: AckStepState = { ok: false }
 // v2.0 Phase 22c: 'payment_confirmation' (& its /admin/payment-confirmation
 // route) was removed from the live graph entirely, but the kind/route stay
 // listed here as dead-but-harmless in case a future graph reintroduces it.
+// quick task 260713-rb2: '/admin/invoice-timeline' route removed entirely
+// (its content folded into /workflow/step's part-2 wizard render), so its
+// entry here was removed too — '/workflow/step' already covers it.
 function isStepRoute(pathname: string) {
   return (
     pathname.startsWith('/checklists/') ||
     pathname.startsWith('/factory-pm/readiness') ||
     pathname.startsWith('/admin/payment-confirmation') ||
-    pathname.startsWith('/admin/invoice-timeline') ||
     pathname.startsWith('/workflow/step')
   )
 }

@@ -10,8 +10,10 @@ const INITIAL: SetInvoiceTimelineState = { status: 'idle' }
 export default function InvoiceTimelineForm({ projectId }: { projectId: string }) {
   const [state, action, pending] = useActionState(setInvoiceTimelineAction, INITIAL)
   const steps = useWorkflowSteps()
-  const invoiceTimelineN = steps.find((s) => s.key === 'invoice_timeline')?.n ?? 0
-  // Every step after Invoice Timeline itself.
+  // v2.0 quick task 260713-rb2: re-keyed from the deleted 'invoice_timeline'
+  // to the merged 'invoice_upload' step (part 2 of its 2-part wizard).
+  const invoiceTimelineN = steps.find((s) => s.key === 'invoice_upload')?.n ?? 0
+  // Every step after the merged Invoice & Delivery Timeline step itself.
   const remainingSteps = steps.filter((s) => s.n > invoiceTimelineN)
   const lastN = lastStepN(steps)
   const [deadlines, setDeadlines] = useState<Record<number, string>>({})

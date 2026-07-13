@@ -18,10 +18,18 @@ export default function YesNoUploadStep({
   projectId,
   stepDefId,
   redirectTo,
+  completeOnSubmit = true,
 }: {
   projectId: string
   stepDefId: string
   redirectTo?: string
+  // v2.0 quick task 260713-rb2: when false, submit() records the answer/
+  // upload but does NOT auto-complete the step (via completeStepAction) —
+  // instead it router.refresh()es so the caller's server component can
+  // reveal the next part of a multi-part wizard (e.g. the merged Invoice &
+  // Delivery Timeline step's part 2). Default true preserves every existing
+  // caller's behavior byte-for-byte.
+  completeOnSubmit?: boolean
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -77,6 +85,12 @@ export default function YesNoUploadStep({
       if (!res.ok) {
         setMessage(res.message ?? 'Could not submit.')
         setOk(false)
+        return
+      }
+      if (!completeOnSubmit) {
+        setMessage('✓ Recorded.')
+        setOk(true)
+        router.refresh()
         return
       }
       const completeRes = await completeStepAction({ projectId, stepDefId })
@@ -153,14 +167,16 @@ export default function YesNoUploadStep({
         >
           {pending ? 'Working…' : 'Submit'}
         </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={complete}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-        >
-          Complete step
-        </button>
+        {completeOnSubmit && (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={complete}
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+          >
+            Complete step
+          </button>
+        )}
       </div>
 
       {message && <p className={`text-sm ${ok ? 'text-green-700' : 'text-error'}`}>{message}</p>}

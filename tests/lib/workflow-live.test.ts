@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { LIVE_WORKFLOW_STEPS } from '@/db/workflow-live-steps'
 
 describe('LIVE_WORKFLOW_STEPS structure', () => {
-  it('has 23 steps numbered 1..23 in order (incl. Sign Off)', () => {
-    expect(LIVE_WORKFLOW_STEPS).toHaveLength(23)
+  it('has 22 steps numbered 1..22 in order (incl. Sign Off)', () => {
+    expect(LIVE_WORKFLOW_STEPS).toHaveLength(22)
     LIVE_WORKFLOW_STEPS.forEach((s, i) => expect(s.n).toBe(i + 1))
   })
 
@@ -11,14 +11,15 @@ describe('LIVE_WORKFLOW_STEPS structure', () => {
     expect(LIVE_WORKFLOW_STEPS.some((s) => s.key === 'factory_floor')).toBe(false)
   })
 
+  // quick task 260713-rb2: 'invoice_upload' + 'invoice_timeline' merged into
+  // one Operations-owned step; 'invoice_timeline' is removed entirely.
   it('orders the roles correctly: Customer Care → Design → Operations … → Sign Off', () => {
     const order = LIVE_WORKFLOW_STEPS.map((s) => [s.key, s.role])
     expect(order).toEqual([
       ['new_project', 'customer_care'],
       ['assign_designer_brief', 'design'],
       ['brief_taking', 'design'],
-      ['invoice_upload', 'customer_care'],
-      ['invoice_timeline', 'operations'],
+      ['invoice_upload', 'operations'],
       ['design_initiation', 'design'],
       ['kickoff_meeting', 'design'],
       ['design_stage', 'design'],
@@ -42,7 +43,7 @@ describe('LIVE_WORKFLOW_STEPS structure', () => {
 
   it('final step is a super_admin Sign-Off ack step (REQ-G04)', () => {
     const last = LIVE_WORKFLOW_STEPS[LIVE_WORKFLOW_STEPS.length - 1]
-    expect(last).toMatchObject({ n: 23, key: 'sign_off', role: 'super_admin', kind: 'ack' })
+    expect(last).toMatchObject({ n: 22, key: 'sign_off', role: 'super_admin', kind: 'ack' })
   })
 
   it("the Factory PM's first step is Materials / Accessories Readiness", () => {

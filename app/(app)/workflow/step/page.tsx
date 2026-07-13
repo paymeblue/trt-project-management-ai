@@ -1,13 +1,14 @@
-import { eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { db } from '@/db'
-import { projects, users } from '@/db/schema'
+import { projects, users, workflowStepStates } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { getStepByKey, getStepAssigneeGate } from '@/lib/workflow-graph'
 import { canRoleActOnStep, roleDashboard, stepRequiredKinds, type UserRole, type StepKind } from '@/lib/workflow'
 import YesNoUploadStep from '@/app/_components/workflow-kinds/yes-no-upload-step'
 import ApprovalStep from '@/app/_components/workflow-kinds/approval-step'
 import AssignmentStep from '@/app/_components/workflow-kinds/assignment-step'
+import InvoiceTimelineForm from '@/app/(app)/admin/invoice-timeline/invoice-timeline-form'
 
 export const dynamic = 'force-dynamic'
 
@@ -87,6 +88,47 @@ export default async function WorkflowStepPage({
   // kind has been fulfilled (lib/workflow-graph.ts completeGraphStep), so
   // clicking any one of them once everything is done is enough.
   const requiredKinds = stepRequiredKinds(step)
+
+  // quick task 260713-rb2: a step whose additionalKinds include
+  // 'timeline_setting' (currently only the merged Invoice & Delivery
+  // Timeline step) renders as a 2-part wizard instead of the generic
+  // stacked multi-kind view below — part 1 (upload) must be fulfilled
+  // before part 2 (timeline) appears, and part 2's own submit
+  // (setInvoiceTimelineAction) is the SOLE caller that completes the step.
+  if (requiredKinds.includes('timeline_setting')) {
+    const [state] = await db
+      .select({ fulfilledKinds: workflowStepStates.fulfilledKinds })
+      .from(workflowStepStates)
+      .where(and(eq(workflowStepStates.projectId, projectId!), eq(workflowStepStates.stepDefId, step.id)))
+      .limit(1)
+    const fulfilledKinds = state?.fulfilledKinds ?? []
+    const uploaded = fulfilledKinds.includes('yes_no_upload')
+
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+        <a href={dashboard} className="text-sm text-primary hover:underline">
+          ← Dashboard
+        </a>
+        <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">{step.label}</h1>
+        {!uploaded ? (
+          <>
+            <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Part 1 of 2 — Upload the invoice
+            </p>
+            <YesNoUploadStep projectId={projectId!} stepDefId={step.id} completeOnSubmit={false} />
+          </>
+        ) : (
+          <>
+            <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Part 2 of 2 — Set the delivery timeline
+            </p>
+            <InvoiceTimelineForm projectId={projectId!} />
+          </>
+        )}
+      </div>
+    )
+  }
+
   const multi = requiredKinds.length > 1
 
   async function renderKind(kind: StepKind): Promise<React.ReactNode> {

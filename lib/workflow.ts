@@ -327,7 +327,6 @@ export function stepHref(
   }
   if (step.kind === 'readiness') return `/factory-pm/readiness${q}`
   if (step.kind === 'payment_confirmation') return `/admin/payment-confirmation${q}`
-  if (step.kind === 'timeline_setting') return `/admin/invoice-timeline${q}`
   // v2.0 Phase 21: first LIVE use of these 3 kinds (Phase 17's migrated tail
   // never used them, only the Phase 16 test graph did) — route through the
   // same minimal /workflow/step renderer as the test graph, but explicitly
@@ -348,6 +347,5 @@ export function graphStepHref(step: GraphStep, projectId: string): string | null
   if (step.kind === 'yes_no_upload' || step.kind === 'approval' || step.kind === 'assignment') {
     return `/workflow/step${q}`
   }
-  if (step.kind === 'timeline_setting') return `/admin/invoice-timeline?projectId=${projectId}`
   return null
 }

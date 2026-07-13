@@ -4,11 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
-import { projects, projectStepCompletions, projectStepDeadlines, users } from '@/db/schema'
+import { projects, projectStepCompletions, projectStepDeadlines } from '@/db/schema'
 import { requireAdmin, verifySession } from '@/lib/dal'
-import { FIRST_ACTION_STEP, Positions, Roles, isAdminRole, lastStepN, projectComplete, type UserRole } from '@/lib/workflow'
-import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
-import { advanceProjectStep } from '@/actions/workflow'
+import { FIRST_ACTION_STEP, Roles, isAdminRole, lastStepN, projectComplete, type UserRole } from '@/lib/workflow'
+import { getLiveWorkflowSteps, completeGraphStep } from '@/lib/workflow-graph'
 import { notifyAllSuperAdmins } from '@/lib/notifications'
 
 function revalidateProjectBoards() {
@@ -72,13 +71,14 @@ export async function createProjectIntentAction(
 
 export type SetInvoiceTimelineState = { status: 'idle' | 'error'; message?: string }
 
-// Head of Operations ONLY (exact `users.position` match, not just the
-// Operations/Super Admin role) — v2.0 Phase 22: sets the overall delivery
-// date + a deadline for every step after Invoice, once the invoice has been
-// uploaded (Confirmation Correction/Internal Approval and everything
-// downstream). Steps 3/4 (Assign Designer, Brief Taking) are handled
-// manually (Head Designer assigns; the assigned designer takes the brief)
-// before this runs, so no deadline is set for them here.
+// Operations OR a Super Admin (D-01, quick task 260713-rb2 — role=operations
+// already admits both via isAdminRole; requiredPosition is null on the
+// merged step, so no exact-position gate here) — part 2 of the merged
+// Invoice & Delivery Timeline step's 2-part wizard: sets the overall
+// delivery date + a deadline for every step after it, once the invoice has
+// been uploaded (part 1). Steps 2/3 (Assign Designer, Brief Taking) are
+// handled manually (Head Designer assigns; the assigned designer takes the
+// brief) before this runs, so no deadline is set for them here.
 export async function setInvoiceTimelineAction(
   _prev: SetInvoiceTimelineState,
   formData: FormData,
@@ -86,10 +86,6 @@ export async function setInvoiceTimelineAction(
   const { userId, role } = await verifySession()
   if (!isAdminRole(role as UserRole)) {
     return { status: 'error', message: 'Only Operations or a Super Admin can set the timeline.' }
-  }
-  const [actingUser] = await db.select({ position: users.position }).from(users).where(eq(users.id, userId)).limit(1)
-  if (actingUser?.position !== Positions.HeadOfOperations) {
-    return { status: 'error', message: 'This step is restricted to the Operations Manager (Admin).' }
   }
 
   const projectId = String(formData.get('projectId') ?? '').trim()
@@ -99,10 +95,10 @@ export async function setInvoiceTimelineAction(
   if (!proj) return { status: 'error', message: 'Project not found.' }
 
   const steps = await getLiveWorkflowSteps()
-  const invoiceTimelineStep = steps.find((s) => s.key === 'invoice_timeline')
-  if (!invoiceTimelineStep) return { status: 'error', message: 'Invoice timeline step is not configured.' }
-  if (proj.currentStep !== invoiceTimelineStep.n) {
-    return { status: 'error', message: 'This project is not awaiting the invoice timeline.' }
+  const mergedStep = steps.find((s) => s.key === 'invoice_upload')
+  if (!mergedStep) return { status: 'error', message: 'Invoice & Delivery Timeline step is not configured.' }
+  if (proj.currentStep !== mergedStep.n) {
+    return { status: 'error', message: 'This project is not awaiting the invoice & delivery timeline.' }
   }
 
   const deadlineRaw = String(formData.get('deliveryDate') ?? '').trim()
@@ -111,10 +107,10 @@ export async function setInvoiceTimelineAction(
   if (Number.isNaN(deliveryDate.getTime()))
     return { status: 'error', message: 'Please enter a valid deadline.' }
 
-  // Parse + validate per-step deadlines for every step AFTER Invoice Timeline.
+  // Parse + validate per-step deadlines for every step AFTER the merged step.
   const parsedDeadlines: { stepN: number; deadline: Date }[] = []
   for (const s of steps) {
-    if (s.n <= invoiceTimelineStep.n) continue
+    if (s.n <= mergedStep.n) continue
     const raw = String(formData.get(`deadline_${s.n}`) ?? '').trim()
     if (!raw) continue
     const d = new Date(raw)
@@ -150,8 +146,17 @@ export async function setInvoiceTimelineAction(
       })
   }
 
-  const advanced = await advanceProjectStep({ projectId, expectedStepN: invoiceTimelineStep.n })
-  if (!advanced) {
+  // Single completion of the merged step (D-02) — advances
+  // projects.currentStep via syncProjectCurrentStepAfterCompletion, straight
+  // to Design Initiation. Throws 'step-not-fulfilled' if part 1 (the
+  // invoice upload) hasn't been recorded yet — a spoofed direct part-2
+  // submit can't skip part 1 (T-rb2-02).
+  try {
+    await completeGraphStep({ projectId, stepDefId: mergedStep.stepDefId, actorId: userId })
+  } catch (err) {
+    if (err instanceof Error && err.message === 'step-not-fulfilled') {
+      return { status: 'error', message: 'Upload the invoice before setting the delivery timeline.' }
+    }
     return { status: 'error', message: 'Could not complete this step — it may have already moved on.' }
   }
 
