@@ -25,7 +25,7 @@ const DETAIL: Record<string, string> = {
   new_project:
     "Customer Care captures the client's intent and creates the project (unpaid by default).",
   assign_designer_brief:
-    "Head Designer assigns a Designer or Architect to take the client's brief (auto-assigned, 5-day max).",
+    "Head Designer manually assigns a Designer or Architect to take the client's brief (5-day target).",
   kickoff_meeting:
     'The assigned designer holds the kickoff meeting with the client.',
   brief_taking:

@@ -45,7 +45,7 @@ export async function notifyAllSuperAdmins(input: {
 
 // Notify a single recipient (e.g. a workflow-step assignee). Never self-notifies
 // when recipientId === actorId (mirrors notifyAllSuperAdmins' self-exclusion) —
-// covers the auto-assign path where a user is assigned to themselves.
+// in case an actor assigns a step to themselves.
 export async function notifyUser(input: {
   recipientId: string
   type: string

@@ -37,17 +37,17 @@
 // A new 'invoice_timeline' step, Head of Operations only, did that once
 // the invoice was uploaded: sets the overall delivery date + a deadline
 // for every step from Design Initiation onward. Assign Designer and
-// Brief Taking are already done by this point — auto-assigned with an
-// implicit 5-day SLA, not a deadline collected here. See
-// scripts/migrate-insert-invoice-timeline-step.ts for that migration.
+// Brief Taking are handled manually before this point (Head Designer
+// assigns; the assigned designer takes the brief), not a deadline
+// collected here. See scripts/migrate-insert-invoice-timeline-step.ts for
+// that migration.
 //
 // Shrank from 27 to 26 steps (v2.0 Phase 22c, 2026-07-10): removed
 // 'payment_confirmation' entirely, per the user's original handwritten
 // process notes — step 1 (Customer Care creates the project) is directly
 // followed by step 2 (Head Designer assigns Architect for the brief), no
 // separate approval step in between. Assign Designer/Architect for Brief is
-// now the FIRST actionable step (auto-assigned immediately at project
-// creation — see actions/projects.ts triggerEntryAutoAssign). See
+// now the FIRST actionable step. See
 // scripts/migrate-remove-payment-confirmation-step.ts for that migration.
 //
 // Shrank from 26 to 24 steps (v2.0 Phase 22d, 2026-07-10): removed

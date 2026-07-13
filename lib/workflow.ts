@@ -177,9 +177,10 @@ export function stepRequiredKinds(step: Pick<GraphStep, 'kind' | 'additionalKind
 }
 
 // New projects begin awaiting the first actionable step (v2.0 Phase 22c:
-// Assign Designer/Architect for Brief, auto-assigned at creation time — see
-// actions/projects.ts triggerEntryAutoAssign); step 1 (New Project) is
-// completed by Customer Care/Operations at creation time.
+// Assign Designer/Architect for Brief); step 1 (New Project) is completed by
+// Customer Care/Operations at creation time. The Head Designer then
+// manually assigns a Designer or Architect for the brief via the normal
+// /workflow/step UI.
 export const FIRST_ACTION_STEP = 2
 
 // Shapes shared between the layout, the /api/my-work endpoint and the client
