@@ -30,9 +30,8 @@ const DETAIL: Record<string, string> = {
     'The assigned designer holds the kickoff meeting with the client.',
   brief_taking:
     'The assigned designer records the brief taken from the client (5-day max).',
-  invoice_upload: 'Customer Care uploads the invoice.',
-  invoice_timeline:
-    'Operations Manager (Admin) sets the delivery date and a deadline for every remaining step, now that the invoice is in.',
+  invoice_upload:
+    'Operations (the Head of Operations or an Operations super-admin) uploads the invoice, then sets the delivery date and a deadline for every remaining step — one step done in two parts.',
   design_initiation:
     'Head Designer assigns a designer to begin actual design work.',
   design_stage:
@@ -46,7 +45,7 @@ const DETAIL: Record<string, string> = {
   send_for_production:
     'Operations Manager (Admin) sends for production (1/2); Chief Production Officer receives it (2/2).',
   project_review_authorisation:
-    'Chief Production Officer reviews the drawing and confirms it has been reviewed.',
+    'Operations routes it to the Chief Production Officer, who reviews the drawing and confirms the review.',
   production_process:
     'Factory Operations works through the production checklist (optimisation, cutting, edging, drilling & grooving, spray, hardwood & upholstery, glass).',
   factory_manager_readiness:
