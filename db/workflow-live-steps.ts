@@ -76,6 +76,23 @@
 // target — the only approval-kind step is still 'send_for_production'
 // (operations -> chief_production_officer), not a factory_pm/site_pm
 // delivery approval — so it ships Configurator-UI-only for future use.
+//
+// Shrank from 23 to 22 steps (quick task 260713-rb2, 2026-07-13): merged
+// 'invoice_upload' (was mis-assigned to customer_care) and 'invoice_timeline'
+// (operations, requiredPosition=head_of_operations) into ONE Operations-owned
+// step at orderIndex 4 — invoice + timeline are one operational act, not two
+// hops owned by two roles. Survivor is 'invoice_upload' (id preserved), now
+// role=operations, kind=yes_no_upload, requiredPosition=null (D-01:
+// role=operations already admits operations-role users AND super_admins via
+// isAdminRole; a requiredPosition of head_of_operations would wrongly block
+// a super_admin whose position isn't that exact slug). The DB row also
+// carries additionalKinds=[timeline_setting] (not representable on the base
+// WorkflowStep type here — see lib/workflow-graph.ts's GraphStep), which
+// drives a 2-part wizard on /workflow/step: part 1 uploads the invoice, part
+// 2 sets the delivery date + per-step deadlines, completing the step once.
+// 'invoice_timeline' is removed; everything after it shifts orderIndex down
+// by 1. See scripts/migrate-merge-invoice-upload-timeline.ts for that
+// migration.
 
 import type { WorkflowStep } from '@/lib/workflow';
 
@@ -102,77 +119,75 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     kind: 'yes_no_upload',
   },
   {
+    // quick task 260713-rb2: merged with the former 'invoice_timeline' step
+    // — this is now a 2-part wizard step (additionalKinds=[timeline_setting]
+    // on the live DB row; not representable on the base WorkflowStep type
+    // here, see lib/workflow-graph.ts's GraphStep). requiredPosition=null on
+    // the live row (role=operations only — see migration for rationale).
     n: 4,
     key: 'invoice_upload',
-    label: 'Invoice (Upload the Invoice)',
-    role: 'customer_care',
+    label: 'Invoice & Delivery Timeline',
+    role: 'operations',
     kind: 'yes_no_upload',
   },
   {
     n: 5,
-    key: 'invoice_timeline',
-    label: 'Set Delivery Timeline (Invoice)',
-    role: 'operations',
-    kind: 'timeline_setting',
-  },
-  {
-    n: 6,
     key: 'design_initiation',
     label: 'Design Initiation',
     role: 'design',
     kind: 'assignment',
   },
   {
-    n: 7,
+    n: 6,
     key: 'kickoff_meeting',
     label: 'Kickoff Meeting',
     role: 'design',
     kind: 'yes_no_upload',
   },
   {
-    n: 8,
+    n: 7,
     key: 'design_stage',
     label: 'Design Stage',
     role: 'design',
     kind: 'yes_no_upload',
   },
   {
-    n: 9,
+    n: 8,
     key: 'ops_design_confirmation',
     label: 'Operations Confirmation (Design Approved)',
     role: 'operations',
     kind: 'yes_no_upload',
   },
   {
-    n: 10,
+    n: 9,
     key: 'confirmation_correction',
     label: 'Confirmation Correction (Upload Drawing)',
     role: 'design',
     kind: 'yes_no_upload',
   },
   {
-    n: 11,
+    n: 10,
     key: 'internal_approval',
     label: 'Internal Approval (Upload Approved Drawing)',
     role: 'operations',
     kind: 'yes_no_upload',
   },
   {
-    n: 12,
+    n: 11,
     key: 'send_for_production',
     label: 'Send for Production',
     role: 'operations',
     kind: 'approval',
   },
   {
-    n: 13,
+    n: 12,
     key: 'project_review_authorisation',
     label: 'Project Review & Authorisation',
     role: 'operations',
     kind: 'yes_no_upload',
   },
   {
-    n: 14,
+    n: 13,
     key: 'production_process',
     label: 'Production Process',
     role: 'factory_operations',
@@ -180,7 +195,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'production_process',
   },
   {
-    n: 15,
+    n: 14,
     key: 'confirmation',
     label: 'Confirmation',
     role: 'site_pm',
@@ -188,7 +203,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'confirmation',
   },
   {
-    n: 16,
+    n: 15,
     key: 'factory_manager_readiness',
     label: 'Factory Manager Readiness Forms',
     role: 'factory_manager',
@@ -203,7 +218,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     // checklistSlug carries over from delivery_readiness so the site_pm
     // dualRole routes to the same checklist (see stepHref() in
     // lib/workflow.ts).
-    n: 17,
+    n: 16,
     key: 'materials_readiness',
     label: 'Materials / Accessories Readiness',
     role: 'factory_pm',
@@ -211,7 +226,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'delivery_site_readiness',
   },
   {
-    n: 18,
+    n: 17,
     key: 'delivery_project_check',
     label: 'Delivery & Project Check',
     role: 'factory_pm',
@@ -219,7 +234,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'delivery_project_check',
   },
   {
-    n: 19,
+    n: 18,
     key: 'approval_installation',
     label: 'Approval to Commence Installation',
     role: 'operations',
@@ -227,7 +242,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'approval_to_commence_installation',
   },
   {
-    n: 20,
+    n: 19,
     key: 'installation_readiness',
     label: 'Installation Readiness',
     role: 'site_pm',
@@ -235,7 +250,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'installation_readiness',
   },
   {
-    n: 21,
+    n: 20,
     key: 'sorting',
     label: 'Sorting',
     role: 'site_pm',
@@ -243,7 +258,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'sorting',
   },
   {
-    n: 22,
+    n: 21,
     key: 'close_out',
     label: 'Close Out',
     role: 'site_pm',
@@ -251,7 +266,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'close_out',
   },
   {
-    n: 23,
+    n: 22,
     key: 'sign_off',
     label: 'Sign Off',
     role: 'super_admin',

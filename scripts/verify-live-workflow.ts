@@ -6,7 +6,7 @@
  *
  * - PARITY: getLiveWorkflowSteps() (lib/workflow-graph.ts) deep-equals the
  *   canonical LIVE_WORKFLOW_STEPS array (db/workflow-live-steps.ts) on n/key/label/role/kind/
- *   slug, for all 23 steps, in order. This is the proof that the DB is a
+ *   slug, for all 22 steps, in order. This is the proof that the DB is a
  *   faithful copy of the hardcoded array before ANY caller is cut over to it.
  * - DUAL-ROLE CONFIRMATION: the live graph's merged Materials/Delivery
  *   Readiness step (`materials_readiness`, dualRoles=[factory_pm, site_pm] —

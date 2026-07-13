@@ -1,5 +1,5 @@
 /**
- * Structural seed: copy the canonical 23 live steps (db/workflow-live-steps.ts)
+ * Structural seed: copy the canonical 22 live steps (db/workflow-live-steps.ts)
  * 1:1 into the workflow_step_definitions / workflow_step_edges tables under
  * graph='live'.
  *
@@ -9,7 +9,7 @@
  * to linear in Phase 22e when the two readiness steps were merged into one
  * dual-confirmation step (see db/workflow-live-steps.ts's header comments
  * for the full history). The live graph today is a single linear
- * chain across all 23 keys, confirmed by read-only inspection of the live DB
+ * chain across all 22 keys, confirmed by read-only inspection of the live DB
  * before this edit. This is a STRUCTURAL/behavioral seed only — it mirrors
  * the existing steps' shape and gating so the read engine
  * (lib/workflow-graph.ts) has real data to query, proven byte-identical to
@@ -55,7 +55,16 @@ async function main() {
     design_initiation: { targetRoles: ['design', 'architect'], requiredPosition: 'head_designer' },
   }
 
-  // Insert the 23 step definitions as a 1:1 structural copy of LIVE_WORKFLOW_STEPS.
+  // quick task 260713-rb2: the merged invoice_upload step needs
+  // additionalKinds=[timeline_setting] seeded too — WorkflowStep itself
+  // doesn't carry that field, keyed here by stepKey for the same reason as
+  // ASSIGNMENT_STEP_CONFIG above. This is the trigger that makes
+  // /workflow/step render the 2-part wizard (upload -> timeline).
+  const ADDITIONAL_KINDS_CONFIG: Record<string, ('yes_no_upload' | 'approval' | 'assignment' | 'timeline_setting')[]> = {
+    invoice_upload: ['timeline_setting'],
+  }
+
+  // Insert the 22 step definitions as a 1:1 structural copy of LIVE_WORKFLOW_STEPS.
   const idByStepN = new Map<number, string>()
   for (const step of LIVE_WORKFLOW_STEPS) {
     const assignmentConfig = ASSIGNMENT_STEP_CONFIG[step.key]
@@ -67,6 +76,7 @@ async function main() {
         label: step.label,
         role: step.role,
         fulfillmentKind: step.kind,
+        additionalKinds: ADDITIONAL_KINDS_CONFIG[step.key] ?? null,
         checklistSlug: step.slug ?? null,
         targetRoles: assignmentConfig?.targetRoles ?? null,
         requiredPosition: assignmentConfig?.requiredPosition ?? null,
@@ -78,14 +88,16 @@ async function main() {
     console.log(`  + step ${step.n}: "${step.key}" (${inserted.id})`)
   }
 
-  // Explicit edge list by step key, over the current 23-step live graph.
+  // Explicit edge list by step key, over the current 22-step live graph.
   // Confirmed via read-only inspection of the live DB (workflow_step_definitions
   // + workflow_step_edges for graph='live') that the graph is a single linear
   // chain with no fan-out/join: the one parallel/join that used to exist around
   // the delivery cluster collapsed to linear in Phase 22e when the two
   // readiness steps were merged into one dual-confirmation step, and again
   // in Phase 22d when the two delivery-checklist steps were merged into
-  // delivery_project_check (see db/workflow-live-steps.ts for the full history).
+  // delivery_project_check, and again in quick task 260713-rb2 when
+  // invoice_upload + invoice_timeline were merged into one Operations step
+  // (see db/workflow-live-steps.ts for the full history).
   const idByKey = new Map<string, string>()
   for (const step of LIVE_WORKFLOW_STEPS) {
     idByKey.set(step.key, idByStepN.get(step.n)!)
@@ -95,8 +107,7 @@ async function main() {
     ['new_project', 'assign_designer_brief'],
     ['assign_designer_brief', 'brief_taking'],
     ['brief_taking', 'invoice_upload'],
-    ['invoice_upload', 'invoice_timeline'],
-    ['invoice_timeline', 'design_initiation'],
+    ['invoice_upload', 'design_initiation'],
     ['design_initiation', 'kickoff_meeting'],
     ['kickoff_meeting', 'design_stage'],
     ['design_stage', 'ops_design_confirmation'],
