@@ -26,29 +26,15 @@ export default function ConfiguratorEditor({
   const router = useRouter()
   const refresh = () => router.refresh()
   const [view, setView] = useState<'list' | 'graph'>('list')
-  const [dragIndex, setDragIndex] = useState<number | null>(null)
-  const [overIndex, setOverIndex] = useState<number | null>(null)
   const [pending, startTransition] = useTransition()
   const [moveState, setMoveState] = useState<ConfigActionState>({ status: 'idle' })
-  const [pendingMove, setPendingMove] = useState<{ fromIndex: number; toIndex: number; label: string } | null>(null)
 
-  function onDrop(targetIndex: number) {
-    setOverIndex(null)
-    if (dragIndex === null || dragIndex === targetIndex) {
-      setDragIndex(null)
-      return
-    }
-    setPendingMove({ fromIndex: dragIndex, toIndex: targetIndex, label: steps[dragIndex].label })
-    setDragIndex(null)
-  }
-
-  function confirmMove() {
-    if (!pendingMove) return
-    const stepId = steps[pendingMove.fromIndex].id
-    const targetIndex = pendingMove.toIndex
-    setPendingMove(null)
+  function moveToIndex(stepId: string, targetIndex: number) {
+    const clamped = Math.max(0, Math.min(targetIndex, steps.length - 1))
+    const currentIndex = steps.findIndex((s) => s.id === stepId)
+    if (currentIndex === -1 || currentIndex === clamped) return
     startTransition(async () => {
-      const res = await moveConfigStepToIndexAction(graph, stepId, targetIndex)
+      const res = await moveConfigStepToIndexAction(graph, stepId, clamped)
       setMoveState(res)
       if (res.status === 'success') refresh()
     })
@@ -88,9 +74,9 @@ export default function ConfiguratorEditor({
       ) : (
         <>
           <div className="mb-4 flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
-            <span className="material-symbols-outlined mt-0.5 text-base text-primary">drag_indicator</span>
+            <span className="material-symbols-outlined mt-0.5 text-base text-primary">swap_vert</span>
             <p className="text-xs text-gray-600">
-              <span className="font-semibold text-gray-800">Drag any step by its handle to reorder it.</span>{' '}
+              <span className="font-semibold text-gray-800">Use the ↑ / ↓ buttons or the position box to reorder any step.</span>{' '}
               Steps involved in any branch/join only move display position — their connections
               are left untouched to avoid breaking the branch or join. Switch to Graph view to see
               and edit branches/joins directly.
@@ -100,36 +86,16 @@ export default function ConfiguratorEditor({
 
           <div className="space-y-3">
             {steps.map((step, i) => (
-              <div
+              <StepRow
                 key={step.id}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  if (overIndex !== i) setOverIndex(i)
-                }}
-                onDragLeave={() => setOverIndex((cur) => (cur === i ? null : cur))}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  onDrop(i)
-                }}
-                className={
-                  overIndex === i && dragIndex !== null && dragIndex !== i
-                    ? 'rounded-xl ring-2 ring-primary ring-offset-2'
-                    : ''
-                }
-              >
-                <StepRow
-                  step={step}
-                  stepNumber={i + 1}
-                  dragging={dragIndex === i}
-                  disabled={pending}
-                  onDragStartHandle={() => setDragIndex(i)}
-                  onDragEndHandle={() => {
-                    setDragIndex(null)
-                    setOverIndex(null)
-                  }}
-                  onSaved={refresh}
-                />
-              </div>
+                step={step}
+                stepNumber={i + 1}
+                stepIndex={i}
+                totalSteps={steps.length}
+                disabled={pending}
+                onMoveToIndex={(target) => moveToIndex(step.id, target)}
+                onSaved={refresh}
+              />
             ))}
             {steps.length === 0 && (
               <p className="rounded-lg border border-dashed border-gray-200 p-4 text-center text-xs text-gray-400">
@@ -140,35 +106,6 @@ export default function ConfiguratorEditor({
 
           <AddStepRow graph={graph} onAdded={refresh} />
         </>
-      )}
-
-      {pendingMove && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
-            <p className="text-sm font-semibold text-gray-900">
-              Move &ldquo;{pendingMove.label}&rdquo; to step {pendingMove.toIndex + 1}?
-            </p>
-            <p className="mt-1 text-xs text-gray-500">
-              This changes the actual order projects move through — not just display order.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setPendingMove(null)}
-                className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmMove}
-                className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90"
-              >
-                Yes, move it
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   )
@@ -335,7 +272,7 @@ function AddStepRow({ graph, onAdded }: { graph: string; onAdded: () => void }) 
     <div className="mt-4 rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4">
       <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-primary">
         <span className="material-symbols-outlined text-base">add_circle</span>
-        Add a new step (added at the end — drag it into place afterward)
+        Add a new step (added at the end — move it into place afterward)
       </p>
       <div className="flex flex-col gap-2 sm:flex-row">
         <input
