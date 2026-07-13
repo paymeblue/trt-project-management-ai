@@ -16,7 +16,13 @@ import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
 // Dismissable navbar indicator: shows the "current" in-progress project + the
 // step it's on, with a dropdown to switch between projects (a PM may juggle
 // several at once). Data is live (polled by MyWorkProvider).
-export default function HeaderProjectSwitcher({ viewerRole }: { viewerRole: UserRole }) {
+export default function HeaderProjectSwitcher({
+  viewerRole,
+  viewerUserId,
+}: {
+  viewerRole: UserRole
+  viewerUserId: string
+}) {
   const { activeProjects: projects } = useMyWork()
   const steps = useWorkflowSteps()
   // State is held in-memory; because this component lives in the app layout it
@@ -54,7 +60,12 @@ export default function HeaderProjectSwitcher({ viewerRole }: { viewerRole: User
   const selected = projects.find((p) => p.id === selectedId) ?? projects[0]
   const lastN = lastStepN(steps)
   const step = findStep(steps, selected.stepN)
-  const mine = step ? canActOnGraphStep(step, viewerRole) : false
+  // Quick task 260713-ekr (security fix): a gated step is only "mine" when
+  // the viewer IS the assignee recorded at the governing assignment step.
+  const mine = step
+    ? canActOnGraphStep(step, viewerRole) &&
+      (selected.gatedToUserId === null || selected.gatedToUserId === viewerUserId)
+    : false
   const href = step && mine ? stepHref(step, selected.id, viewerRole) : null
 
   function choose(id: string) {
@@ -108,7 +119,10 @@ export default function HeaderProjectSwitcher({ viewerRole }: { viewerRole: User
         <div className="absolute left-0 top-full z-50 mt-1 max-h-80 w-80 overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-low p-1 shadow-lg">
           {projects.map((p) => {
             const s = findStep(steps, p.stepN)
-            const youract = s ? canActOnGraphStep(s, viewerRole) : false
+            const youract = s
+              ? canActOnGraphStep(s, viewerRole) &&
+                (p.gatedToUserId === null || p.gatedToUserId === viewerUserId)
+              : false
             return (
               <button
                 key={p.id}

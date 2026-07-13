@@ -51,7 +51,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   // Header switcher + forcing gate get a server-rendered snapshot; the provider
   // then polls /api/my-work to keep them near-real-time.
-  const initialWork = await getMyWork(role as UserRole);
+  const initialWork = await getMyWork(role as UserRole, session.user.id!);
   // Live workflow steps (Phase 17, WF-06): seeded once per request from the DB
   // graph, exposed to client components via useWorkflowSteps().
   const liveSteps = await getLiveWorkflowSteps();
@@ -118,7 +118,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               initials={initials}
               avatarData={avatarData}
             />
-            <HeaderProjectSwitcher viewerRole={role as UserRole} />
+            <HeaderProjectSwitcher viewerRole={role as UserRole} viewerUserId={session.user.id!} />
           </div>
           <div className="flex items-center gap-2">
             <NotificationsBell />

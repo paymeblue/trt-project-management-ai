@@ -185,7 +185,20 @@ export const FIRST_ACTION_STEP = 2
 
 // Shapes shared between the layout, the /api/my-work endpoint and the client
 // provider that drives the header switcher + forcing gate.
-export type ActiveProject = { id: string; name: string; stepN: number; deadline: string | null }
+// `gatedToUserId` (quick task 260713-ekr, security fix): non-null when this
+// project's current step is one of the assignee-gated design steps
+// (brief_taking/kickoff_meeting/design_stage) that already has an assignee
+// recorded — set to that assignee's userId. null = not gated (either not a
+// gated step, or gated but not yet assigned). Consumers (forcing modal,
+// header switcher) must treat a gated project as "mine" only when the
+// viewer's userId matches.
+export type ActiveProject = {
+  id: string
+  name: string
+  stepN: number
+  deadline: string | null
+  gatedToUserId: string | null
+}
 export type PendingWork = { projectId: string; name: string; stepN: number; deadline: string | null }
 export type MyWork = { activeProjects: ActiveProject[]; pending: PendingWork[] }
 
