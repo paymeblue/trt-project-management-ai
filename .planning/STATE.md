@@ -4,8 +4,8 @@ milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: completed
 stopped_at: Phase 19 already complete (shipped 2026-07-11); a redundant discuss-phase session ran concurrently and its 19-CONTEXT.md/19-DISCUSSION-LOG.md are kept only as a historical record, not consumed for planning. Ready for Phase 20.
-last_updated: "2026-07-13T09:22:00.000Z"
-last_activity: "2026-07-13 -- Completed quick task 260713-cso: removed round-robin auto-assign for assign_designer_brief; Head Designer now always assigns manually"
+last_updated: "2026-07-13T14:05:00.000Z"
+last_activity: "2026-07-13 -- Completed quick task 260713-ekr: assignee-scoped step gating — brief_taking/kickoff_meeting/design_stage now restricted server-side to the person assigned at the governing assignment step"
 progress:
   total_phases: 22
   completed_phases: 4
@@ -138,6 +138,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 | 2026-07-05 | checklist-authoring-crud | Full super-admin checklist authoring CRUD — delete/reorder items, per-item field editing (type/options/photo-required), and checklist_definitions create/rename/retarget/deactivate-restore | complete ✓ |
 | 2026-07-13 | 260713-bno-remove-legacy-admin-projects-new | Removed legacy /admin/projects/new direct-creation route (bypassed Customer Care's intent step, contradicted STG-01) + its dead createProjectAction, dashboard tile, and sidebar link | complete ✓ |
 | 2026-07-13 | 260713-cso-remove-auto-rotation-auto-assign | Removed round-robin auto-assign engine for assign_designer_brief (Assign Designer/Architect for Brief) — Head Designer now always assigns manually, matching every other assignment-kind step | complete ✓ |
+| 2026-07-13 | 260713-ekr-assignee-scoped-step-gating | SECURITY: brief_taking/kickoff_meeting/design_stage now gated server-side (authorizeStep + step page) and in UI (forcing modal, header switcher) to the specific user assigned at the governing assignment step (assign_designer_brief / design_initiation) — previously ANY design/architect user could see and complete them. Verified live in-browser both directions + read-only live-DB script | complete ✓ |
 | 2026-07-06 | slack-like-group-chat-group-conversation | Slack-like group chat — group conversations with title, emoji picker + reactions, typing indicator, GSAP fullscreen expand (like Paul Arredo) | complete ✓ |
 | 2026-07-10 | fix-blank-screen-on-workflow-step-pages | Blank-screen fix on workflow step + payment-confirmation pages — redirect(roleDashboard) for all no-access/indeterminate branches, loading.tsx skeletons, (app)/error.tsx boundary | complete ✓ |
 | 2026-07-10 | post-assignment-ux-show-clear-confirmati | Post-assignment UX — named "{name} assigned to {step} on {project}" confirmation + delayed redirect to role dashboard in AssignmentStep | complete ✓ |
