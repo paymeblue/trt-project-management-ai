@@ -1,6 +1,6 @@
 import 'server-only'
 import bcrypt from 'bcryptjs'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import {
   workflowStepDefinitions,
@@ -203,57 +203,6 @@ async function syncProjectCurrentStepAfterCompletion(
       updatedAt: new Date(),
     })
     .where(eq(projects.id, projectId))
-
-  if (!done) {
-    const landedOn = steps.find((s) => s.orderIndex === nextStep)
-    if (landedOn) await autoAssignIfConfigured(projectId, landedOn)
-  }
-}
-
-// v2.0 Phase 22 (ad hoc, targeted): stepKeys whose `assignment` fulfillment
-// is performed automatically the moment the project lands on them, instead
-// of waiting for the Head Designer to pick manually — "Assign designer...
-// auto assigned" (5-day-max timeline). Deliberately a hardcoded allowlist,
-// not a generic "auto-assign" framework, mirroring the same targeted-
-// exception style as canRoleActOnStep's Operations/super_admin case above —
-// only assign_designer_brief needs this; design_initiation (the second,
-// deliberately-manual assignment moment) must stay untouched.
-const AUTO_ASSIGN_STEP_KEYS = new Set(['assign_designer_brief'])
-
-/**
- * Round-robin auto-assignment: picks the eligible user (role in
- * step.targetRoles) who was LEAST RECENTLY assigned to this exact step
- * across all projects (never-assigned users sort first), assigns them, and
- * immediately completes the step on their behalf. No-ops if the step isn't
- * in AUTO_ASSIGN_STEP_KEYS, isn't an assignment step, or no eligible user
- * exists (falls back to manual assignment via the normal UI).
- */
-export async function autoAssignIfConfigured(projectId: string, step: GraphStep): Promise<void> {
-  if (!AUTO_ASSIGN_STEP_KEYS.has(step.key)) return
-  if (step.kind !== 'assignment' || !step.targetRoles?.length) return
-
-  const candidates = await db
-    .select({ id: users.id, role: users.role })
-    .from(users)
-    .where(inArray(users.role, step.targetRoles))
-  if (candidates.length === 0) return
-
-  const priorAssignments = await db
-    .select({ assignedUserId: workflowStepStates.assignedUserId, updatedAt: workflowStepStates.updatedAt })
-    .from(workflowStepStates)
-    .where(eq(workflowStepStates.stepDefId, step.id))
-  const lastAssignedAt = new Map<string, number>()
-  for (const row of priorAssignments) {
-    if (!row.assignedUserId) continue
-    const t = row.updatedAt.getTime()
-    const prev = lastAssignedAt.get(row.assignedUserId)
-    if (prev === undefined || t > prev) lastAssignedAt.set(row.assignedUserId, t)
-  }
-  candidates.sort((a, b) => (lastAssignedAt.get(a.id) ?? 0) - (lastAssignedAt.get(b.id) ?? 0))
-  const chosen = candidates[0]
-
-  await assignUser({ projectId, stepDefId: step.id, actorId: chosen.id, assignedUserId: chosen.id })
-  await completeGraphStep({ projectId, stepDefId: step.id, actorId: chosen.id })
 }
 
 /**

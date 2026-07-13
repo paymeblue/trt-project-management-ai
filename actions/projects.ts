@@ -7,7 +7,7 @@ import { db } from '@/db'
 import { projects, projectStepCompletions, projectStepDeadlines, users } from '@/db/schema'
 import { requireAdmin, verifySession } from '@/lib/dal'
 import { FIRST_ACTION_STEP, Positions, Roles, isAdminRole, lastStepN, projectComplete, type UserRole } from '@/lib/workflow'
-import { getLiveWorkflowSteps, getGraphSteps, autoAssignIfConfigured } from '@/lib/workflow-graph'
+import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
 import { advanceProjectStep } from '@/actions/workflow'
 import { notifyAllSuperAdmins } from '@/lib/notifications'
 
@@ -15,20 +15,6 @@ function revalidateProjectBoards() {
   revalidatePath('/admin/timeline')
   revalidatePath('/site-pm/projects')
   revalidatePath('/factory-pm/projects')
-}
-
-// v2.0 Phase 22c: since 'payment_confirmation' was removed, FIRST_ACTION_STEP
-// (the step a new project is parked at) now IS assign_designer_brief — which
-// is auto-assigned (see lib/workflow-graph.ts autoAssignIfConfigured), not
-// manually triggered by completing a prior step. That hook only runs inside
-// completeGraphStep's advancement chain, which a brand-new project never
-// goes through (its currentStep is set directly at INSERT time) — so it must
-// be invoked explicitly here, right after creation, or the very first step
-// would sit unassigned forever with nothing to trigger it.
-async function triggerEntryAutoAssign(projectId: string): Promise<void> {
-  const steps = await getGraphSteps('live')
-  const entryActionStep = steps.find((s) => s.orderIndex === FIRST_ACTION_STEP)
-  if (entryActionStep) await autoAssignIfConfigured(projectId, entryActionStep)
 }
 
 export type CreateProjectIntentState = { status: 'idle' | 'error'; message?: string }
@@ -79,8 +65,6 @@ export async function createProjectIntentAction(
     completedBy: userId,
   })
 
-  await triggerEntryAutoAssign(created.id)
-
   revalidatePath('/admin/timeline')
   revalidatePath('/customer-care/dashboard')
   redirect('/customer-care/dashboard')
@@ -92,9 +76,9 @@ export type SetInvoiceTimelineState = { status: 'idle' | 'error'; message?: stri
 // Operations/Super Admin role) — v2.0 Phase 22: sets the overall delivery
 // date + a deadline for every step after Invoice, once the invoice has been
 // uploaded (Confirmation Correction/Internal Approval and everything
-// downstream). Steps 3/4 (Assign Designer, Brief Taking) are already done by
-// the time this runs — they're auto-assigned with an implicit 5-day SLA
-// (see lib/workflow-graph.ts autoAssignIfConfigured), not a deadline set here.
+// downstream). Steps 3/4 (Assign Designer, Brief Taking) are handled
+// manually (Head Designer assigns; the assigned designer takes the brief)
+// before this runs, so no deadline is set for them here.
 export async function setInvoiceTimelineAction(
   _prev: SetInvoiceTimelineState,
   formData: FormData,
