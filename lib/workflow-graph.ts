@@ -95,6 +95,53 @@ export async function getStepById(id: string): Promise<GraphStep | undefined> {
   return row ? toGraphStep(row) : undefined
 }
 
+// ── Assignee gate (quick task 260713-ekr, security fix) ────────────────────
+// A deliberately narrow, HARDCODED lookup — NOT a generic "any step can be
+// assignee-gated" framework. Only these three non-assignment design steps are
+// scoped to the ONE person chosen at the assignment step that precedes them
+// in the live graph. Every other step (including the assignment steps
+// themselves, assign_designer_brief/design_initiation) is unaffected — the
+// gate is a no-op for any key not in this map.
+const ASSIGNEE_GATED_STEPS: Record<string, string> = {
+  brief_taking: 'assign_designer_brief',
+  kickoff_meeting: 'design_initiation',
+  design_stage: 'design_initiation',
+}
+
+/** Pure: returns the governing assignment step's key for a gated step, or null. */
+export function assigneeGoverningStepKey(stepKey: string): string | null {
+  return ASSIGNEE_GATED_STEPS[stepKey] ?? null
+}
+
+/**
+ * Resolves the userId who was assigned at the governing assignment step for
+ * this project, or null if the step isn't gated / hasn't been assigned yet.
+ * Never throws on the not-yet-assigned case — callers treat null as "no
+ * restriction yet" (T-16-08's assignUser gate is what prevents an invalid
+ * assignee from ever being recorded in the first place).
+ */
+export async function getStepAssigneeGate(
+  graph: string,
+  projectId: string,
+  stepKey: string,
+): Promise<string | null> {
+  const governingKey = assigneeGoverningStepKey(stepKey)
+  if (!governingKey) return null
+  const governingStep = await getStepByKey(graph, governingKey)
+  if (!governingStep) return null
+  const [state] = await db
+    .select({ assignedUserId: workflowStepStates.assignedUserId })
+    .from(workflowStepStates)
+    .where(
+      and(
+        eq(workflowStepStates.projectId, projectId),
+        eq(workflowStepStates.stepDefId, governingStep.id),
+      ),
+    )
+    .limit(1)
+  return state?.assignedUserId ?? null
+}
+
 export async function getGraphEdges(
   graph = 'live',
 ): Promise<{ fromStepId: string; toStepId: string }[]> {

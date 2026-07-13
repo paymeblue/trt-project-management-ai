@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { db } from '@/db'
 import { projects, users } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
-import { getStepByKey } from '@/lib/workflow-graph'
+import { getStepByKey, getStepAssigneeGate } from '@/lib/workflow-graph'
 import { canRoleActOnStep, roleDashboard, stepRequiredKinds, type UserRole, type StepKind } from '@/lib/workflow'
 import YesNoUploadStep from '@/app/_components/workflow-kinds/yes-no-upload-step'
 import ApprovalStep from '@/app/_components/workflow-kinds/approval-step'
@@ -69,6 +69,15 @@ export default async function WorkflowStepPage({
     if (actingUser?.position !== step.requiredPosition) {
       return denied('This step is restricted to a specific title, and your account is not set to it.')
     }
+  }
+
+  // Quick task 260713-ekr (security fix, defense-in-depth): a design/architect
+  // user who is not the assignee chosen at this step's governing assignment
+  // step never even sees the form — clean denial, mirroring authorizeStep's
+  // server-action boundary check.
+  const gateUserId = await getStepAssigneeGate(graph, projectId!, step.key)
+  if (gateUserId && gateUserId !== userId) {
+    return denied('This step is assigned to a specific person — only they can act on it.')
   }
 
   // v2.0 Phase 18.1: a step may require MORE than one fulfillment kind

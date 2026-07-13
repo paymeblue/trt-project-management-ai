@@ -13,6 +13,7 @@ import {
   sendApproval,
   receiveApproval,
   assignUser,
+  getStepAssigneeGate,
 } from '@/lib/workflow-graph'
 
 // ── Server actions for the DB-driven workflow graph (Phase 16, WF-02) ─────
@@ -42,6 +43,8 @@ const ENGINE_ERROR_MESSAGES: Record<string, string> = {
     'You cannot approve your own submission — a different person must receive it.',
   'assignee-role-mismatch': 'The selected user does not have the required role for this step.',
   'position-mismatch': 'This step is restricted to a specific title, and your account is not set to it.',
+  'assignee-mismatch':
+    'This step is assigned to a specific person — only they (or the Head Designer, by reassigning) can act on it.',
 }
 
 function engineErrorMessage(err: unknown): string {
@@ -67,7 +70,11 @@ type StepAuth = { ok: true; userId: string } | { ok: false; message: string }
 // DIFFERENT ROLE entirely via `receiverRole` — e.g. Delivery: factory_pm
 // sends, site_pm receives. When set, this replaces the normal
 // canRoleActOnStep(step.role, ...) gate for the receive action only.
-async function authorizeStep(stepDefId: string, forReceive = false): Promise<StepAuth> {
+// Quick task 260713-ekr (security fix): after role + position pass, a
+// step in ASSIGNEE_GATED_STEPS (brief_taking/kickoff_meeting/design_stage)
+// is further narrowed to the ONE person assigned at its governing
+// assignment step — not any user whose role/position otherwise qualifies.
+async function authorizeStep(stepDefId: string, projectId: string, forReceive = false): Promise<StepAuth> {
   const { userId, role } = await verifySession()
   const step = await getStepById(stepDefId)
   if (!step) return { ok: false, message: 'That step could not be found.' }
@@ -80,6 +87,10 @@ async function authorizeStep(stepDefId: string, forReceive = false): Promise<Ste
       return { ok: false, message: engineErrorMessage(new Error('position-mismatch')) }
     }
   }
+  const gateUserId = await getStepAssigneeGate(step.graph, projectId, step.key)
+  if (gateUserId && gateUserId !== userId) {
+    return { ok: false, message: engineErrorMessage(new Error('assignee-mismatch')) }
+  }
   return { ok: true, userId }
 }
 
@@ -88,7 +99,7 @@ export async function completeStepAction(input: {
   stepDefId: string
   skip?: boolean
 }): Promise<WorkflowGraphActionState> {
-  const auth = await authorizeStep(input.stepDefId)
+  const auth = await authorizeStep(input.stepDefId, input.projectId)
   if (!auth.ok) return auth
   try {
     await completeGraphStep({
@@ -111,7 +122,7 @@ export async function submitYesNoUploadAction(input: {
   uploadData?: string | null
   uploadName?: string | null
 }): Promise<WorkflowGraphActionState> {
-  const auth = await authorizeStep(input.stepDefId)
+  const auth = await authorizeStep(input.stepDefId, input.projectId)
   if (!auth.ok) return auth
   try {
     await submitYesNoUpload({
@@ -133,7 +144,7 @@ export async function sendApprovalAction(input: {
   projectId: string
   stepDefId: string
 }): Promise<WorkflowGraphActionState> {
-  const auth = await authorizeStep(input.stepDefId)
+  const auth = await authorizeStep(input.stepDefId, input.projectId)
   if (!auth.ok) return auth
   try {
     await sendApproval({ projectId: input.projectId, stepDefId: input.stepDefId, actorId: auth.userId })
@@ -148,7 +159,7 @@ export async function receiveApprovalAction(input: {
   projectId: string
   stepDefId: string
 }): Promise<WorkflowGraphActionState> {
-  const auth = await authorizeStep(input.stepDefId, true)
+  const auth = await authorizeStep(input.stepDefId, input.projectId, true)
   if (!auth.ok) return auth
   try {
     await receiveApproval({ projectId: input.projectId, stepDefId: input.stepDefId, actorId: auth.userId })
@@ -164,7 +175,7 @@ export async function assignUserAction(input: {
   stepDefId: string
   assignedUserId: string
 }): Promise<WorkflowGraphActionState> {
-  const auth = await authorizeStep(input.stepDefId)
+  const auth = await authorizeStep(input.stepDefId, input.projectId)
   if (!auth.ok) return auth
   try {
     await assignUser({
