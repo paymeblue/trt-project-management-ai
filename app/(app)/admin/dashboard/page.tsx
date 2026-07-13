@@ -8,7 +8,6 @@ import { Roles } from '@/lib/workflow'
 export const dynamic = 'force-dynamic'
 
 const TILES: Tile[] = [
-  { title: 'New Project', description: 'Create a project, set its deadline and start the workflow.', href: '/admin/projects/new', status: 'ready' },
   { title: 'Projects Timeline', description: 'Track every project’s current step and deadline (green = on time, red = overdue).', href: '/admin/timeline', status: 'ready' },
   { title: 'Overview', description: 'Read-only view of all projects, checklists and verifications.', href: '/admin/overview', status: 'ready' },
   { title: 'User Management', description: 'Create / invite accounts and assign roles.', href: '/admin/users', status: 'ready' },

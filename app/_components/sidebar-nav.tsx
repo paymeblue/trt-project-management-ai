@@ -35,7 +35,6 @@ const NAV: Record<string, Entry[]> = {
       group: 'Projects',
       icon: 'folder_open',
       items: [
-        { href: '/admin/projects/new', icon: 'add_box', label: 'New Project' },
         { href: '/admin/timeline', icon: 'timeline', label: 'Timeline' },
         { href: '/admin/approvals', icon: 'approval', label: 'Approvals' },
       ],
