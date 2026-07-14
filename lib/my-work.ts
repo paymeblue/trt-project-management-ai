@@ -10,7 +10,12 @@ import {
   type UserRole,
   type MyWork,
 } from '@/lib/workflow'
-import { getLiveWorkflowSteps, getStepAssigneeGate, assigneeGoverningStepKey } from '@/lib/workflow-graph'
+import {
+  getLiveWorkflowSteps,
+  getStepAssigneeGate,
+  assigneeGoverningStepKey,
+  getApprovalState,
+} from '@/lib/workflow-graph'
 
 // Computes the in-progress projects (for the header switcher) and the subset
 // awaiting THIS user's action (for the forcing gate). Shared by the app layout
@@ -68,7 +73,16 @@ export async function getMyWork(role: UserRole, userId: string): Promise<MyWork>
   // pending filter below). The DB lookup only runs for projects whose
   // current step is actually one of the assignee-gated design steps — most
   // active projects skip it entirely (assigneeGoverningStepKey returns null).
+  // Quick task 260714-iuj: same bounded-per-project shape as the assignee
+  // gate above — only resolved for a project whose CURRENT step is actually
+  // an approval-kind step, so most active projects skip this DB round trip
+  // entirely. Reused below to nag only the receiver, not the sender, once a
+  // 'sent' approval is awaiting the second party.
   const gateByProjectId = new Map<string, string | null>()
+  const approvalStateByProjectId = new Map<
+    string,
+    { status: string; sentBy: string | null; sentByName: string | null } | null
+  >()
   for (const p of active) {
     const step = findStep(steps, p.currentStep)
     const gate =
@@ -76,6 +90,9 @@ export async function getMyWork(role: UserRole, userId: string): Promise<MyWork>
         ? await getStepAssigneeGate('live', p.id, step.key)
         : null
     gateByProjectId.set(p.id, gate)
+    if (step && step.kind === 'approval') {
+      approvalStateByProjectId.set(p.id, await getApprovalState(p.id, step.stepDefId))
+    }
   }
 
   const activeProjects = active.map((p) => ({
@@ -104,6 +121,21 @@ export async function getMyWork(role: UserRole, userId: string): Promise<MyWork>
         (!step.receiverRequiredPosition || callerPosition !== step.receiverRequiredPosition)
       ) {
         return false
+      }
+      // Quick task 260714-iuj: once an approval-kind step has been sent
+      // (awaiting the second party), it counts as pending ONLY for a
+      // receiver-eligible caller who is NOT the original sender — otherwise
+      // the sender who just sent it stays falsely "pending" until the
+      // receiver acts. Not-yet-sent approvals are unaffected (the position
+      // gate above already handles that case).
+      if (step.kind === 'approval') {
+        const state = approvalStateByProjectId.get(p.id) ?? null
+        if (state?.status === 'sent') {
+          const receiverPosition = step.receiverRequiredPosition ?? step.requiredPosition ?? null
+          if (callerPosition === null || callerPosition !== receiverPosition || state.sentBy === userId) {
+            return false
+          }
+        }
       }
       return true
     })
