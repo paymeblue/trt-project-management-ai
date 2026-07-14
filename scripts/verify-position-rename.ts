@@ -30,6 +30,7 @@ import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import { eq } from 'drizzle-orm'
 import * as schema from '../db/schema'
+import { slugifyPosition } from '../lib/position-slug'
 
 const sql = neon(process.env.DATABASE_URL!)
 const db = drizzle(sql, { schema })
@@ -119,11 +120,13 @@ async function main() {
     // renaming it to collide with an EXISTING different position must fail ──
     console.log('\n=== Collision reject ===')
     // Re-seed a position holding the label that would collide (simulate a real
-    // different position occupying that slug).
-    const collisionSlug = `zzz_verify_collision_${ts}`
-    await db.insert(schema.positions).values({ slug: collisionSlug, label: 'ZZZ Verify Collision' })
+    // different position occupying that slug) — the label must slugify to
+    // EXACTLY the slug we seed, so it actually collides with the rename target.
+    const collisionLabel = `ZZZ Verify Collision ${ts}`
+    const collisionSlug = slugifyPosition(collisionLabel)
+    await db.insert(schema.positions).values({ slug: collisionSlug, label: collisionLabel })
 
-    const collisionResult = await positionsAction.renamePositionCore({ slug: slugB, newLabel: 'ZZZ Verify Collision' })
+    const collisionResult = await positionsAction.renamePositionCore({ slug: slugB, newLabel: collisionLabel })
     assertEqual('collision rename returns ok=false', collisionResult.ok, false)
 
     const [slugBRow] = await db.select().from(schema.positions).where(eq(schema.positions.slug, slugB)).limit(1)

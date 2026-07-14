@@ -63,6 +63,13 @@ async function tableExists(name: string): Promise<boolean> {
 
 async function main() {
   // ── Idempotency guard ────────────────────────────────────────────────
+  // NOTE: this only guards steps 1-5 (seed/convert/normalize). Step 6 (DROP
+  // TYPE IF EXISTS) always runs unconditionally at the end — it's naturally
+  // idempotent (IF EXISTS) and must not be skippable, or a prior run that
+  // failed after normalizing but before dropping the enum would leave the
+  // enum type orphaned forever (found live: DROP TYPE IF EXISTS position
+  // fails with a syntax error unless the identifier is quoted, since
+  // `position` is a reserved SQL keyword — fixed below).
   const udtResult = await db.execute<{ udt_name: string }>(sql`
     SELECT udt_name FROM information_schema.columns
     WHERE table_name = 'users' AND column_name = 'position'
@@ -70,18 +77,26 @@ async function main() {
   const columnIsText = udtResult.rows[0]?.udt_name === 'text'
   const positionsTablePresent = await tableExists('positions')
 
+  let alreadyMigrated = false
   if (columnIsText && positionsTablePresent) {
     const countResult = await db.execute<{ count: string }>(sql`SELECT count(*)::text AS count FROM positions`)
     const rowCount = Number(countResult.rows[0]?.count ?? 0)
     if (rowCount > 0) {
-      console.log('users.position is already text and positions is seeded — already migrated, nothing to do.')
-      return
+      console.log('users.position is already text and positions is seeded — already migrated. Still checking the enum type is dropped.')
+      alreadyMigrated = true
+    } else {
+      console.warn(
+        'WARNING: users.position is already text and a positions table exists, but it is EMPTY ' +
+          '(likely: drizzle-kit push ran before this migration and created an empty shell from the ' +
+          'schema). Continuing with seed + normalize so real data is never left unseeded.',
+      )
     }
-    console.warn(
-      'WARNING: users.position is already text and a positions table exists, but it is EMPTY ' +
-        '(likely: drizzle-kit push ran before this migration and created an empty shell from the ' +
-        'schema). Continuing with seed + normalize so real data is never left unseeded.',
-    )
+  }
+
+  if (alreadyMigrated) {
+    await dropEnumIfExists()
+    console.log('Done.')
+    return
   }
 
   // ── 1. Read the live enum values (source of truth for seeding) ───────
@@ -170,11 +185,21 @@ async function main() {
     `  normalized verbatim values to slugs: ${normalizedUsers} user(s), ${normalizedRequired} required_position row(s), ${normalizedReceiver} receiver_required_position row(s)`,
   )
 
-  // ── 6. DROP TYPE IF EXISTS position ────────────────────────────────────
-  await db.execute(sql`DROP TYPE IF EXISTS position`)
-  console.log('  dropped enum type "position" (if it still existed)')
+  // ── 6. DROP TYPE IF EXISTS "position" ──────────────────────────────────
+  await dropEnumIfExists()
 
   console.log('Done.')
+}
+
+// `position` is a reserved SQL keyword (used in the POSITION(x IN y)
+// expression syntax) — DROP TYPE IF EXISTS position fails with a syntax
+// error unless the identifier is quoted (found live, 2026-07-14). CREATE
+// TYPE position AS ENUM(...) (scripts/migrate-position-enum.ts, retired)
+// parsed fine unquoted because CREATE TYPE's grammar disambiguates
+// differently; DROP TYPE does not.
+async function dropEnumIfExists() {
+  await db.execute(sql`DROP TYPE IF EXISTS "position"`)
+  console.log('  dropped enum type "position" (if it still existed)')
 }
 
 main().catch((err) => {
