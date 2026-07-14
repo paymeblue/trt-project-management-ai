@@ -64,6 +64,31 @@ export async function createProjectIntentAction(
     completedBy: userId,
   })
 
+  // Quick task 260714-b4t: auto-seed deadlines for the three early steps per
+  // the owner's SLA spec (1d / 2d / 2d, all measured from project creation)
+  // so the countdown timer has something to count before Operations sets the
+  // full timeline at the merged Invoice & Delivery Timeline step (step 4,
+  // setInvoiceTimelineAction above, which owns everything downstream).
+  // Resolved by step_key (not hardcoded step numbers) — a step missing from
+  // the live graph is skipped rather than thrown.
+  const now = Date.now()
+  const DAY_MS = 24 * 60 * 60 * 1000
+  const earlyStepDeadlines: { key: string; offsetMs: number }[] = [
+    { key: 'assign_designer_brief', offsetMs: 1 * DAY_MS },
+    { key: 'brief_taking', offsetMs: 2 * DAY_MS },
+    { key: 'invoice_upload', offsetMs: 2 * DAY_MS },
+  ]
+  const liveSteps = await getLiveWorkflowSteps()
+  const seededDeadlines = earlyStepDeadlines
+    .map(({ key, offsetMs }) => {
+      const step = liveSteps.find((s) => s.key === key)
+      return step ? { projectId: created.id, stepN: step.n, deadline: new Date(now + offsetMs) } : null
+    })
+    .filter((d): d is { projectId: string; stepN: number; deadline: Date } => d !== null)
+  if (seededDeadlines.length) {
+    await db.insert(projectStepDeadlines).values(seededDeadlines).onConflictDoNothing()
+  }
+
   revalidatePath('/admin/timeline')
   revalidatePath('/customer-care/dashboard')
   redirect('/customer-care/dashboard')
