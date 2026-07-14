@@ -17,6 +17,15 @@ type Feed = { items: Item[]; unread: number }
 
 const POLL_MS = 4000
 
+// Notification types that just mark-read + refresh in place (no navigation)
+// rather than routing to /disputes/{projectId} — that destination is
+// super-admin-only and wrong for these. 'assignment' was the original
+// exception; quick task 260714-iuj adds the two approval-flow types
+// (approval_request/approval_rejected) fired by the reworked approval-kind
+// step UI. Prefer this allowlist over stacking `type !== '...'` checks so a
+// future non-dispute notification type is an explicit, one-line addition.
+const NO_NAVIGATE_TYPES = new Set(['assignment', 'approval_request', 'approval_rejected'])
+
 function ago(iso: string): string {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
   if (s < 60) return 'just now'
@@ -80,9 +89,9 @@ export default function NotificationsBell() {
     await markNotificationsReadAction(item.id)
     // Escalations/flags/bypasses carry a project — land the admin on its
     // discussion thread so they can act (REQ-G10). /disputes is a
-    // super-admin-only destination, so 'assignment' notifications (any role)
-    // must never route there — just mark read and refresh.
-    if (item.projectId && item.type !== 'assignment') {
+    // super-admin-only destination, so NO_NAVIGATE_TYPES (any role) must
+    // never route there — just mark read and refresh.
+    if (item.projectId && !NO_NAVIGATE_TYPES.has(item.type)) {
       setOpen(false)
       router.push(`/disputes/${item.projectId}`)
     } else {

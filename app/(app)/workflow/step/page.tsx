@@ -3,8 +3,24 @@ import { redirect } from 'next/navigation'
 import { db } from '@/db'
 import { projects, users, workflowStepStates } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
-import { getStepByKey, getStepAssigneeGate } from '@/lib/workflow-graph'
-import { canRoleActOnStep, roleDashboard, stepRequiredKinds, type UserRole, type StepKind } from '@/lib/workflow'
+import {
+  getStepByKey,
+  getStepAssigneeGate,
+  getApprovalState,
+  getApprovalDrawing,
+  getApprovalReceiverHolders,
+  approvalSenderEligible,
+  approvalReceiverEligible,
+} from '@/lib/workflow-graph'
+import {
+  canRoleActOnStep,
+  roleDashboard,
+  stepRequiredKinds,
+  userRoleLabel,
+  POSITION_LABELS,
+  type UserRole,
+  type StepKind,
+} from '@/lib/workflow'
 import YesNoUploadStep from '@/app/_components/workflow-kinds/yes-no-upload-step'
 import ApprovalStep from '@/app/_components/workflow-kinds/approval-step'
 import AssignmentStep from '@/app/_components/workflow-kinds/assignment-step'
@@ -135,8 +151,50 @@ export default async function WorkflowStepPage({
     switch (kind) {
       case 'yes_no_upload':
         return <YesNoUploadStep projectId={projectId!} stepDefId={step!.id} redirectTo={dashboard} />
-      case 'approval':
-        return <ApprovalStep projectId={projectId!} stepDefId={step!.id} redirectTo={dashboard} />
+      case 'approval': {
+        // Fetched fresh (not from the session) — same reasoning as the
+        // page-level requiredPosition gate above: position can change
+        // post-signup via the self-service profile flow. A separate query
+        // (not reusing `actingUser` above) since that block only runs when
+        // step.requiredPosition is set, but approval steps commonly gate
+        // the RECEIVER via receiverRequiredPosition with requiredPosition
+        // left null (e.g. send_for_production).
+        const [actingUser] = await db
+          .select({ position: users.position })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1)
+        const callerPosition = actingUser?.position ?? null
+
+        const state = await getApprovalState(projectId!, step!.id)
+        const phase: 'send' | 'sent' = state?.status === 'sent' ? 'sent' : 'send'
+        const drawing = await getApprovalDrawing(projectId!, graph)
+        const senderEligible = approvalSenderEligible(step!, role as UserRole, callerPosition)
+        const receiverEligible = approvalReceiverEligible(step!, role as UserRole, callerPosition)
+        const receiverHolderCount = (await getApprovalReceiverHolders(step!)).length
+        const senderRoleLabel = userRoleLabel(step!.role)
+        const receiverPositionValue = step!.receiverRequiredPosition ?? step!.requiredPosition ?? null
+        const receiverPositionLabel = receiverPositionValue
+          ? (POSITION_LABELS[receiverPositionValue] ?? receiverPositionValue)
+          : 'the receiver'
+        const senderName = state?.sentByName ?? null
+
+        return (
+          <ApprovalStep
+            projectId={projectId!}
+            stepDefId={step!.id}
+            redirectTo={dashboard}
+            phase={phase}
+            senderEligible={senderEligible}
+            receiverEligible={receiverEligible}
+            drawing={drawing}
+            senderName={senderName}
+            senderRoleLabel={senderRoleLabel}
+            receiverPositionLabel={receiverPositionLabel}
+            receiverHolderCount={receiverHolderCount}
+          />
+        )
+      }
       case 'assignment': {
         const candidates = step!.targetRoles?.length
           ? await db
