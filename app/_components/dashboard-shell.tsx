@@ -26,9 +26,8 @@ function iconFor(title: string): string {
     t.includes('checklist') ||
     t.includes('confirmation') ||
     t.includes('verification') ||
-    t.includes('sorting') ||
+    t.includes('installation process') ||
     t.includes('change request') ||
-    t.includes('close out') ||
     t.includes('readiness')
   )
     return 'fact_check'

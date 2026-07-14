@@ -25,21 +25,23 @@ const DETAIL: Record<string, string> = {
   new_project:
     "Customer Care captures the client's intent and creates the project (unpaid by default).",
   assign_designer_brief:
-    "Head Designer manually assigns a Designer or Architect to take the client's brief (5-day target).",
+    "Head Designer manually assigns a Designer or Architect to take the client's brief (1 day).",
   kickoff_meeting:
     'The assigned designer holds the kickoff meeting with the client.',
   brief_taking:
-    'The assigned designer records the brief taken from the client (5-day max).',
+    'The assigned designer records the brief taken from the client (2 days).',
   invoice_upload:
-    'Operations (the Head of Operations or an Operations super-admin) uploads the invoice, then sets the delivery date and a deadline for every remaining step — one step done in two parts.',
+    'Customer Care confirms the invoice has been sent to the client and uploads it (1/2), then confirms once the client has finally paid, marking the project paid (2/2).',
+  set_delivery_timeline:
+    'Operations sets the overall delivery date and a deadline for every remaining step (1-day target).',
   design_initiation:
     'Head Designer assigns a designer to begin actual design work.',
   design_stage:
     "The assigned designer produces the drawing and records the client's approval.",
   ops_design_confirmation:
-    'Operations Manager (Admin) gives the first confirmation that the design is approved.',
+    'Head of Projects assigns a Site PM to carry out the site confirmation.',
   confirmation_correction:
-    'The designer uploads the corrected drawing for confirmation.',
+    'The designer re-uploads the corrected drawing — only the front page of the drawing is to be sent/uploaded.',
   internal_approval:
     'Operations Manager (Admin) uploads the internally approved drawing.',
   send_for_production:
@@ -50,19 +52,18 @@ const DETAIL: Record<string, string> = {
     'Factory Operations works through the production checklist (optimisation, cutting, edging, drilling & grooving, spray, hardwood & upholstery, glass).',
   factory_manager_readiness:
     'Factory Manager uploads the 3 readiness forms (material, upholstery, accessories), prompting Factory PM and Site PM simultaneously.',
-  confirmation: 'Site PM confirms the project details to start the workflow.',
+  confirmation:
+    'The Site PM assigned above confirms the project details to start the on-site workflow.',
   materials_readiness:
     'Dual confirmation (v2.0 Phase 22e): Factory PM confirms materials & accessories are complete (sign digitally or upload the signed form) AND Site PM confirms the site is ready to receive the delivery — both must confirm independently before the project advances.',
   delivery_project_check:
     'Factory PM completes production QA (labelled, fragile-wrapped, ready to dispatch) and records the final project check report.',
   approval_installation:
     'Operations approves commencement of on-site installation.',
-  installation_readiness:
-    'Site PM confirms everything is ready to begin installation.',
-  sorting: 'Site PM sorts and stages the delivered items on site.',
-  close_out: 'Site PM completes the on-site close-out checklist.',
+  installation_process:
+    'Site PM completes one on-site checklist covering sorting, execution (installation), and close-out.',
   sign_off:
-    'Super Admin gives the final sign-off — the project is complete only after this.',
+    'Site PM uploads the signed-off document to close the project.',
 };
 
 const ROLES: WorkflowRole[] = [
