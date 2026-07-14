@@ -123,6 +123,14 @@ export default async function AdminTimelinePage() {
                   <td className="px-4 py-3">
                     <p className="font-medium text-gray-900">{p.name}</p>
                     <p className="text-xs text-gray-400">{p.location ?? 'No location'}</p>
+                    {role === 'super_admin' && (
+                      <a
+                        href={`/admin/projects/${p.id}/audit`}
+                        className="mt-1 inline-block text-xs text-primary hover:underline"
+                      >
+                        View →
+                      </a>
+                    )}
                     {history.length > 0 && (
                       <details className="mt-2">
                         <summary className="cursor-pointer text-xs text-primary">
