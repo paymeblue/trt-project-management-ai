@@ -1,6 +1,6 @@
 import 'server-only'
 import bcrypt from 'bcryptjs'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/db'
 import {
   workflowStepDefinitions,
@@ -11,8 +11,8 @@ import {
   users,
   projects,
 } from '@/db/schema'
-import type { GraphStep, StepKind, WorkflowRole, WorkflowStep } from '@/lib/workflow'
-import { stepRequiredKinds } from '@/lib/workflow'
+import type { GraphStep, StepKind, UserRole, WorkflowRole, WorkflowStep } from '@/lib/workflow'
+import { stepRequiredKinds, canRoleActOnStep } from '@/lib/workflow'
 import { notifyUser } from '@/lib/notifications'
 
 // ── Read engine for the DB-driven workflow graph (Phase 16, WF-01/WF-02) ──
@@ -433,6 +433,144 @@ export async function receiveApproval(opts: {
         eq(workflowStepStates.stepDefId, opts.stepDefId),
       ),
     )
+}
+
+// ── Approval-kind UI support (quick task 260714-iuj) ───────────────────────
+// The live incident this fixes: on send_for_production the CPO (the RECEIVE
+// gate holder) clicked "Send for approval" himself, recording the receiver
+// as the sender — receiveApproval's two-party rule then correctly rejected
+// him, and nobody else holds the CPO title, so the step deadlocked. The pure
+// helpers below make that click impossible to expose in the UI in the first
+// place: a receive-gate holder is NEVER sender-eligible (the deadlock
+// guard), independent of the (unchanged) server-side two-party rule above.
+
+type ApprovalStepShape = {
+  role: WorkflowRole
+  requiredPosition?: string | null
+  receiverRequiredPosition?: string | null
+  receiverRole?: WorkflowRole | null
+}
+
+/** True iff this viewer (role+position) may RECEIVE (2nd party) on this approval step. */
+export function approvalReceiverEligible(
+  step: ApprovalStepShape,
+  role: UserRole,
+  position: string | null,
+): boolean {
+  const receiverRoleGate = step.receiverRole ?? step.role
+  const receiverPositionGate = step.receiverRequiredPosition ?? step.requiredPosition ?? null
+  return canRoleActOnStep(receiverRoleGate, role) && position === receiverPositionGate
+}
+
+/**
+ * True iff this viewer (role+position) may SEND (1st party) on this approval
+ * step. The deadlock guard: a viewer who satisfies the RECEIVE position gate
+ * is never sender-eligible, even if they'd otherwise pass the role/position
+ * check — so a receive-gate holder can never be recorded as the sender.
+ */
+export function approvalSenderEligible(
+  step: ApprovalStepShape,
+  role: UserRole,
+  position: string | null,
+): boolean {
+  const senderPositionGate = step.requiredPosition ?? null
+  const receiverPositionGate = step.receiverRequiredPosition ?? step.requiredPosition ?? null
+  return (
+    canRoleActOnStep(step.role, role) &&
+    (senderPositionGate ? position === senderPositionGate : true) &&
+    position !== receiverPositionGate
+  )
+}
+
+// Priority order for the design-drawing fallback chain (by step key, same
+// project, live graph): the most recent/relevant upload wins.
+const APPROVAL_DRAWING_FALLBACK_KEYS = ['internal_approval', 'confirmation_correction', 'design_stage'] as const
+
+/** Pure: given rows for a project's fallback-chain steps, picks the drawing to show. */
+export function pickApprovalDrawing(
+  rows: { stepKey: string; uploadData: string | null; uploadName: string | null }[],
+): { uploadData: string; uploadName: string | null } | null {
+  const byKey = new Map(rows.map((r) => [r.stepKey, r]))
+  for (const key of APPROVAL_DRAWING_FALLBACK_KEYS) {
+    const row = byKey.get(key)
+    if (row?.uploadData) return { uploadData: row.uploadData, uploadName: row.uploadName }
+  }
+  return null
+}
+
+/** The current send/receive state of an approval step for one project. */
+export async function getApprovalState(
+  projectId: string,
+  stepDefId: string,
+): Promise<{ status: string; sentBy: string | null; sentByName: string | null } | null> {
+  const [row] = await db
+    .select({ status: workflowStepStates.status, sentBy: workflowStepStates.sentBy, sentByName: users.name })
+    .from(workflowStepStates)
+    .leftJoin(users, eq(users.id, workflowStepStates.sentBy))
+    .where(and(eq(workflowStepStates.projectId, projectId), eq(workflowStepStates.stepDefId, stepDefId)))
+    .limit(1)
+  return row ? { status: row.status, sentBy: row.sentBy, sentByName: row.sentByName ?? null } : null
+}
+
+/** The design drawing to show in the approval pane, resolved via the fallback chain. */
+export async function getApprovalDrawing(
+  projectId: string,
+  graph = 'live',
+): Promise<{ uploadData: string; uploadName: string | null } | null> {
+  const rows = await db
+    .select({
+      stepKey: workflowStepDefinitions.stepKey,
+      uploadData: workflowStepStates.uploadData,
+      uploadName: workflowStepStates.uploadName,
+    })
+    .from(workflowStepStates)
+    .innerJoin(workflowStepDefinitions, eq(workflowStepDefinitions.id, workflowStepStates.stepDefId))
+    .where(
+      and(
+        eq(workflowStepStates.projectId, projectId),
+        eq(workflowStepDefinitions.graph, graph),
+        inArray(workflowStepDefinitions.stepKey, [...APPROVAL_DRAWING_FALLBACK_KEYS]),
+      ),
+    )
+  return pickApprovalDrawing(rows)
+}
+
+/** Every user who currently holds the receive-gate title for this approval step — the notify + count source. */
+export async function getApprovalReceiverHolders(
+  step: Pick<GraphStep, 'role' | 'requiredPosition' | 'receiverRequiredPosition' | 'receiverRole'>,
+): Promise<{ id: string }[]> {
+  const positionGate = step.receiverRequiredPosition ?? step.requiredPosition
+  if (!positionGate) return []
+  const rows = await db
+    .select({ id: users.id, role: users.role })
+    .from(users)
+    .where(eq(users.position, positionGate))
+  const roleGate = step.receiverRole ?? step.role
+  return rows.filter((u) => canRoleActOnStep(roleGate, u.role)).map((u) => ({ id: u.id }))
+}
+
+/**
+ * Returns a 'sent' approval to phase 1/2 so the original sender can revise
+ * and resend. Only touches workflow_step_states — never deletes the step
+ * definition or edges. Rejects a reject on anything not currently 'sent'.
+ */
+export async function rejectApproval(opts: {
+  projectId: string
+  stepDefId: string
+  actorId: string
+}): Promise<{ sentBy: string | null }> {
+  const [state] = await db
+    .select()
+    .from(workflowStepStates)
+    .where(and(eq(workflowStepStates.projectId, opts.projectId), eq(workflowStepStates.stepDefId, opts.stepDefId)))
+    .limit(1)
+  if (!state || state.status !== 'sent') throw new Error('approval-not-sent')
+  const sentBy = state.sentBy
+  await db
+    .update(workflowStepStates)
+    .set({ status: 'pending', sentBy: null, updatedAt: new Date() })
+    .where(and(eq(workflowStepStates.projectId, opts.projectId), eq(workflowStepStates.stepDefId, opts.stepDefId)))
+  return { sentBy }
 }
 
 /**

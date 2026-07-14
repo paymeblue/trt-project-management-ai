@@ -3,15 +3,18 @@
 import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
-import { users } from '@/db/schema'
+import { users, projects } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { canRoleActOnStep } from '@/lib/workflow'
+import { notifyUser } from '@/lib/notifications'
 import {
   getStepById,
   completeGraphStep,
   submitYesNoUpload,
   sendApproval,
   receiveApproval,
+  rejectApproval,
+  getApprovalReceiverHolders,
   assignUser,
   getStepAssigneeGate,
 } from '@/lib/workflow-graph'
@@ -151,6 +154,27 @@ export async function sendApprovalAction(input: {
   } catch (err) {
     return { ok: false, message: engineErrorMessage(err) }
   }
+  // Notify every receiver-title holder that a design is ready for their
+  // approval. An empty holder list is surfaced as a visible warning in the
+  // UI (Task 2), not a thrown error here — the send itself already
+  // succeeded and must not be rolled back for a staffing gap.
+  const step = await getStepById(input.stepDefId)
+  if (step) {
+    const holders = await getApprovalReceiverHolders(step)
+    if (holders.length > 0) {
+      const [proj] = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, input.projectId)).limit(1)
+      const projectName = proj?.name ?? 'a project'
+      for (const holder of holders) {
+        await notifyUser({
+          recipientId: holder.id,
+          actorId: auth.userId,
+          type: 'approval_request',
+          title: `Design ready to approve for production: ${projectName}`,
+          projectId: input.projectId,
+        })
+      }
+    }
+  }
   revalidateBoards()
   return { ok: true }
 }
@@ -163,6 +187,59 @@ export async function receiveApprovalAction(input: {
   if (!auth.ok) return auth
   try {
     await receiveApproval({ projectId: input.projectId, stepDefId: input.stepDefId, actorId: auth.userId })
+  } catch (err) {
+    return { ok: false, message: engineErrorMessage(err) }
+  }
+  revalidateBoards()
+  return { ok: true }
+}
+
+/**
+ * The receiver's single "Approve & send to Factory" click: chains
+ * receiveApproval then completeGraphStep server-side (both with the SAME
+ * actorId) so completedBy is durably attributed to the receiver, not a
+ * second, separate "Complete step" click by whoever happens to press it.
+ */
+export async function approveAndCompleteApprovalAction(input: {
+  projectId: string
+  stepDefId: string
+}): Promise<WorkflowGraphActionState> {
+  const auth = await authorizeStep(input.stepDefId, input.projectId, true)
+  if (!auth.ok) return auth
+  try {
+    await receiveApproval({ projectId: input.projectId, stepDefId: input.stepDefId, actorId: auth.userId })
+    await completeGraphStep({ projectId: input.projectId, stepDefId: input.stepDefId, actorId: auth.userId })
+  } catch (err) {
+    return { ok: false, message: engineErrorMessage(err) }
+  }
+  revalidateBoards()
+  return { ok: true }
+}
+
+/**
+ * The receiver rejects the design: returns the step to phase 1/2 (status
+ * 'pending', sentBy cleared) and notifies the original sender to revise and
+ * resend. Authorized EXACTLY like receive — only a receiver-eligible user
+ * may reject (forReceive=true).
+ */
+export async function rejectApprovalAction(input: {
+  projectId: string
+  stepDefId: string
+}): Promise<WorkflowGraphActionState> {
+  const auth = await authorizeStep(input.stepDefId, input.projectId, true)
+  if (!auth.ok) return auth
+  try {
+    const result = await rejectApproval({ projectId: input.projectId, stepDefId: input.stepDefId, actorId: auth.userId })
+    if (result.sentBy) {
+      await notifyUser({
+        recipientId: result.sentBy,
+        actorId: auth.userId,
+        type: 'approval_rejected',
+        title: 'Design rejected — please revise and resend',
+        body: 'Rejected by the reviewer on this project.',
+        projectId: input.projectId,
+      })
+    }
   } catch (err) {
     return { ok: false, message: engineErrorMessage(err) }
   }
