@@ -2,12 +2,12 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
-import { projects, projectStepCompletions, projectStepDeadlines } from '@/db/schema'
+import { projects, projectStepCompletions, projectStepDeadlines, workflowStepStates } from '@/db/schema'
 import { requireAdmin, verifySession } from '@/lib/dal'
 import { FIRST_ACTION_STEP, Roles, isAdminRole, lastStepN, projectComplete, type UserRole } from '@/lib/workflow'
-import { getLiveWorkflowSteps, completeGraphStep } from '@/lib/workflow-graph'
+import { getLiveWorkflowSteps, getStepById, completeGraphStep, confirmPaymentReceived } from '@/lib/workflow-graph'
 import { notifyAllSuperAdmins } from '@/lib/notifications'
 
 function revalidateProjectBoards() {
@@ -77,6 +77,10 @@ export async function createProjectIntentAction(
     { key: 'assign_designer_brief', offsetMs: 1 * DAY_MS },
     { key: 'brief_taking', offsetMs: 2 * DAY_MS },
     { key: 'invoice_upload', offsetMs: 2 * DAY_MS },
+    // quick task 260714-qe4: the timeline-setting half of the old merged
+    // step split out into its own step 5 — 1-day SLA (was +2d on the
+    // merged step; owner said keep invoice_upload itself at +2d).
+    { key: 'set_delivery_timeline', offsetMs: 1 * DAY_MS },
   ]
   const liveSteps = await getLiveWorkflowSteps()
   const seededDeadlines = earlyStepDeadlines
@@ -97,13 +101,14 @@ export async function createProjectIntentAction(
 export type SetInvoiceTimelineState = { status: 'idle' | 'error'; message?: string }
 
 // Operations OR a Super Admin (D-01, quick task 260713-rb2 — role=operations
-// already admits both via isAdminRole; requiredPosition is null on the
-// merged step, so no exact-position gate here) — part 2 of the merged
-// Invoice & Delivery Timeline step's 2-part wizard: sets the overall
-// delivery date + a deadline for every step after it, once the invoice has
-// been uploaded (part 1). Steps 2/3 (Assign Designer, Brief Taking) are
-// handled manually (Head Designer assigns; the assigned designer takes the
-// brief) before this runs, so no deadline is set for them here.
+// already admits both via isAdminRole; requiredPosition is null on this
+// step, so no exact-position gate here). Quick task 260714-qe4: retargeted
+// from the old merged 'invoice_upload' step to the new standalone
+// 'set_delivery_timeline' step (resolved by stepKey, not a hardcoded
+// orderIndex) — sets the overall delivery date + a deadline for every step
+// after it. Steps 2/3 (Assign Designer, Brief Taking) are handled manually
+// (Head Designer assigns; the assigned designer takes the brief) before
+// this runs, so no deadline is set for them here.
 export async function setInvoiceTimelineAction(
   _prev: SetInvoiceTimelineState,
   formData: FormData,
@@ -120,10 +125,10 @@ export async function setInvoiceTimelineAction(
   if (!proj) return { status: 'error', message: 'Project not found.' }
 
   const steps = await getLiveWorkflowSteps()
-  const mergedStep = steps.find((s) => s.key === 'invoice_upload')
-  if (!mergedStep) return { status: 'error', message: 'Invoice & Delivery Timeline step is not configured.' }
+  const mergedStep = steps.find((s) => s.key === 'set_delivery_timeline')
+  if (!mergedStep) return { status: 'error', message: 'Set Delivery Timeline step is not configured.' }
   if (proj.currentStep !== mergedStep.n) {
-    return { status: 'error', message: 'This project is not awaiting the invoice & delivery timeline.' }
+    return { status: 'error', message: 'This project is not awaiting the delivery timeline.' }
   }
 
   const deadlineRaw = String(formData.get('deliveryDate') ?? '').trim()
@@ -171,22 +176,74 @@ export async function setInvoiceTimelineAction(
       })
   }
 
-  // Single completion of the merged step (D-02) — advances
-  // projects.currentStep via syncProjectCurrentStepAfterCompletion, straight
-  // to Design Initiation. Throws 'step-not-fulfilled' if part 1 (the
-  // invoice upload) hasn't been recorded yet — a spoofed direct part-2
-  // submit can't skip part 1 (T-rb2-02).
+  // Completes the standalone 'set_delivery_timeline' step (quick task
+  // 260714-qe4 — this step now stands alone, no upload gate: 'timeline_setting'
+  // is not a STATE_GATED_KINDS kind, so completeGraphStep never throws
+  // 'step-not-fulfilled' here; the currentStep check above is the entry gate).
   try {
     await completeGraphStep({ projectId, stepDefId: mergedStep.stepDefId, actorId: userId })
-  } catch (err) {
-    if (err instanceof Error && err.message === 'step-not-fulfilled') {
-      return { status: 'error', message: 'Upload the invoice before setting the delivery timeline.' }
-    }
+  } catch {
     return { status: 'error', message: 'Could not complete this step — it may have already moved on.' }
   }
 
   revalidatePath('/admin/timeline')
   redirect('/admin/timeline')
+}
+
+export type ConfirmClientPaidState = { ok: boolean; message?: string }
+
+// Phase 2/2 of the new customer_care-owned 2-phase "Invoicing" step (step 4,
+// quick task 260714-qe4). CHOSEN MECHANISM: reuses the proven 2-part-wizard
+// pattern (additionalKinds=['payment_confirmation'] on the live
+// invoice_upload row) rather than the `approval` kind — receiveApproval()
+// throws 'approval-requires-two-parties' whenever sentBy===actorId, which
+// blocks a same-role (customer_care) 2-phase flow; the wizard pattern has no
+// such restriction and already proved itself on the old merged step. Sole
+// caller of completeGraphStep for this step (mirrors setInvoiceTimelineAction's
+// precedent for the old merged step / the new set_delivery_timeline step).
+export async function confirmClientPaidAction(input: {
+  projectId: string
+  stepDefId: string
+}): Promise<ConfirmClientPaidState> {
+  const { userId, role } = await verifySession()
+  if (role !== Roles.CustomerCare && !isAdminRole(role as UserRole)) {
+    return { ok: false, message: 'Only Customer Care can confirm payment.' }
+  }
+
+  const step = await getStepById(input.stepDefId)
+  if (!step || step.key !== 'invoice_upload') return { ok: false, message: 'Invoicing step not found.' }
+
+  const [proj] = await db.select().from(projects).where(eq(projects.id, input.projectId)).limit(1)
+  if (!proj) return { ok: false, message: 'Project not found.' }
+  if (proj.currentStep !== step.orderIndex) {
+    return { ok: false, message: 'This project is not awaiting invoice payment confirmation.' }
+  }
+
+  const [state] = await db
+    .select({ fulfilledKinds: workflowStepStates.fulfilledKinds })
+    .from(workflowStepStates)
+    .where(and(eq(workflowStepStates.projectId, input.projectId), eq(workflowStepStates.stepDefId, input.stepDefId)))
+    .limit(1)
+  if (!(state?.fulfilledKinds ?? []).includes('yes_no_upload')) {
+    return { ok: false, message: 'Upload the invoice (part 1/2) before confirming payment.' }
+  }
+
+  // Sequential writes — the neon-http driver's db.transaction() throws (see
+  // actions/positions.ts's identical caveat); paymentStatus is set before
+  // the step completion that advances the project, mirroring
+  // setInvoiceTimelineAction's ordering (deadline write, then completion).
+  await db.update(projects).set({ paymentStatus: 'paid', updatedAt: new Date() }).where(eq(projects.id, input.projectId))
+  await confirmPaymentReceived({ projectId: input.projectId, stepDefId: input.stepDefId, actorId: userId })
+
+  try {
+    await completeGraphStep({ projectId: input.projectId, stepDefId: input.stepDefId, actorId: userId })
+  } catch {
+    return { ok: false, message: 'Could not complete this step — it may have already moved on.' }
+  }
+
+  revalidatePath('/admin/timeline')
+  revalidatePath('/customer-care/dashboard')
+  return { ok: true }
 }
 
 // Admin-only manual override of delivered status (status is otherwise managed

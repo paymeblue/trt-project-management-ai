@@ -25,6 +25,7 @@ import YesNoUploadStep from '@/app/_components/workflow-kinds/yes-no-upload-step
 import ApprovalStep from '@/app/_components/workflow-kinds/approval-step'
 import AssignmentStep from '@/app/_components/workflow-kinds/assignment-step'
 import InvoiceTimelineForm from '@/app/(app)/admin/invoice-timeline/invoice-timeline-form'
+import ConfirmPaymentStep from '@/app/_components/workflow-kinds/confirm-payment-step'
 
 export const dynamic = 'force-dynamic'
 
@@ -105,13 +106,31 @@ export default async function WorkflowStepPage({
   // clicking any one of them once everything is done is enough.
   const requiredKinds = stepRequiredKinds(step)
 
-  // quick task 260713-rb2: a step whose additionalKinds include
-  // 'timeline_setting' (currently only the merged Invoice & Delivery
-  // Timeline step) renders as a 2-part wizard instead of the generic
-  // stacked multi-kind view below — part 1 (upload) must be fulfilled
-  // before part 2 (timeline) appears, and part 2's own submit
-  // (setInvoiceTimelineAction) is the SOLE caller that completes the step.
+  // quick task 260714-qe4 (workflow restructure batch 2): the old merged
+  // Invoice & Delivery Timeline step's 2-part wizard un-merged into two
+  // steps — 'set_delivery_timeline' (kind 'timeline_setting', standalone,
+  // no upload phase) and 'invoice_upload' (kind 'yes_no_upload' + additional
+  // 'payment_confirmation', still a 2-part wizard: upload then confirm
+  // payment). Handled as two distinct branches below, both still bypassing
+  // the generic stacked multi-kind view.
   if (requiredKinds.includes('timeline_setting')) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+        <a href={dashboard} className="text-sm text-primary hover:underline">
+          ← Dashboard
+        </a>
+        <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">{step.label}</h1>
+        <InvoiceTimelineForm projectId={projectId!} />
+      </div>
+    )
+  }
+
+  // quick task 260714-qe4: step 4 "Invoicing" (customer_care, 2-phase) —
+  // part 1 (upload) must be fulfilled before part 2 (confirm the client
+  // paid) appears; part 2's own submit (ConfirmPaymentStep ->
+  // confirmClientPaidAction) is the SOLE caller that completes the step and
+  // sets projects.paymentStatus='paid'.
+  if (requiredKinds.includes('payment_confirmation')) {
     const [state] = await db
       .select({ fulfilledKinds: workflowStepStates.fulfilledKinds })
       .from(workflowStepStates)
@@ -129,16 +148,16 @@ export default async function WorkflowStepPage({
         {!uploaded ? (
           <>
             <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Part 1 of 2 — Upload the invoice
+              Part 1 of 2 — I have sent this client the invoice
             </p>
             <YesNoUploadStep projectId={projectId!} stepDefId={step.id} completeOnSubmit={false} />
           </>
         ) : (
           <>
             <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Part 2 of 2 — Set the delivery timeline
+              Part 2 of 2 — The client has finally paid
             </p>
-            <InvoiceTimelineForm projectId={projectId!} />
+            <ConfirmPaymentStep projectId={projectId!} stepDefId={step.id} redirectTo={dashboard} />
           </>
         )}
       </div>

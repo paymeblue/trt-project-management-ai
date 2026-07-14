@@ -113,6 +113,23 @@ export async function getStepById(id: string): Promise<GraphStep | undefined> {
 // in the live graph. Every other step (including the assignment steps
 // themselves, assign_designer_brief/design_initiation) is unaffected — the
 // gate is a no-op for any key not in this map.
+// Gating audit (quick task 260714-qe4, Task 2): the new step 9 "Assign Site
+// PM for Site Confirmation" (ops_design_confirmation) assigns a site_pm who
+// then owns the relocated step 10 'confirmation' checklist — structurally
+// the SAME assignment -> gated-step shape as design_initiation gating
+// kickoff_meeting/design_stage below. Deliberately NOT added here, though:
+// this map is only consulted by getStepAssigneeGate's TWO callers —
+// app/(app)/workflow/step/page.tsx and actions/workflow-graph.ts's
+// authorizeStep — both of which gate the 3 new-fulfillment-kind steps
+// (yes_no_upload/approval/assignment). 'confirmation' is a CHECKLIST-kind
+// step routed through app/(app)/checklists/[slug]/page.tsx, which enforces
+// its own authorization (canRoleActOnStep + checklist_definitions
+// target_role) and never calls getStepAssigneeGate — adding 'confirmation'
+// here would only affect the "your turn" hint surfaced by lib/my-work.ts,
+// not real page-level enforcement, producing a misleading half-gate. Wiring
+// real enforcement would mean editing the checklist page, which is outside
+// this plan's files_modified scope — left as a follow-up, not silently
+// half-done.
 const ASSIGNEE_GATED_STEPS: Record<string, string> = {
   brief_taking: 'assign_designer_brief',
   kickoff_meeting: 'design_initiation',
@@ -375,6 +392,43 @@ export async function submitYesNoUpload(opts: {
         fulfilledKinds,
         updatedAt: now,
       },
+    })
+}
+
+/**
+ * Phase 2/2 of the new customer_care-owned 2-phase "Invoicing" step (quick
+ * task 260714-qe4): marks the additionalKind 'payment_confirmation'
+ * fulfilled. CHOSEN MECHANISM: reuses the existing 2-part-wizard pattern
+ * (additionalKinds on the primary yes_no_upload row) rather than the
+ * `approval` kind, because receiveApproval() above throws
+ * 'approval-requires-two-parties' whenever sentBy===actorId — Invoicing's
+ * two phases are BOTH done by customer_care (often the same person), which
+ * the two-party approval kind cannot model. Mirrors submitYesNoUpload's
+ * upsert shape but records no answer/upload — only the fulfilled-kind
+ * bookkeeping — since the actual payment confirmation itself is the DB
+ * write actions/projects.ts's confirmClientPaidAction performs on
+ * projects.paymentStatus, sequenced around this call.
+ */
+export async function confirmPaymentReceived(opts: {
+  projectId: string
+  stepDefId: string
+  actorId: string
+}): Promise<void> {
+  const now = new Date()
+  const fulfilledKinds = await appendFulfilledKind(opts.projectId, opts.stepDefId, 'payment_confirmation')
+  await db
+    .insert(workflowStepStates)
+    .values({
+      projectId: opts.projectId,
+      stepDefId: opts.stepDefId,
+      status: 'complete',
+      actedBy: opts.actorId,
+      fulfilledKinds,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: [workflowStepStates.projectId, workflowStepStates.stepDefId],
+      set: { actedBy: opts.actorId, fulfilledKinds, updatedAt: now },
     })
 }
 
