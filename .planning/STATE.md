@@ -4,8 +4,8 @@ milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: completed
 stopped_at: Phase 19 already complete (shipped 2026-07-11); a redundant discuss-phase session ran concurrently and its 19-CONTEXT.md/19-DISCUSSION-LOG.md are kept only as a historical record, not consumed for planning. Ready for Phase 20.
-last_updated: "2026-07-13T19:41:00.000Z"
-last_activity: "2026-07-13 -- Completed quick task 260713-c0d: Workflow Configurator List view reorder replaced native HTML5 drag-and-drop + confirm modal with up/down buttons and a move-to-position input"
+last_updated: "2026-07-14T07:30:00.000Z"
+last_activity: "2026-07-14 -- Completed quick tasks 260714-b4t (position-aware pending + auto deadlines) and 260713-s2l (blinking deadline countdown); DB-only unblock of Operations super-admins on steps 8/10/11"
 progress:
   total_phases: 22
   completed_phases: 4
@@ -139,6 +139,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 | 2026-07-13 | 260713-bno-remove-legacy-admin-projects-new | Removed legacy /admin/projects/new direct-creation route (bypassed Customer Care's intent step, contradicted STG-01) + its dead createProjectAction, dashboard tile, and sidebar link | complete ✓ |
 | 2026-07-13 | 260713-cso-remove-auto-rotation-auto-assign | Removed round-robin auto-assign engine for assign_designer_brief (Assign Designer/Architect for Brief) — Head Designer now always assigns manually, matching every other assignment-kind step | complete ✓ |
 | 2026-07-13 | 260713-ekr-assignee-scoped-step-gating | SECURITY: brief_taking/kickoff_meeting/design_stage now gated server-side (authorizeStep + step page) and in UI (forcing modal, header switcher) to the specific user assigned at the governing assignment step (assign_designer_brief / design_initiation) — previously ANY design/architect user could see and complete them. Verified live in-browser both directions + read-only live-DB script | complete ✓ |
+| 2026-07-14 | 260714-b4t-position-aware-pending-gating | Forcing modal + header "your turn" now honor step.requiredPosition (with approval-step receiver carve-out) — assignment steps no longer nag non-head-designer design users; also fixed getLiveWorkflowSteps mapper silently dropping requiredPosition/receiverRequiredPosition. Plus: auto-seeded deadlines at project creation (assign_designer_brief +1d, brief_taking +2d, invoice_upload +2d, by step_key) | complete ✓ |
+| 2026-07-14 | 260713-s2l-blinking-deadline-countdown | Live per-second countdown timer (lib/countdown.ts + DeadlineCountdown) on forcing modal + header pill — always pulsing, amber <24h, red+bold <6h/overdue. TDD (RED→GREEN), hydration-safe | complete ✓ |
+| 2026-07-14 | (DB-only, no code) ops-position-unblock | Removed requiredPosition=head_of_operations from live steps ops_design_confirmation, internal_approval, send_for_production (sender) so Operations super-admins ("Operations manager admin") can act — role gate still limits to operations+super_admin; send_for_production receiver stays chief_production_officer; step 12 stays CPO. Seed file never pinned these titles, parity PASS unaffected | complete ✓ |
 | 2026-07-06 | slack-like-group-chat-group-conversation | Slack-like group chat — group conversations with title, emoji picker + reactions, typing indicator, GSAP fullscreen expand (like Paul Arredo) | complete ✓ |
 | 2026-07-10 | fix-blank-screen-on-workflow-step-pages | Blank-screen fix on workflow step + payment-confirmation pages — redirect(roleDashboard) for all no-access/indeterminate branches, loading.tsx skeletons, (app)/error.tsx boundary | complete ✓ |
 | 2026-07-10 | post-assignment-ux-show-clear-confirmati | Post-assignment UX — named "{name} assigned to {step} on {project}" confirmation + delayed redirect to role dashboard in AssignmentStep | complete ✓ |
