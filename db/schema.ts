@@ -11,15 +11,9 @@ import {
   foreignKey,
   doublePrecision,
 } from 'drizzle-orm/pg-core'
-import { POSITION_VALUES } from '@/lib/workflow'
 
 // ── Enums ────────────────────────────────────────────────────────────────
 export const roleEnum = pgEnum('role', ['factory_pm', 'site_pm', 'super_admin', 'operations', 'design', 'production', 'customer_care', 'architect', 'factory_operations', 'factory_manager'])
-// v2.0 Phase 19 (plan 19-01): DB-enforced enum backing `users.position` —
-// sourced from lib/workflow.ts's POSITION_VALUES (single source of truth
-// shared with every position-picking UI). See scripts/migrate-position-enum.ts
-// for the additive-safe text->enum conversion of the live column.
-export const positionEnum = pgEnum('position', POSITION_VALUES as unknown as [string, ...string[]])
 export const projectStatusEnum = pgEnum('project_status', ['not_delivered', 'delivered', 'paused'])
 export const paymentStatusEnum = pgEnum('payment_status', ['unpaid', 'paid'])
 export const targetRoleEnum = pgEnum('target_role', ['factory_pm', 'site_pm', 'both'])
@@ -30,6 +24,20 @@ export const responseValueEnum = pgEnum('response_value', ['yes', 'no', 'na'])
 export const chatRoleEnum = pgEnum('chat_role', ['user', 'assistant'])
 export const fulfillmentKindEnum = pgEnum('fulfillment_kind', ['creation', 'checklist', 'readiness', 'ack', 'yes_no_upload', 'approval', 'assignment', 'payment_confirmation', 'timeline_setting'])
 
+// ── Positions (v2.0, quick task 260714-bpq — renameable positions) ───────
+// Replaces the `position` Postgres enum as the source of truth. `slug` is
+// the machine value stored on users.position / workflow_step_definitions'
+// required_position + receiver_required_position columns; `label` is the
+// human-facing display text, renameable in place without a redeploy (see
+// actions/positions.ts). Column/type/default choices are kept byte-aligned
+// with the CREATE TABLE scripts/migrate-positions-table.ts emits so
+// drizzle-kit push sees zero diff post-migration.
+export const positions = pgTable('positions', {
+  slug:      text('slug').primaryKey(),
+  label:     text('label').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
 // ── Users (NextAuth Credentials — bcrypt verified in auth.ts authorize()) ──
 export const users = pgTable('users', {
   id:             uuid('id').primaryKey().defaultRandom(),
@@ -38,7 +46,13 @@ export const users = pgTable('users', {
   name:           text('name').notNull(),
   role:           roleEnum('role').notNull(),          // 'factory_pm' | 'site_pm' | 'super_admin'
   emailVerified:  timestamp('email_verified'),         // null until verified
-  position:       positionEnum('position'),
+  // v2.0 (quick task 260714-bpq): plain text, NOT a FK — mirrors the
+  // deliberately-text step-def position columns below (D-19-01-A) and
+  // avoids FK-name-truncation churn (see message_reactions history further
+  // down). Renaming is self-service DML via lib/positions.ts's `positions`
+  // table, not a redeploy. See scripts/migrate-positions-table.ts for the
+  // one-time enum->text conversion of the live column.
+  position:       text('position'),
   bio:            text('bio'),                          // optional self-description
   avatarData:     text('avatar_data'),                  // profile image as base64 data URL
   imageKey:       text('image_key'),                   // S3 key for ID card (Phase 2)
