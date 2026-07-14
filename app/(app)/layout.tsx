@@ -118,7 +118,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               initials={initials}
               avatarData={avatarData}
             />
-            <HeaderProjectSwitcher viewerRole={role as UserRole} viewerUserId={session.user.id!} />
+            <HeaderProjectSwitcher
+              viewerRole={role as UserRole}
+              viewerUserId={session.user.id!}
+              viewerPosition={me?.position ?? null}
+            />
           </div>
           <div className="flex items-center gap-2">
             <NotificationsBell />

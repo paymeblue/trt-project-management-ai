@@ -1,7 +1,7 @@
 import 'server-only'
-import { inArray } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { db } from '@/db'
-import { projects, projectStepDeadlines } from '@/db/schema'
+import { projects, projectStepDeadlines, users } from '@/db/schema'
 import {
   canActOnGraphStep,
   findStep,
@@ -21,6 +21,14 @@ import { getLiveWorkflowSteps, getStepAssigneeGate, assigneeGoverningStepKey } f
 // gated project from `pending` when the caller isn't its assignee.
 export async function getMyWork(role: UserRole, userId: string): Promise<MyWork> {
   const steps = await getLiveWorkflowSteps()
+
+  // Quick task 260714-b4t (bug fix): position isn't in the JWT (can change
+  // post-signup) — fetch fresh from the DB, mirroring authorizeStep's pattern
+  // in actions/workflow-graph.ts, so the pending filter below can exclude
+  // position-mismatched assignment/approval steps.
+  const [caller] = await db.select({ position: users.position }).from(users).where(eq(users.id, userId)).limit(1)
+  const callerPosition = caller?.position ?? null
+
   const rows = await db
     .select({
       id: projects.id,
@@ -84,6 +92,19 @@ export async function getMyWork(role: UserRole, userId: string): Promise<MyWork>
       if (!step || !canActOnGraphStep(step, role)) return false
       const gate = gateByProjectId.get(p.id) ?? null
       if (gate && gate !== userId) return false
+      // Quick task 260714-b4t: exclude position-mismatched steps. This is a
+      // visibility/nagging fix, NOT the authorization boundary — authorizeStep
+      // (actions/workflow-graph.ts) remains the real, server-enforced gate.
+      // Approval-kind steps carry requiredPosition (sender) AND
+      // receiverRequiredPosition (receiver); only exclude when the caller
+      // matches neither, so the receiver's turn to act isn't hidden.
+      if (
+        step.requiredPosition &&
+        callerPosition !== step.requiredPosition &&
+        (!step.receiverRequiredPosition || callerPosition !== step.receiverRequiredPosition)
+      ) {
+        return false
+      }
       return true
     })
     .map((p) => ({

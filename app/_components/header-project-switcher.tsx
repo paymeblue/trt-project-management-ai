@@ -12,6 +12,19 @@ import {
 } from '@/lib/workflow'
 import { useMyWork } from '@/app/_components/my-work-provider'
 import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
+import type { LiveWorkflowStep } from '@/lib/workflow-graph'
+
+// Quick task 260714-b4t (bug fix): mirrors getMyWork's pending-filter
+// expression — a UI/visibility gate only, NOT the authorization boundary
+// (authorizeStep in actions/workflow-graph.ts remains the real, server-
+// enforced gate). Approval-kind steps carry requiredPosition (sender) AND
+// receiverRequiredPosition (receiver); only exclude when the viewer matches
+// neither, so the receiver's turn to act isn't hidden.
+function matchesPosition(step: LiveWorkflowStep, viewerPosition: string | null): boolean {
+  if (!step.requiredPosition) return true
+  if (viewerPosition === step.requiredPosition) return true
+  return step.receiverRequiredPosition != null && viewerPosition === step.receiverRequiredPosition
+}
 
 // Dismissable navbar indicator: shows the "current" in-progress project + the
 // step it's on, with a dropdown to switch between projects (a PM may juggle
@@ -19,9 +32,11 @@ import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
 export default function HeaderProjectSwitcher({
   viewerRole,
   viewerUserId,
+  viewerPosition,
 }: {
   viewerRole: UserRole
   viewerUserId: string
+  viewerPosition: string | null
 }) {
   const { activeProjects: projects } = useMyWork()
   const steps = useWorkflowSteps()
@@ -64,7 +79,8 @@ export default function HeaderProjectSwitcher({
   // the viewer IS the assignee recorded at the governing assignment step.
   const mine = step
     ? canActOnGraphStep(step, viewerRole) &&
-      (selected.gatedToUserId === null || selected.gatedToUserId === viewerUserId)
+      (selected.gatedToUserId === null || selected.gatedToUserId === viewerUserId) &&
+      matchesPosition(step, viewerPosition)
     : false
   const href = step && mine ? stepHref(step, selected.id, viewerRole) : null
 
@@ -121,7 +137,8 @@ export default function HeaderProjectSwitcher({
             const s = findStep(steps, p.stepN)
             const youract = s
               ? canActOnGraphStep(s, viewerRole) &&
-                (p.gatedToUserId === null || p.gatedToUserId === viewerUserId)
+                (p.gatedToUserId === null || p.gatedToUserId === viewerUserId) &&
+                matchesPosition(s, viewerPosition)
               : false
             return (
               <button

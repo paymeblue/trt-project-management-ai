@@ -61,7 +61,16 @@ export async function getGraphSteps(graph = 'live'): Promise<GraphStep[]> {
 // stand in for the array-based WorkflowStep shape without changing its
 // consumers' expected shape. `stepDefId` is carried alongside so a caller can
 // still resolve back to the DB row (e.g. for completeGraphStep).
-export type LiveWorkflowStep = WorkflowStep & { stepDefId: string; dualRoles?: WorkflowRole[] | null }
+//
+// Quick task 260714-b4t: also carries requiredPosition/receiverRequiredPosition
+// forward from GraphStep so position-aware consumers (getMyWork,
+// header-project-switcher) can gate visibility without a second DB query.
+export type LiveWorkflowStep = WorkflowStep & {
+  stepDefId: string
+  dualRoles?: WorkflowRole[] | null
+  requiredPosition?: string | null
+  receiverRequiredPosition?: string | null
+}
 
 export async function getLiveWorkflowSteps(): Promise<LiveWorkflowStep[]> {
   const steps = await getGraphSteps('live')
@@ -74,6 +83,8 @@ export async function getLiveWorkflowSteps(): Promise<LiveWorkflowStep[]> {
     slug: g.slug ?? undefined,
     stepDefId: g.id,
     dualRoles: g.dualRoles,
+    requiredPosition: g.requiredPosition,
+    receiverRequiredPosition: g.receiverRequiredPosition,
   }))
 }
 
