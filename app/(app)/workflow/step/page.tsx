@@ -17,10 +17,10 @@ import {
   roleDashboard,
   stepRequiredKinds,
   userRoleLabel,
-  POSITION_LABELS,
   type UserRole,
   type StepKind,
 } from '@/lib/workflow'
+import { getPositionLabelMap } from '@/lib/positions'
 import YesNoUploadStep from '@/app/_components/workflow-kinds/yes-no-upload-step'
 import ApprovalStep from '@/app/_components/workflow-kinds/approval-step'
 import AssignmentStep from '@/app/_components/workflow-kinds/assignment-step'
@@ -173,9 +173,10 @@ export default async function WorkflowStepPage({
         const receiverEligible = approvalReceiverEligible(step!, role as UserRole, callerPosition)
         const receiverHolderCount = (await getApprovalReceiverHolders(step!)).length
         const senderRoleLabel = userRoleLabel(step!.role)
-        const receiverPositionValue = step!.receiverRequiredPosition ?? step!.requiredPosition ?? null
-        const receiverPositionLabel = receiverPositionValue
-          ? (POSITION_LABELS[receiverPositionValue] ?? receiverPositionValue)
+        const receiverRequiredSlug = step!.receiverRequiredPosition ?? step!.requiredPosition ?? null
+        const positionLabels = await getPositionLabelMap()
+        const receiverPositionLabel = receiverRequiredSlug
+          ? (positionLabels[receiverRequiredSlug] ?? receiverRequiredSlug)
           : 'the receiver'
         const senderName = state?.sentByName ?? null
 

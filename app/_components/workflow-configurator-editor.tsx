@@ -17,11 +17,13 @@ export default function ConfiguratorEditor({
   steps,
   edges,
   currentHint,
+  positions,
 }: {
   graph: string
   steps: GraphStep[]
   edges: { fromStepId: string; toStepId: string }[]
   currentHint: string
+  positions: { slug: string; label: string }[]
 }) {
   const router = useRouter()
   const refresh = () => router.refresh()
@@ -70,7 +72,7 @@ export default function ConfiguratorEditor({
       </div>
 
       {view === 'graph' ? (
-        <ConfiguratorGraph graph={graph} steps={steps} edges={edges} onChanged={refresh} />
+        <ConfiguratorGraph graph={graph} steps={steps} edges={edges} onChanged={refresh} positions={positions} />
       ) : (
         <>
           <div className="mb-4 flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
@@ -95,6 +97,7 @@ export default function ConfiguratorEditor({
                 disabled={pending}
                 onMoveToIndex={(target) => moveToIndex(step.id, target)}
                 onSaved={refresh}
+                positions={positions}
               />
             ))}
             {steps.length === 0 && (
@@ -195,6 +198,7 @@ function StepRow({
   disabled,
   onMoveToIndex,
   onSaved,
+  positions,
 }: {
   step: GraphStep
   stepNumber: number
@@ -203,6 +207,7 @@ function StepRow({
   disabled: boolean
   onMoveToIndex: (targetIndex: number) => void
   onSaved: () => void
+  positions: { slug: string; label: string }[]
 }) {
   const [positionInput, setPositionInput] = useState(String(stepNumber))
 
@@ -271,7 +276,7 @@ function StepRow({
 
         <div className="flex-1">
           <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">{step.key}</div>
-          <StepFieldsPanel step={step} onSaved={onSaved} />
+          <StepFieldsPanel step={step} onSaved={onSaved} positions={positions} />
         </div>
       </div>
     </div>

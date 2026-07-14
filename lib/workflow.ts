@@ -41,37 +41,15 @@ export const Positions = {
   ChiefProductionOfficer: 'chief_production_officer',
 } as const
 
-// v2.0 Phase 19 (formal, plan 19-01): single source of truth backing both the
-// `users.position` Postgres enum (db/schema.ts) and every position-picking UI
-// (profile select, configurator). Derived from a live-data inspection
-// (scripts/inspect-positions.ts) run 2026-07-11 — the union of the three
-// baseline machine-gating values above plus every distinct verbatim value
-// then stored in users.position / requiredPosition / receiverRequiredPosition
-// (super-admin display titles like "MD"/"Head of Projects" analogues are kept
-// verbatim so no title is lost, per decision D-19-01-B). No values were
-// flagged as junk/placeholder at inspection time, so nothing was backfilled.
-export const POSITION_VALUES = [
-  'head_of_operations',
-  'head_designer',
-  'chief_production_officer',
-  'Customer Rep',
-  'Designer',
-  'Factory Manager',
-  'Head of design',
-  'Lead Site Manager',
-  'Operations manager admin',
-] as const
-
-export type PositionValue = (typeof POSITION_VALUES)[number]
-
-// Display labels for the machine (snake_case) values only — the verbatim
-// display-form values above already read as display text, so the UI falls
-// back to the raw value for those (no entry needed).
-export const POSITION_LABELS: Record<string, string> = {
-  head_of_operations: 'Head of Operations',
-  head_designer: 'Head Designer',
-  chief_production_officer: 'Chief Production Officer',
-}
+// v2.0 (quick task 260714-bpq, 2026-07-14): the static position-values tuple,
+// its display-label map, and its literal type (formal Phase 19-01's static
+// enum source of truth) are RETIRED — positions are now data in the
+// `positions` DB table (db/schema.ts),
+// renameable self-service via actions/positions.ts, read via
+// lib/positions.ts's getPositions()/getPositionLabelMap(). The 3 baseline
+// machine-gating slugs are still documented above as `Positions` (harmless,
+// no consumers, kept as the conceptual seed reference for
+// scripts/migrate-positions-table.ts).
 
 export type UserRole = (typeof Roles)[keyof typeof Roles]
 export type WorkflowRole =

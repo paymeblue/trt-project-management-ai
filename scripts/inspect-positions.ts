@@ -3,7 +3,7 @@
  * non-null value currently stored in `users.position`,
  * `workflow_step_definitions.required_position`, and
  * `workflow_step_definitions.receiver_required_position`, with row counts,
- * and prints the proposed authoritative `POSITION_VALUES` set — the union of
+ * and prints the proposed authoritative position-values set — the union of
  * the three baseline machine-gating values (head_of_operations,
  * head_designer, chief_production_officer) plus every distinct live value
  * found above, verbatim. Flags any value that looks like a junk/placeholder
@@ -113,7 +113,7 @@ async function main() {
 
   const proposedSet = [...new Set([...BASELINE_MACHINE_VALUES, ...keptLiveValues])]
 
-  console.log('\n=== Proposed POSITION_VALUES (baseline machine values + retained live values) ===')
+  console.log('\n=== Proposed position values (baseline machine values + retained live values) ===')
   console.log(`  [${proposedSet.map((v) => `'${v}'`).join(', ')}]`)
 
   if (junkCandidates.length > 0) {

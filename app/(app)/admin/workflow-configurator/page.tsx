@@ -1,6 +1,7 @@
 import { verifySession, isAdminRole } from '@/lib/dal'
 import type { UserRole } from '@/lib/workflow'
 import { getGraphSteps, getGraphEdges, getConfigAccess } from '@/lib/workflow-graph'
+import { getPositions } from '@/lib/positions'
 import { isConfiguratorUnlocked } from '@/actions/workflow-config'
 import ConfiguratorPinGate from '@/app/_components/workflow-configurator-pin-gate'
 import ConfiguratorEditor from '@/app/_components/workflow-configurator-editor'
@@ -46,5 +47,8 @@ async function ConfiguratorEditorSection() {
   const steps = await getGraphSteps(GRAPH)
   const edges = await getGraphEdges(GRAPH)
   const access = await getConfigAccess()
-  return <ConfiguratorEditor graph={GRAPH} steps={steps} edges={edges} currentHint={access.hint} />
+  const positions = await getPositions()
+  return (
+    <ConfiguratorEditor graph={GRAPH} steps={steps} edges={edges} currentHint={access.hint} positions={positions} />
+  )
 }

@@ -44,8 +44,8 @@ const sqlClient = neon(process.env.DATABASE_URL!)
 const db = drizzle(sqlClient, { schema })
 
 // The 3 baseline machine-gating slugs and their display labels — mirrors
-// lib/workflow.ts's (now-retired) POSITION_LABELS. Any OTHER live enum
-// value is a verbatim legacy label; its slug is derived via slugifyPosition.
+// lib/workflow.ts's now-retired static display-label map. Any OTHER live
+// enum value is a verbatim legacy label; its slug is derived via slugifyPosition.
 const MACHINE_SLUG_LABELS: Record<string, string> = {
   head_of_operations: 'Head of Operations',
   head_designer: 'Head Designer',

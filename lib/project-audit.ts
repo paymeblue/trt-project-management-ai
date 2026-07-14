@@ -12,7 +12,7 @@ import {
   users,
 } from '@/db/schema'
 import { getLiveWorkflowSteps, type LiveWorkflowStep } from '@/lib/workflow-graph'
-import { POSITION_LABELS } from '@/lib/workflow'
+import { getPositionLabelMap } from '@/lib/positions'
 
 // ── Super-admin per-project audit view (quick task 260714-bpp) ────────────
 // READ-ONLY: no mutations, no schema changes. Two exports:
@@ -87,11 +87,16 @@ export type AssembleAuditRowsInput = {
   stepStates: Map<string, AuditStepState> // keyed by stepDefId
   checklistsBySlug: Map<string, AuditChecklistSubmission[]> // keyed by checklist_definitions.slug
   usersById: Map<string, AuditUser>
+  // v2.0 (quick task 260714-bpq): positions are now renameable DB data, not
+  // a static display-label map — the label map is loaded once by
+  // getProjectAudit and passed in here so a rename shows the NEW label
+  // instead of a stale one. assembleAuditRows stays pure/DB-free.
+  positionLabels: Record<string, string>
 }
 
-function resolvePositionLabel(position: string | null | undefined): string {
+function resolvePositionLabel(positionLabels: Record<string, string>, position: string | null | undefined): string {
   if (!position) return '—'
-  return POSITION_LABELS[position] ?? position
+  return positionLabels[position] ?? position
 }
 
 function resolveUserName(usersById: Map<string, AuditUser>, id: string | null | undefined): string | null {
@@ -105,7 +110,7 @@ function resolveUserName(usersById: Map<string, AuditUser>, id: string | null | 
  * arrived in. Unit-tested directly in tests/lib/project-audit.test.ts.
  */
 export function assembleAuditRows(input: AssembleAuditRowsInput): AuditRow[] {
-  const { steps, completions, stepStates, checklistsBySlug, usersById } = input
+  const { steps, completions, stepStates, checklistsBySlug, usersById, positionLabels } = input
 
   return steps.map((step) => {
     const completion = completions.get(step.stepDefId)
@@ -128,7 +133,7 @@ export function assembleAuditRows(input: AssembleAuditRowsInput): AuditRow[] {
       kind: step.kind,
       status: completion ? 'completed' : 'not_started',
       officerName: officer?.name ?? null,
-      officerPosition: officer ? resolvePositionLabel(officer.position) : '—',
+      officerPosition: officer ? resolvePositionLabel(positionLabels, officer.position) : '—',
       completedAt: completion?.completedAt ?? null,
       answer: state?.answer ?? null,
       upload,
@@ -179,6 +184,7 @@ export async function getProjectAudit(
   if (!project) return null
 
   const steps = await getLiveWorkflowSteps()
+  const positionLabels = await getPositionLabelMap()
 
   const [completionRows, stateRows, checklistRows, allUsers] = await Promise.all([
     db
@@ -285,7 +291,7 @@ export async function getProjectAudit(
     checklistsBySlug.set(slug, list)
   }
 
-  const rows = assembleAuditRows({ steps, completions, stepStates, checklistsBySlug, usersById })
+  const rows = assembleAuditRows({ steps, completions, stepStates, checklistsBySlug, usersById, positionLabels })
 
   return { project, rows }
 }

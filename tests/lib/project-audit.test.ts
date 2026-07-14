@@ -29,6 +29,7 @@ function emptyInput(steps: LiveWorkflowStep[]): AssembleAuditRowsInput {
     stepStates: new Map<string, AuditStepState>(),
     checklistsBySlug: new Map(),
     usersById: new Map<string, AuditUser>(),
+    positionLabels: { head_of_operations: 'Head of Operations' },
   }
 }
 
@@ -66,14 +67,26 @@ describe('assembleAuditRows', () => {
     expect(row.completedAt).toBeNull()
   })
 
-  it('resolves a machine position value through POSITION_LABELS', () => {
+  it('resolves a machine position value through the passed-in positionLabels map', () => {
     const steps = [step({ n: 1, key: 'confirm', stepDefId: 'def-1' })]
     const input = emptyInput(steps)
+    input.positionLabels = { head_of_operations: 'Head of Operations' }
     input.usersById.set('user-1', { name: 'Head O', position: 'head_of_operations' })
     input.completions.set('def-1', { completedBy: 'user-1', completedAt: new Date(), notes: null })
 
     const [row] = assembleAuditRows(input)
     expect(row.officerPosition).toBe('Head of Operations')
+  })
+
+  it('reflects a renamed label — the map is passed in per-call, not a static import', () => {
+    const steps = [step({ n: 1, key: 'confirm', stepDefId: 'def-1' })]
+    const input = emptyInput(steps)
+    input.positionLabels = { head_of_operations: 'Operations admin head' }
+    input.usersById.set('user-1', { name: 'Head O', position: 'head_of_operations' })
+    input.completions.set('def-1', { completedBy: 'user-1', completedAt: new Date(), notes: null })
+
+    const [row] = assembleAuditRows(input)
+    expect(row.officerPosition).toBe('Operations admin head')
   })
 
   it('falls back to the verbatim string for a display-form position value', () => {

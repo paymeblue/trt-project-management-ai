@@ -3,7 +3,6 @@
 import { useState, useTransition } from 'react'
 import { updateConfigStepAction, deleteConfigStepAction, type ConfigActionState } from '@/actions/workflow-config'
 import type { WorkflowRole, StepKind, GraphStep } from '@/lib/workflow'
-import { POSITION_VALUES, POSITION_LABELS } from '@/lib/workflow'
 
 // Shared between the list view (workflow-configurator-editor.tsx) and the
 // graph view's side panel (workflow-configurator-graph.tsx) — one form,
@@ -66,7 +65,15 @@ export function StatusNote({ state }: { state: ConfigActionState }) {
  * inside the graph view's side panel — same fields, same behavior, either
  * place you edit from.
  */
-export function StepFieldsPanel({ step, onSaved }: { step: GraphStep; onSaved: () => void }) {
+export function StepFieldsPanel({
+  step,
+  onSaved,
+  positions,
+}: {
+  step: GraphStep
+  onSaved: () => void
+  positions: { slug: string; label: string }[]
+}) {
   const [label, setLabel] = useState(step.label)
   const [role, setRole] = useState<WorkflowRole>(step.role)
   const [kind, setKind] = useState<StepKind>(step.kind)
@@ -337,9 +344,9 @@ export function StepFieldsPanel({ step, onSaved }: { step: GraphStep; onSaved: (
           className="mt-1 w-full max-w-xs rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs focus:border-primary focus:outline-none"
         >
           <option value="">Anyone with this role</option>
-          {POSITION_VALUES.map((v) => (
-            <option key={v} value={v}>
-              {POSITION_LABELS[v] ?? v}
+          {positions.map((p) => (
+            <option key={p.slug} value={p.slug}>
+              {p.label}
             </option>
           ))}
         </select>

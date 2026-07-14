@@ -2,17 +2,22 @@ import { desc } from 'drizzle-orm'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { requireAdmin } from '@/lib/dal'
+import { Roles } from '@/lib/workflow'
+import { getPositionsWithCounts } from '@/lib/positions'
 import AdminUsersTable from '@/app/_components/admin-users-table'
 import AdminCreateUser from '@/app/_components/admin-create-user'
+import PositionsManager from '@/app/_components/positions-manager'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AdminUsersPage() {
-  const { userId } = await requireAdmin()
+  const { userId, role } = await requireAdmin()
   const rows = await db
     .select({ id: users.id, name: users.name, email: users.email, role: users.role })
     .from(users)
     .orderBy(desc(users.createdAt))
+  const positions = await getPositionsWithCounts()
+  const isSuperAdmin = role === Roles.SuperAdmin
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
@@ -31,6 +36,11 @@ export default async function AdminUsersPage() {
         All users
       </h2>
       <AdminUsersTable users={rows} meId={userId} />
+
+      <h2 className="mb-3 mt-10 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        Positions
+      </h2>
+      <PositionsManager positions={positions} canRename={isSuperAdmin} />
     </div>
   )
 }

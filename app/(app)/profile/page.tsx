@@ -3,14 +3,16 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { updateProfileAction } from '@/actions/profile'
+import { getPositions } from '@/lib/positions'
 import ProfileAvatarField from '@/app/_components/profile-avatar-field'
-import { userRoleLabel, roleDashboard, POSITION_VALUES, POSITION_LABELS } from '@/lib/workflow'
+import { userRoleLabel, roleDashboard } from '@/lib/workflow'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ProfilePage() {
   const { userId, role } = await verifySession()
   const [u] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+  const positions = await getPositions()
 
   return (
     <div className="mx-auto max-w-xl px-6 py-8">
@@ -43,9 +45,9 @@ export default async function ProfilePage() {
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           >
             <option value="">— none —</option>
-            {POSITION_VALUES.map((v) => (
-              <option key={v} value={v}>
-                {POSITION_LABELS[v] ?? v}
+            {positions.map((p) => (
+              <option key={p.slug} value={p.slug}>
+                {p.label}
               </option>
             ))}
           </select>
