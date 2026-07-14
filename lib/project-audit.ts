@@ -184,6 +184,7 @@ export async function getProjectAudit(
     db
       .select({
         stepDefId: projectStepCompletions.stepDefId,
+        stepKey: projectStepCompletions.stepKey,
         completedBy: projectStepCompletions.completedBy,
         completedAt: projectStepCompletions.completedAt,
         notes: projectStepCompletions.notes,
@@ -225,10 +226,15 @@ export async function getProjectAudit(
     db.select({ id: users.id, name: users.name, position: users.position }).from(users),
   ])
 
+  // Some completion rows carry no stepDefId (e.g. the creation step's insert
+  // writes stepKey/stepN only) — resolve those through the live step list by
+  // key so step 1 doesn't render as "Not started" on the audit page.
+  const defIdByKey = new Map(steps.map((s) => [s.key, s.stepDefId]))
   const completions = new Map<string, AuditCompletion>()
   for (const c of completionRows) {
-    if (!c.stepDefId) continue // legacy stepKey/stepN-keyed rows predate the graph engine
-    completions.set(c.stepDefId, { completedBy: c.completedBy, completedAt: c.completedAt, notes: c.notes })
+    const defId = c.stepDefId ?? (c.stepKey ? defIdByKey.get(c.stepKey) : undefined)
+    if (!defId) continue // truly unmatchable legacy row (key no longer in the live graph)
+    completions.set(defId, { completedBy: c.completedBy, completedAt: c.completedAt, notes: c.notes })
   }
 
   const stepStates = new Map<string, AuditStepState>()
