@@ -322,6 +322,32 @@ async function main() {
   // transient collision with a (projectId, stepN) unique constraint, since
   // this is a genuine permutation (confirmation moves EARLIER), not a
   // uniform shift.
+  //
+  // FIRST: permanently relocate any rows still sitting at a DELETED key's
+  // OLD stepN (installation_readiness=19, close_out=21) out of the live
+  // 1..21 range — these are audit-trail rows left "as-is" (T-qe4-04), but
+  // "as-is" collides with the TARGET graph's real steps 19 (approval_
+  // installation) and 21 (sign_off), which now legitimately need those same
+  // integers. A permanent +100000 offset keeps stepN as a stable historical
+  // marker (still resolvable via stepKey text) without ever colliding with
+  // a live step number again. Safe on both a fresh run (every row at 19/21
+  // pre-migration IS, by definition, one of these two deleted keys) and a
+  // resumed/partial run (no legitimate row ever targets 100000+).
+  const PERMANENT_AUDIT_OFFSET = 100000
+  for (const staleN of [19, 21]) {
+    const staleDeadlines = await db.select().from(projectStepDeadlines).where(eq(projectStepDeadlines.stepN, staleN))
+    for (const d of staleDeadlines) {
+      await db.update(projectStepDeadlines).set({ stepN: staleN + PERMANENT_AUDIT_OFFSET }).where(eq(projectStepDeadlines.id, d.id))
+    }
+    const staleCompletions = await db.select().from(projectStepCompletions).where(eq(projectStepCompletions.stepN, staleN))
+    for (const c of staleCompletions) {
+      await db.update(projectStepCompletions).set({ stepN: staleN + PERMANENT_AUDIT_OFFSET }).where(eq(projectStepCompletions.id, c.id))
+    }
+    if (staleDeadlines.length || staleCompletions.length) {
+      console.log(`  permanently relocated ${staleDeadlines.length} deadline(s) + ${staleCompletions.length} completion(s) off deleted-key stepN=${staleN} (audit trail preserved, now stepN=${staleN + PERMANENT_AUDIT_OFFSET})`)
+    }
+  }
+
   const TEMP_OFFSET = 10000
   const affectedOldStepNs = [...oldStepNToNewStepN.keys()]
 

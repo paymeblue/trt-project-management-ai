@@ -27,7 +27,8 @@ describe('findStep / lastStepN / projectComplete', () => {
   })
 
   it('lastStepN resolves the last step number', () => {
-    expect(lastStepN(LIVE_WORKFLOW_STEPS)).toBe(22)
+    // quick task 260714-qe4: 22 -> 21 live steps.
+    expect(lastStepN(LIVE_WORKFLOW_STEPS)).toBe(21)
   })
 
   it('is complete only once currentStep passes the last step', () => {

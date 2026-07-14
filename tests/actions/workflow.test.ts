@@ -104,12 +104,27 @@ describe('advanceProjectStep', () => {
     expect(insertValuesMock).not.toHaveBeenCalled()
   })
 
-  it('Close Out (step 21) advances to Sign Off (22) but is NOT yet delivered', async () => {
-    // step 21 = close_out (site_pm); delivery only happens after Sign Off (REQ-G04).
-    // quick task 260713-rb2: step numbers shifted down by 1 (23->22 steps
-    // total) after invoice_upload/invoice_timeline merged into one
-    // Operations-owned step — see scripts/migrate-merge-invoice-upload-timeline.ts.
+  it('Installation Process (step 20) advances to Sign Off (21) but is NOT yet delivered', async () => {
+    // step 20 = installation_process (site_pm); delivery only happens after Sign Off (REQ-G04).
+    // quick task 260714-qe4: 22 -> 21 live steps — installation_readiness
+    // removed, sorting+close_out merged into installation_process (20),
+    // sign_off (21) is now site_pm (was super_admin) — see
+    // scripts/migrate-workflow-restructure-batch2.ts.
     verifyMock.mockResolvedValue({ userId: 'u1', role: 'site_pm' })
+    selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 20, status: 'not_delivered' }])
+
+    const { advanceProjectStep } = await import('@/actions/workflow')
+    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 20 })
+
+    expect(ok).toBe(true)
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({ currentStep: 21, status: 'not_delivered' }),
+    )
+  })
+
+  it('marks the project delivered after Sign Off (step 21) completes', async () => {
+    // step 21 = sign_off (site_pm, quick task 260714-qe4 — was super_admin) — the final step
+    verifyMock.mockResolvedValue({ userId: 'sp1', role: 'site_pm' })
     selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 21, status: 'not_delivered' }])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
@@ -117,21 +132,7 @@ describe('advanceProjectStep', () => {
 
     expect(ok).toBe(true)
     expect(setMock).toHaveBeenCalledWith(
-      expect.objectContaining({ currentStep: 22, status: 'not_delivered' }),
-    )
-  })
-
-  it('marks the project delivered after Sign Off (step 22) completes', async () => {
-    // step 22 = sign_off (super_admin) — the final step
-    verifyMock.mockResolvedValue({ userId: 'admin1', role: 'super_admin' })
-    selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 22, status: 'not_delivered' }])
-
-    const { advanceProjectStep } = await import('@/actions/workflow')
-    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 22 })
-
-    expect(ok).toBe(true)
-    expect(setMock).toHaveBeenCalledWith(
-      expect.objectContaining({ currentStep: 23, status: 'delivered' }),
+      expect.objectContaining({ currentStep: 22, status: 'delivered' }),
     )
   })
 
