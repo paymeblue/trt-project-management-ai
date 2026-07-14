@@ -43,9 +43,9 @@ const DETAIL: Record<string, string> = {
   internal_approval:
     'Operations Manager (Admin) uploads the internally approved drawing.',
   send_for_production:
-    'Operations Manager (Admin) sends for production (1/2); Chief Production Officer receives it (2/2).',
+    'Operations approves the design and sends to the Factory (1/2); the Chief Production Officer approves for production (2/2).',
   project_review_authorisation:
-    'Operations routes it to the Chief Production Officer, who reviews the drawing and confirms the review.',
+    'The Chief Production Officer reviews the drawing and authorises production.',
   production_process:
     'Factory Operations works through the production checklist (optimisation, cutting, edging, drilling & grooving, spray, hardwood & upholstery, glass).',
   factory_manager_readiness:
