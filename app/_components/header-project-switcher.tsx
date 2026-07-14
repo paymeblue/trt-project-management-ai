@@ -13,6 +13,7 @@ import {
 import { useMyWork } from '@/app/_components/my-work-provider'
 import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
 import type { LiveWorkflowStep } from '@/lib/workflow-graph'
+import DeadlineCountdown from '@/app/_components/deadline-countdown'
 
 // Quick task 260714-b4t (bug fix): mirrors getMyWork's pending-filter
 // expression — a UI/visibility gate only, NOT the authorization boundary
@@ -106,6 +107,8 @@ export default function HeaderProjectSwitcher({
             <span className="block truncate text-label-sm leading-tight text-on-surface-variant">
               {step ? `Step ${step.n}/${lastN}: ${step.label}` : 'In progress'}
               {step ? (mine ? ' · your turn' : ` · ${workflowRoleLabel(step.role)}`) : ''}
+              {' · '}
+              <DeadlineCountdown deadline={selected.deadline} compact />
             </span>
           </span>
           <span className="material-symbols-outlined text-base text-on-surface-variant">

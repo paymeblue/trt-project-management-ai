@@ -7,6 +7,7 @@ import { findStep, stepHref, workflowRoleLabel, type UserRole } from '@/lib/work
 import { completeAckStepAction, type AckStepState } from '@/actions/workflow'
 import { useMyWork } from '@/app/_components/my-work-provider'
 import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
+import DeadlineCountdown from '@/app/_components/deadline-countdown'
 
 const INITIAL_ACK: AckStepState = { ok: false }
 
@@ -77,7 +78,6 @@ export default function PendingStepGate({ viewerRole }: { viewerRole: UserRole }
   ).length
 
   const href = stepHref(step, item.projectId, viewerRole)
-  const deadlineText = item.deadline ? new Date(item.deadline).toLocaleDateString() : 'No deadline'
 
   return (
     // Dismissable: backdrop click, Escape, or the close button hide it for this
@@ -117,7 +117,7 @@ export default function PendingStepGate({ viewerRole }: { viewerRole: UserRole }
             Step {step.n}: {step.label}
           </p>
           <p className="mt-1 text-xs text-gray-500">
-            Your role: {workflowRoleLabel(step.role)} · Deadline: {deadlineText}
+            Your role: {workflowRoleLabel(step.role)} · Deadline: <DeadlineCountdown deadline={item.deadline} />
           </p>
           {others > 0 && (
             <p className="mt-2 text-xs font-medium text-amber-700">
