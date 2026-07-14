@@ -4,8 +4,8 @@ milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: completed
 stopped_at: Phase 19 already complete (shipped 2026-07-11); a redundant discuss-phase session ran concurrently and its 19-CONTEXT.md/19-DISCUSSION-LOG.md are kept only as a historical record, not consumed for planning. Ready for Phase 20.
-last_updated: "2026-07-14T07:30:00.000Z"
-last_activity: "2026-07-14 -- Completed quick tasks 260714-b4t (position-aware pending + auto deadlines) and 260713-s2l (blinking deadline countdown); DB-only unblock of Operations super-admins on steps 8/10/11"
+last_updated: "2026-07-14T07:50:00.000Z"
+last_activity: "2026-07-14 -- Completed quick task 260714-bpp: super-admin audit View page (timeline View link + per-step officers/answers/uploads/checklists table); positions-rename (260714-bpq) planned, pending checker + execution"
 progress:
   total_phases: 22
   completed_phases: 4
@@ -142,6 +142,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 | 2026-07-14 | 260714-b4t-position-aware-pending-gating | Forcing modal + header "your turn" now honor step.requiredPosition (with approval-step receiver carve-out) — assignment steps no longer nag non-head-designer design users; also fixed getLiveWorkflowSteps mapper silently dropping requiredPosition/receiverRequiredPosition. Plus: auto-seeded deadlines at project creation (assign_designer_brief +1d, brief_taking +2d, invoice_upload +2d, by step_key) | complete ✓ |
 | 2026-07-14 | 260713-s2l-blinking-deadline-countdown | Live per-second countdown timer (lib/countdown.ts + DeadlineCountdown) on forcing modal + header pill — always pulsing, amber <24h, red+bold <6h/overdue. TDD (RED→GREEN), hydration-safe | complete ✓ |
 | 2026-07-14 | (DB-only, no code) ops-position-unblock | Removed requiredPosition=head_of_operations from live steps ops_design_confirmation, internal_approval, send_for_production (sender) so Operations super-admins ("Operations manager admin") can act — role gate still limits to operations+super_admin; send_for_production receiver stays chief_production_officer; step 12 stays CPO. Seed file never pinned these titles, parity PASS unaffected | complete ✓ |
+| 2026-07-14 | 260714-bpp-super-admin-audit-view | Super-admin-only audit View page: "View →" link per project on /admin/timeline → /admin/projects/[id]/audit with a per-step table (officer name+position, completed at, yes/no answer, upload thumbnails — data:image/ only, XSS-safe — approval sender/receiver, assignee, expandable checklist submissions with items+photos; unreached steps show Not started). requireRole('super_admin'), 403 verified for operations. Orchestrator follow-up fix: legacy stepDefId-less completion rows (step 1 creation) resolved by stepKey so Project Intent shows its officer | complete ✓ |
 | 2026-07-06 | slack-like-group-chat-group-conversation | Slack-like group chat — group conversations with title, emoji picker + reactions, typing indicator, GSAP fullscreen expand (like Paul Arredo) | complete ✓ |
 | 2026-07-10 | fix-blank-screen-on-workflow-step-pages | Blank-screen fix on workflow step + payment-confirmation pages — redirect(roleDashboard) for all no-access/indeterminate branches, loading.tsx skeletons, (app)/error.tsx boundary | complete ✓ |
 | 2026-07-10 | post-assignment-ux-show-clear-confirmati | Post-assignment UX — named "{name} assigned to {step} on {project}" confirmation + delayed redirect to role dashboard in AssignmentStep | complete ✓ |
