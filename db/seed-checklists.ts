@@ -343,6 +343,88 @@ async function main() {
     ],
   )
 
+  // 7. Installation Process — site_pm (quick task 260714-qe4: replaces the
+  // former 'sorting' + 'close_out' checklists with ONE on-site checklist
+  // covering sorting, execution, and close-out sections).
+  await seedDefinition(
+    'installation_process',
+    'Installation Process',
+    'site_pm',
+    [
+      {
+        step: 1, sortOrder: 1,
+        label: 'Have all delivered items been sorted by room / zone?',
+        itemType: 'radio', responseOptions: 'yes_no_na',
+        isPhotoAllowed: true, isPhotoRequired: false,
+      },
+      {
+        step: 1, sortOrder: 2,
+        label: 'Do the item labels match the room layout drawing?',
+        itemType: 'radio', responseOptions: 'yes_no_na',
+        isPhotoAllowed: false, isPhotoRequired: false,
+        helpText: "Cross-reference labels against the architect's layout.",
+      },
+      {
+        step: 1, sortOrder: 3,
+        label: 'Are all components and hardware bags accounted for?',
+        itemType: 'radio', responseOptions: 'yes_no',
+        isPhotoAllowed: true, isPhotoRequired: false,
+      },
+      {
+        step: 1, sortOrder: 4,
+        label: 'Have any missing items been flagged to the factory PM?',
+        itemType: 'radio', responseOptions: 'yes_no_na',
+        isPhotoAllowed: false, isPhotoRequired: false,
+      },
+      {
+        step: 2, sortOrder: 1,
+        label: 'Has installation started per the layout drawing?',
+        itemType: 'radio', responseOptions: 'yes_no_na',
+        isPhotoAllowed: true, isPhotoRequired: false,
+        helpText: 'Execution section — covers the on-site installation work itself.',
+      },
+      {
+        step: 2, sortOrder: 2,
+        label: 'Has all furniture been fully installed per the layout drawing?',
+        itemType: 'radio', responseOptions: 'yes_no_na',
+        isPhotoAllowed: true, isPhotoRequired: true,
+      },
+      {
+        step: 2, sortOrder: 3,
+        label: 'Does the installed unit match the architect drawing?',
+        itemType: 'radio', responseOptions: 'yes_no_na',
+        isPhotoAllowed: true, isPhotoRequired: false,
+        helpText: 'Check against the approved design drawing during execution.',
+      },
+      {
+        step: 3, sortOrder: 1,
+        label: 'Have all protective wrappings and packaging been removed and disposed of?',
+        itemType: 'radio', responseOptions: 'yes_no',
+        isPhotoAllowed: false, isPhotoRequired: false,
+        helpText: 'Close-out section.',
+      },
+      {
+        step: 3, sortOrder: 2,
+        label: 'Has the client signed off on the completed installation?',
+        itemType: 'radio', responseOptions: 'yes_no',
+        isPhotoAllowed: false, isPhotoRequired: false,
+      },
+      {
+        step: 3, sortOrder: 3,
+        label: 'Are there any snagging items outstanding?',
+        itemType: 'radio', responseOptions: 'yes_no_na',
+        isPhotoAllowed: true, isPhotoRequired: false,
+      },
+      {
+        step: 3, sortOrder: 4,
+        label: 'Close-out notes and snagging details',
+        itemType: 'text', responseOptions: 'yes_no',
+        isPhotoAllowed: false, isPhotoRequired: false,
+        helpText: 'List any outstanding snagging items and their expected resolution date.',
+      },
+    ],
+  )
+
   console.log('Seed complete.')
 }
 

@@ -93,6 +93,26 @@
 // 'invoice_timeline' is removed; everything after it shifts orderIndex down
 // by 1. See scripts/migrate-merge-invoice-upload-timeline.ts for that
 // migration.
+//
+// Restructured from 22 to 21 steps (quick task 260714-qe4, workflow graph
+// restructure batch 2, 2026-07-14 — see
+// .planning/notes/2026-07-14-workflow-restructure-batch2.md): the merged
+// invoice_upload UN-MERGES into two ownership-correct steps — 'invoice_upload'
+// stays at 4, now labeled "Invoicing", role customer_care, a 2-phase step
+// (1/2 uploads the invoice, 2/2 confirms the client paid, setting
+// projects.paymentStatus='paid'; drives via additionalKinds=
+// ['payment_confirmation'] on the live row — not representable on the base
+// WorkflowStep type here); the timeline-setting half becomes a NEW step 5
+// 'set_delivery_timeline' (role operations, kind timeline_setting, no
+// position narrowing). 'ops_design_confirmation' (9) is replaced with
+// "Assign Site PM for Site Confirmation" (role super_admin, requiredPosition
+// head_of_projects, kind assignment, targetRoles=[site_pm] on the live row).
+// 'confirmation' (site_pm checklist) MOVES from 14 to immediately after it
+// (10), before confirmation_correction. 'installation_readiness' is removed
+// entirely. 'sorting' + 'close_out' merge into ONE 'installation_process'
+// checklist step (id preserved from 'sorting'; 'close_out' removed).
+// 'sign_off' becomes role site_pm, kind yes_no_upload (was super_admin ack).
+// See scripts/migrate-workflow-restructure-batch2.ts for that migration.
 
 import type { WorkflowStep } from '@/lib/workflow';
 
@@ -119,83 +139,63 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     kind: 'yes_no_upload',
   },
   {
-    // quick task 260713-rb2: merged with the former 'invoice_timeline' step
-    // — this is now a 2-part wizard step (additionalKinds=[timeline_setting]
-    // on the live DB row; not representable on the base WorkflowStep type
-    // here, see lib/workflow-graph.ts's GraphStep). requiredPosition=null on
-    // the live row (role=operations only — see migration for rationale).
+    // quick task 260714-qe4: now a 2-phase Customer Care step —
+    // additionalKinds=[payment_confirmation] on the live DB row (not
+    // representable on the base WorkflowStep type here). Phase 1/2 uploads
+    // the invoice; phase 2/2 confirms the client paid, setting
+    // projects.paymentStatus='paid'.
     n: 4,
     key: 'invoice_upload',
-    label: 'Invoice & Delivery Timeline',
-    role: 'operations',
+    label: 'Invoicing',
+    role: 'customer_care',
     kind: 'yes_no_upload',
   },
   {
+    // quick task 260714-qe4: NEW — split out of the former merged
+    // invoice_upload step. requiredPosition=null (role=operations only).
     n: 5,
+    key: 'set_delivery_timeline',
+    label: 'Set Delivery Timeline',
+    role: 'operations',
+    kind: 'timeline_setting',
+  },
+  {
+    n: 6,
     key: 'design_initiation',
     label: 'Design Initiation',
     role: 'design',
     kind: 'assignment',
   },
   {
-    n: 6,
+    n: 7,
     key: 'kickoff_meeting',
     label: 'Kickoff Meeting',
     role: 'design',
     kind: 'yes_no_upload',
   },
   {
-    n: 7,
+    n: 8,
     key: 'design_stage',
     label: 'Design Stage',
     role: 'design',
     kind: 'yes_no_upload',
   },
   {
-    n: 8,
-    key: 'ops_design_confirmation',
-    label: 'Operations Confirmation (Design Approved)',
-    role: 'operations',
-    kind: 'yes_no_upload',
-  },
-  {
+    // quick task 260714-qe4: replaced — was "Operations Confirmation
+    // (Design Approved)" (yes_no_upload). Now a Head-of-Projects assignment
+    // step (requiredPosition=head_of_projects on the live row, not
+    // representable on the base WorkflowStep type here) that assigns a
+    // site_pm (targetRoles=[site_pm]) to carry out the site confirmation.
     n: 9,
-    key: 'confirmation_correction',
-    label: 'Confirmation Correction (Upload Drawing)',
-    role: 'design',
-    kind: 'yes_no_upload',
+    key: 'ops_design_confirmation',
+    label: 'Assign Site PM for Site Confirmation',
+    role: 'super_admin',
+    kind: 'assignment',
   },
   {
+    // quick task 260714-qe4: MOVED from orderIndex 14 to immediately after
+    // the new Assign Site PM step (9) and before confirmation_correction.
     n: 10,
-    key: 'internal_approval',
-    label: 'Internal Approval (Upload Approved Drawing)',
-    role: 'operations',
-    kind: 'yes_no_upload',
-  },
-  {
-    n: 11,
-    key: 'send_for_production',
-    label: 'Send for Production',
-    role: 'operations',
-    kind: 'approval',
-  },
-  {
-    n: 12,
-    key: 'project_review_authorisation',
-    label: 'Project Review & Authorisation',
-    role: 'operations',
-    kind: 'yes_no_upload',
-  },
-  {
-    n: 13,
-    key: 'production_process',
-    label: 'Production Process',
-    role: 'factory_operations',
-    kind: 'checklist',
-    slug: 'production_process',
-  },
-  {
-    n: 14,
     key: 'confirmation',
     label: 'Confirmation',
     role: 'site_pm',
@@ -203,7 +203,43 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'confirmation',
   },
   {
+    n: 11,
+    key: 'confirmation_correction',
+    label: 'Confirmation Correction (Upload Drawing)',
+    role: 'design',
+    kind: 'yes_no_upload',
+  },
+  {
+    n: 12,
+    key: 'internal_approval',
+    label: 'Internal Approval (Upload Approved Drawing)',
+    role: 'operations',
+    kind: 'yes_no_upload',
+  },
+  {
+    n: 13,
+    key: 'send_for_production',
+    label: 'Send for Production',
+    role: 'operations',
+    kind: 'approval',
+  },
+  {
+    n: 14,
+    key: 'project_review_authorisation',
+    label: 'Project Review & Authorisation',
+    role: 'operations',
+    kind: 'yes_no_upload',
+  },
+  {
     n: 15,
+    key: 'production_process',
+    label: 'Production Process',
+    role: 'factory_operations',
+    kind: 'checklist',
+    slug: 'production_process',
+  },
+  {
+    n: 16,
     key: 'factory_manager_readiness',
     label: 'Factory Manager Readiness Forms',
     role: 'factory_manager',
@@ -218,7 +254,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     // checklistSlug carries over from delivery_readiness so the site_pm
     // dualRole routes to the same checklist (see stepHref() in
     // lib/workflow.ts).
-    n: 16,
+    n: 17,
     key: 'materials_readiness',
     label: 'Materials / Accessories Readiness',
     role: 'factory_pm',
@@ -226,7 +262,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'delivery_site_readiness',
   },
   {
-    n: 17,
+    n: 18,
     key: 'delivery_project_check',
     label: 'Delivery & Project Check',
     role: 'factory_pm',
@@ -234,7 +270,7 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'delivery_project_check',
   },
   {
-    n: 18,
+    n: 19,
     key: 'approval_installation',
     label: 'Approval to Commence Installation',
     role: 'operations',
@@ -242,34 +278,24 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'approval_to_commence_installation',
   },
   {
-    n: 19,
-    key: 'installation_readiness',
-    label: 'Installation Readiness',
-    role: 'site_pm',
-    kind: 'checklist',
-    slug: 'installation_readiness',
-  },
-  {
+    // quick task 260714-qe4: replaces 'sorting' + 'close_out' (id preserved
+    // from 'sorting'; 'close_out' removed). 'installation_readiness' also
+    // removed entirely (approval_installation already covers it).
     n: 20,
-    key: 'sorting',
-    label: 'Sorting',
+    key: 'installation_process',
+    label: 'Installation Process',
     role: 'site_pm',
     kind: 'checklist',
-    slug: 'sorting',
+    slug: 'installation_process',
   },
   {
+    // quick task 260714-qe4: role changed to site_pm, kind changed to
+    // yes_no_upload (was super_admin ack) — site_pm uploads the signed-off
+    // document to close the project.
     n: 21,
-    key: 'close_out',
-    label: 'Close Out',
-    role: 'site_pm',
-    kind: 'checklist',
-    slug: 'close_out',
-  },
-  {
-    n: 22,
     key: 'sign_off',
     label: 'Sign Off',
-    role: 'super_admin',
-    kind: 'ack',
+    role: 'site_pm',
+    kind: 'yes_no_upload',
   },
 ];
