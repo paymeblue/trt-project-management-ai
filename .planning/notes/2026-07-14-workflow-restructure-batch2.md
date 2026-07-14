@@ -13,9 +13,9 @@ Workflow restructure batch 2 — owner's requirements dictated 2026-07-14, again
    - Step 6 Design Initiation unchanged.
 2. **Step 8 (ops_design_confirmation) REPLACED**: becomes "Assign Site PM for Site Confirmation" — **Head of Projects** (super_admin w/ head_of_projects position — position may need adding) assignment-kind step targeting site_pm.
 3. **Site Confirmation MOVES**: current step 14 'confirmation' (site_pm checklist) relocates to immediately AFTER new step 8 (assign site pm) and BEFORE confirmation_correction ("CC reupload drawing"). Sequence: assign site pm → site confirmation → confirmation_correction → internal_approval → send_for_production → ...
-4. **"Only send front page"**: a stated instruction/help text about sending only the front page — exact step placement ambiguous (likely the drawing upload at confirmation_correction or internal_approval). CLARIFY.
+4. **"Only send front page"**: a stated instruction/help text about sending only the front page — RESOLVED 2026-07-14: help text on Confirmation Correction (the designer reupload) — only the front page of the drawing is to be sent/uploaded.
 5. **Remove step 19 installation_readiness** (site_pm) — step 18 approval_installation already covers it. (Matches 2026-07-12 note.)
-6. **Step 20 sorting → "Installation Process"** checklist containing sorting, execution, and close-out sections. Whether standalone step 21 close_out is folded in and removed: CLARIFY (wording implies yes).
+6. **Step 20 sorting → "Installation Process"** checklist containing sorting, execution, and close-out sections. RESOLVED 2026-07-14: YES — close_out folds into the Installation Process checklist and the standalone step is removed. Flow: ... → Installation Process → Sign Off.
 7. **Step 22 sign_off**: site_pm (NOT super_admin), uploads a sign-off document (yes_no_upload), replacing the super_admin ack.
 
 ## SLA / deadline changes (auto-deadlines at creation + copy)
