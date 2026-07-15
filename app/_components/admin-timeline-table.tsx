@@ -28,17 +28,6 @@ const GROUP_MODES: { value: GroupMode; label: string }[] = [
   { value: 'step', label: 'By Step' },
 ]
 
-const EMPTY_FILTERS: TimelineFilters = {
-  search: '',
-  step: null,
-  status: null,
-  paymentStatus: null,
-  createdFrom: null,
-  createdTo: null,
-  deadlineFrom: null,
-  deadlineTo: null,
-}
-
 function fmt(iso: string | null) {
   return iso ? new Date(iso).toLocaleDateString() : '—'
 }
@@ -68,21 +57,24 @@ export default function AdminTimelineTable({
   const [deadlineTo, setDeadlineTo] = useState<string | null>(null)
   const [groupMode, setGroupMode] = useState<GroupMode>('month')
 
-  const filters: TimelineFilters = {
-    search,
-    step,
-    status,
-    paymentStatus,
-    createdFrom,
-    createdTo,
-    deadlineFrom,
-    deadlineTo,
-  }
+  const filters: TimelineFilters = useMemo(
+    () => ({
+      search,
+      step,
+      status,
+      paymentStatus,
+      createdFrom,
+      createdTo,
+      deadlineFrom,
+      deadlineTo,
+    }),
+    [search, step, status, paymentStatus, createdFrom, createdTo, deadlineFrom, deadlineTo],
+  )
 
   const groups = useMemo(() => {
     const filtered = filterRows(rows, filters)
     return groupRows(filtered, groupMode)
-  }, [rows, groupMode, search, step, status, paymentStatus, createdFrom, createdTo, deadlineFrom, deadlineTo])
+  }, [rows, groupMode, filters])
 
   const totalVisible = groups.reduce((n, g) => n + g.rows.length, 0)
 
