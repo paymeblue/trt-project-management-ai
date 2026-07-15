@@ -74,6 +74,13 @@ describe('stepHref', () => {
     expect(stepHref(readiness, 'p1')).toBe(`/factory-pm/readiness?projectId=p1&step=${readiness.n}`)
   })
 
+  it('builds the timeline-setting link so Operations can set deadlines', () => {
+    const timeline = LIVE_WORKFLOW_STEPS.find((s) => s.key === 'set_delivery_timeline')!
+    expect(stepHref(timeline, 'p1', Roles.Operations)).toBe(
+      '/workflow/step?projectId=p1&step=set_delivery_timeline&graph=live',
+    )
+  })
+
   it('returns null for the creation step (no destination)', () => {
     const newProject = findStep(LIVE_WORKFLOW_STEPS, 1)!
     expect(stepHref(newProject, 'p1')).toBeNull()

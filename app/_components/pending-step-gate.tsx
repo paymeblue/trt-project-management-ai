@@ -11,6 +11,14 @@ import DeadlineCountdown from '@/app/_components/deadline-countdown'
 
 const INITIAL_ACK: AckStepState = { ok: false }
 
+function formatDeadline(deadline: string | null): string | null {
+  if (!deadline) return null
+  const date = new Date(deadline)
+  return Number.isNaN(date.getTime())
+    ? null
+    : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+}
+
 // Routes where the user is actively completing a step — the gate must NOT block
 // these, or they could never finish the work that clears it. Must cover every
 // destination stepHref() can return (lib/workflow.ts) — the v2.0 Phase 21
@@ -78,6 +86,7 @@ export default function PendingStepGate({ viewerRole }: { viewerRole: UserRole }
   ).length
 
   const href = stepHref(step, item.projectId, viewerRole)
+  const exactDeadline = formatDeadline(item.deadline)
 
   return (
     // Dismissable: backdrop click, Escape, or the close button hide it for this
@@ -119,6 +128,9 @@ export default function PendingStepGate({ viewerRole }: { viewerRole: UserRole }
           <p className="mt-1 text-xs text-gray-500">
             Your role: {workflowRoleLabel(step.role)} · Deadline: <DeadlineCountdown deadline={item.deadline} />
           </p>
+          {exactDeadline && (
+            <p className="mt-1 text-xs text-gray-500">Due on: {exactDeadline}</p>
+          )}
           {others > 0 && (
             <p className="mt-2 text-xs font-medium text-amber-700">
               {others} more {others === 1 ? 'project' : 'projects'} waiting after this one.

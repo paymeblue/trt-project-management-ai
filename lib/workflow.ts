@@ -310,7 +310,12 @@ export function stepHref(
   // same minimal /workflow/step renderer as the test graph, but explicitly
   // pinned to graph=live (the route defaults to 'test' otherwise) and keyed
   // by step.key, not step.n (getStepByKey looks up by key).
-  if (step.kind === 'yes_no_upload' || step.kind === 'approval' || step.kind === 'assignment') {
+  if (
+    step.kind === 'yes_no_upload' ||
+    step.kind === 'approval' ||
+    step.kind === 'assignment' ||
+    step.kind === 'timeline_setting'
+  ) {
     return `/workflow/step?projectId=${projectId}&step=${step.key}&graph=live`
   }
   return null
