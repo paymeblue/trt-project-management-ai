@@ -200,9 +200,9 @@ async function main() {
   const invoiceUpload = byKey.get('invoice_upload')!
   await db
     .update(workflowStepDefinitions)
-    .set({ role: 'customer_care', label: 'Invoicing', additionalKinds: null, updatedAt: new Date() })
+    .set({ role: 'customer_care', label: 'Invoicing', additionalKinds: ['payment_confirmation'], updatedAt: new Date() })
     .where(eq(workflowStepDefinitions.id, invoiceUpload.id))
-  console.log('  updated "invoice_upload": role -> customer_care, label -> "Invoicing", dropped additionalKinds=[timeline_setting]')
+  console.log('  updated "invoice_upload": role -> customer_care, label -> "Invoicing", additionalKinds [timeline_setting] -> [payment_confirmation] (2/2 client-paid phase REQUIRED for completion)')
 
   // ── 5. Insert new set_delivery_timeline step ─────────────────────────
   // fulfillmentKind='timeline_setting' — the exact kind the old merged
