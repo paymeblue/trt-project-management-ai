@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 Phase: 19 (New Roles & Assignment) — COMPLETE (4/4 plans). ROLE-01..07 all Complete (ROLE-02's assignee-notification gap closed by quick task 260711-assignee-notification).
 Plan: 4 of 4
 Status: Phase complete — ready for Phase 20 (mostly delivered ad hoc already; scope is narrow, see ROADMAP.md Phase 20 section)
-Last activity: 2026-07-16 -- Completed quick task 260716-c6s: fixed dual-role step confirmation gate blocking site_pm from confirming materials_readiness
+Last activity: 2026-07-16 -- Completed quick task 260716-djj: closed elevation-of-privilege gap letting factory_pm submit the factory_manager-only Factory Manager Readiness Forms checklist
 
 ## Performance Metrics
 
@@ -138,6 +138,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 | 2026-07-05 | checklist-authoring-crud | Full super-admin checklist authoring CRUD — delete/reorder items, per-item field editing (type/options/photo-required), and checklist_definitions create/rename/retarget/deactivate-restore | complete ✓ |
 | 2026-07-13 | 260713-bno-remove-legacy-admin-projects-new | Removed legacy /admin/projects/new direct-creation route (bypassed Customer Care's intent step, contradicted STG-01) + its dead createProjectAction, dashboard tile, and sidebar link | complete ✓ |
 | 2026-07-16 | 260716-c6s-fix-dual-role-step-confirmation-gate-che | Fixed dual-role step confirmation gate: checklists/[slug]/page.tsx and factory-pm/readiness/page.tsx used bare canRoleActOnStep instead of canActOnGraphStep, blocking site_pm from confirming the dual-role materials_readiness step | complete ✓ |
+| 2026-07-16 | 260716-djj-fix-checklist-submission-authorization-g | Closed elevation-of-privilege gap in submitChecklistAction: it inserted checklist submissions unconditionally with no role check, letting factory_pm submit the factory_manager-only Factory Manager Readiness Forms checklist (step 16); now re-derives the live step server-side and gates on canActOnGraphStep before any insert | complete ✓ |
 | 2026-07-13 | 260713-cso-remove-auto-rotation-auto-assign | Removed round-robin auto-assign engine for assign_designer_brief (Assign Designer/Architect for Brief) — Head Designer now always assigns manually, matching every other assignment-kind step | complete ✓ |
 | 2026-07-13 | 260713-ekr-assignee-scoped-step-gating | SECURITY: brief_taking/kickoff_meeting/design_stage now gated server-side (authorizeStep + step page) and in UI (forcing modal, header switcher) to the specific user assigned at the governing assignment step (assign_designer_brief / design_initiation) — previously ANY design/architect user could see and complete them. Verified live in-browser both directions + read-only live-DB script | complete ✓ |
 | 2026-07-14 | 260714-b4t-position-aware-pending-gating | Forcing modal + header "your turn" now honor step.requiredPosition (with approval-step receiver carve-out) — assignment steps no longer nag non-head-designer design users; also fixed getLiveWorkflowSteps mapper silently dropping requiredPosition/receiverRequiredPosition. Plus: auto-seeded deadlines at project creation (assign_designer_brief +1d, brief_taking +2d, invoice_upload +2d, by step_key) | complete ✓ |
