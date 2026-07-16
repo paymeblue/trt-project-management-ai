@@ -14,6 +14,7 @@ import {
   getLiveWorkflowSteps,
   getStepAssigneeGate,
   assigneeGoverningStepKey,
+  assigneeGatedRole,
   getApprovalState,
 } from '@/lib/workflow-graph'
 
@@ -85,8 +86,12 @@ export async function getMyWork(role: UserRole, userId: string): Promise<MyWork>
   >()
   for (const p of active) {
     const step = findStep(steps, p.currentStep)
+    // Quick task 260716-h0i: also require assigneeGatedRole(step.key) ===
+    // role so an ungated role viewing this project (e.g. factory_pm on the
+    // dual-role materials_readiness step, whose gate applies only to the
+    // site_pm party) never sees a gate that isn't theirs.
     const gate =
-      step && assigneeGoverningStepKey(step.key) !== null
+      step && assigneeGoverningStepKey(step.key) !== null && assigneeGatedRole(step.key) === role
         ? await getStepAssigneeGate('live', p.id, step.key)
         : null
     gateByProjectId.set(p.id, gate)

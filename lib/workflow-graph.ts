@@ -108,37 +108,48 @@ export async function getStepById(id: string): Promise<GraphStep | undefined> {
 
 // ── Assignee gate (quick task 260713-ekr, security fix) ────────────────────
 // A deliberately narrow, HARDCODED lookup — NOT a generic "any step can be
-// assignee-gated" framework. Only these three non-assignment design steps are
-// scoped to the ONE person chosen at the assignment step that precedes them
-// in the live graph. Every other step (including the assignment steps
-// themselves, assign_designer_brief/design_initiation) is unaffected — the
-// gate is a no-op for any key not in this map.
-// Gating audit (quick task 260714-qe4, Task 2): the new step 9 "Assign Site
-// PM for Site Confirmation" (ops_design_confirmation) assigns a site_pm who
-// then owns the relocated step 10 'confirmation' checklist — structurally
-// the SAME assignment -> gated-step shape as design_initiation gating
-// kickoff_meeting/design_stage below. Deliberately NOT added here, though:
-// this map is only consulted by getStepAssigneeGate's TWO callers —
-// app/(app)/workflow/step/page.tsx and actions/workflow-graph.ts's
-// authorizeStep — both of which gate the 3 new-fulfillment-kind steps
-// (yes_no_upload/approval/assignment). 'confirmation' is a CHECKLIST-kind
-// step routed through app/(app)/checklists/[slug]/page.tsx, which enforces
-// its own authorization (canRoleActOnStep + checklist_definitions
-// target_role) and never calls getStepAssigneeGate — adding 'confirmation'
-// here would only affect the "your turn" hint surfaced by lib/my-work.ts,
-// not real page-level enforcement, producing a misleading half-gate. Wiring
-// real enforcement would mean editing the checklist page, which is outside
-// this plan's files_modified scope — left as a follow-up, not silently
-// half-done.
-const ASSIGNEE_GATED_STEPS: Record<string, string> = {
-  brief_taking: 'assign_designer_brief',
-  kickoff_meeting: 'design_initiation',
-  design_stage: 'design_initiation',
+// assignee-gated" framework. Each gated step is scoped to the ONE person
+// chosen at the assignment step that precedes it in the live graph, AND to
+// the single role (`gatedRole`) that assignment governs. Every other step
+// (including the assignment steps themselves, assign_designer_brief/
+// design_initiation/ops_design_confirmation) is unaffected — the gate is a
+// no-op for any key not in this map.
+//
+// Quick task 260716-h0i (security fix): extends the map with the four
+// remaining site_pm-gated steps governed by 'ops_design_confirmation'
+// ("Assign Site PM for Site Confirmation") — confirmation,
+// materials_readiness, installation_process, sign_off. Previously only the
+// design-side (brief_taking/kickoff_meeting/design_stage) steps were
+// enforced; any site_pm role-holder — not just the one assigned at
+// ops_design_confirmation — could act on these project-wide, an
+// authorization gap now closed by real server-side enforcement at every
+// call site (actions/checklists.ts, actions/readiness.ts, actions/workflow.ts)
+// via assigneeGatedRole()+getStepAssigneeGate().
+//
+// materials_readiness is DUAL-ROLE (factory_pm + site_pm both confirm
+// independently, see confirmDualRoleStepAs). `gatedRole: 'site_pm'` scopes
+// the gate to ONLY the site_pm party's confirmation — a factory_pm acting on
+// their own half of this step is never subject to this gate (every call site
+// checks `assigneeGatedRole(step.key) === role` before consulting the gate,
+// so an ungated role never triggers the lookup).
+const ASSIGNEE_GATED_STEPS: Record<string, { governingKey: string; gatedRole: WorkflowRole }> = {
+  brief_taking: { governingKey: 'assign_designer_brief', gatedRole: 'design' },
+  kickoff_meeting: { governingKey: 'design_initiation', gatedRole: 'design' },
+  design_stage: { governingKey: 'design_initiation', gatedRole: 'design' },
+  confirmation: { governingKey: 'ops_design_confirmation', gatedRole: 'site_pm' },
+  materials_readiness: { governingKey: 'ops_design_confirmation', gatedRole: 'site_pm' },
+  installation_process: { governingKey: 'ops_design_confirmation', gatedRole: 'site_pm' },
+  sign_off: { governingKey: 'ops_design_confirmation', gatedRole: 'site_pm' },
 }
 
 /** Pure: returns the governing assignment step's key for a gated step, or null. */
 export function assigneeGoverningStepKey(stepKey: string): string | null {
-  return ASSIGNEE_GATED_STEPS[stepKey] ?? null
+  return ASSIGNEE_GATED_STEPS[stepKey]?.governingKey ?? null
+}
+
+/** Pure: returns the single role a gated step's assignee gate applies to, or null. */
+export function assigneeGatedRole(stepKey: string): WorkflowRole | null {
+  return ASSIGNEE_GATED_STEPS[stepKey]?.gatedRole ?? null
 }
 
 /**
