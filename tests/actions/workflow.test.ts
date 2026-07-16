@@ -17,6 +17,12 @@ const liveStepDefRows = LIVE_WORKFLOW_STEPS.map((s) => ({
   orderIndex: s.n,
 }))
 
+// step 17 (materials_readiness) patched with dualRoles for confirmDualRoleStepAs
+// coverage — dualRoles lives on the DB row, not the static LIVE_WORKFLOW_STEPS seed.
+const dualRoleStepDefRows = liveStepDefRows.map((r) =>
+  r.stepKey === 'materials_readiness' ? { ...r, dualRoles: ['factory_pm', 'site_pm'] } : r,
+)
+
 const {
   dbMock,
   verifyMock,
@@ -25,19 +31,37 @@ const {
   insertValuesMock,
   setMock,
   updateWhereMock,
+  workflowStepStatesInsertMock,
+  onConflictDoUpdateMock,
+  returningMock,
 } = vi.hoisted(() => {
   const selectLimitMock = vi.fn()
   const selectOrderByMock = vi.fn()
   const insertValuesMock = vi.fn()
   const updateWhereMock = vi.fn()
   const setMock = vi.fn(() => ({ where: updateWhereMock }))
+  const returningMock = vi.fn()
+  const onConflictDoUpdateMock = vi.fn((_opts: { target: unknown[]; set: Record<string, unknown> }) => ({
+    returning: returningMock,
+  }))
+  const workflowStepStatesInsertMock = vi.fn(() => ({ onConflictDoUpdate: onConflictDoUpdateMock }))
   const dbMock = {
     select: () => ({
       from: () => ({
         where: () => ({ limit: selectLimitMock, orderBy: selectOrderByMock }),
       }),
     }),
-    insert: () => ({ values: insertValuesMock }),
+    // NOTE: identity comparison against the top-level `workflowStepStates`
+    // import doesn't work here — vi.resetModules() (beforeEach) makes
+    // '@/actions/workflow' re-import a FRESH '@/db/schema' module instance
+    // each test, so the table object it passes to db.insert() is never
+    // === our stale top-level binding. `confirmedRoles` is a column unique
+    // to workflowStepStates among this file's insert targets, so a
+    // structural check is stable across module reloads.
+    insert: (table: unknown) =>
+      table && typeof table === 'object' && 'confirmedRoles' in table
+        ? { values: workflowStepStatesInsertMock }
+        : { values: insertValuesMock },
     update: () => ({ set: setMock }),
   }
   return {
@@ -48,6 +72,9 @@ const {
     insertValuesMock,
     setMock,
     updateWhereMock,
+    workflowStepStatesInsertMock,
+    onConflictDoUpdateMock,
+    returningMock,
   }
 })
 
@@ -62,6 +89,7 @@ beforeEach(() => {
   insertValuesMock.mockResolvedValue(undefined)
   updateWhereMock.mockResolvedValue(undefined)
   selectOrderByMock.mockResolvedValue(liveStepDefRows)
+  returningMock.mockResolvedValue([{ confirmedRoles: [] }])
 })
 
 describe('advanceProjectStep', () => {
@@ -144,5 +172,71 @@ describe('advanceProjectStep', () => {
     const ok = await advanceProjectStep({ projectId: 'missing', expectedStepN: 2 })
 
     expect(ok).toBe(false)
+  })
+})
+
+describe('confirmDualRoleStepAs', () => {
+  // step 17 = materials_readiness (factory_pm primary, dualRoles [factory_pm, site_pm])
+  beforeEach(() => {
+    selectOrderByMock.mockResolvedValue(dualRoleStepDefRows)
+    selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 17, status: 'not_delivered' }])
+  })
+
+  it('records the first confirmation atomically without advancing', async () => {
+    returningMock.mockResolvedValue([{ confirmedRoles: ['factory_pm'] }])
+
+    const { confirmDualRoleStepAs } = await import('@/actions/workflow')
+    const res = await confirmDualRoleStepAs({
+      projectId: 'p1',
+      expectedStepN: 17,
+      userId: 'f1',
+      role: 'factory_pm',
+    })
+
+    expect(res).toEqual({
+      ok: true,
+      advanced: false,
+      message: 'Your confirmation was recorded — waiting on the other role.',
+    })
+    expect(workflowStepStatesInsertMock).toHaveBeenCalledOnce()
+    expect(onConflictDoUpdateMock).toHaveBeenCalledOnce()
+    const { set } = onConflictDoUpdateMock.mock.calls[0][0]
+    // The set.confirmedRoles must be a Drizzle SQL fragment (array_append CASE
+    // expression), not a plain JS array — that's the atomicity guarantee.
+    expect(Array.isArray(set.confirmedRoles)).toBe(false)
+    expect(set.confirmedRoles).toHaveProperty('queryChunks')
+    expect(setMock).not.toHaveBeenCalled()
+  })
+
+  it('advances the project on the second (completing) confirmation', async () => {
+    returningMock.mockResolvedValue([{ confirmedRoles: ['factory_pm', 'site_pm'] }])
+
+    const { confirmDualRoleStepAs } = await import('@/actions/workflow')
+    const res = await confirmDualRoleStepAs({
+      projectId: 'p1',
+      expectedStepN: 17,
+      userId: 's1',
+      role: 'site_pm',
+    })
+
+    expect(res.ok).toBe(true)
+    expect(res.advanced).toBe(true)
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({ currentStep: 18, status: 'not_delivered' }),
+    )
+  })
+
+  it('rejects a role not in the step dualRoles before any write', async () => {
+    const { confirmDualRoleStepAs } = await import('@/actions/workflow')
+    const res = await confirmDualRoleStepAs({
+      projectId: 'p1',
+      expectedStepN: 17,
+      userId: 'd1',
+      role: 'design',
+    })
+
+    expect(res).toEqual({ ok: false, advanced: false, message: 'Not your step.' })
+    expect(workflowStepStatesInsertMock).not.toHaveBeenCalled()
+    expect(insertValuesMock).not.toHaveBeenCalled()
   })
 })

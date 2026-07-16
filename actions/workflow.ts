@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { projects, projectStepCompletions, workflowStepStates } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
@@ -121,21 +121,23 @@ export async function confirmDualRoleStepAs(opts: {
     return { ok: false, advanced: false, message: 'Not your step.' }
   }
 
-  const [existing] = await db
-    .select({ confirmedRoles: workflowStepStates.confirmedRoles })
-    .from(workflowStepStates)
-    .where(and(eq(workflowStepStates.projectId, projectId), eq(workflowStepStates.stepDefId, step.stepDefId)))
-    .limit(1)
-  const confirmedRoles = existing?.confirmedRoles ?? []
-  if (!confirmedRoles.includes(role)) confirmedRoles.push(role)
-
-  await db
+  // Atomic upsert: the array_append CASE avoids a JS read-then-write, which
+  // under two simultaneous confirmations would lose one caller's role (the
+  // second insert's onConflictDoUpdate would overwrite the first's pending
+  // array with a value computed from the same stale SELECT).
+  const [row] = await db
     .insert(workflowStepStates)
-    .values({ projectId, stepDefId: step.stepDefId, status: 'pending', confirmedRoles, actedBy: userId, updatedAt: new Date() })
+    .values({ projectId, stepDefId: step.stepDefId, status: 'pending', confirmedRoles: [role], actedBy: userId, updatedAt: new Date() })
     .onConflictDoUpdate({
       target: [workflowStepStates.projectId, workflowStepStates.stepDefId],
-      set: { confirmedRoles, actedBy: userId, updatedAt: new Date() },
+      set: {
+        confirmedRoles: sql`CASE WHEN ${role} = ANY(${workflowStepStates.confirmedRoles}) THEN ${workflowStepStates.confirmedRoles} ELSE array_append(${workflowStepStates.confirmedRoles}, ${role}) END`,
+        actedBy: userId,
+        updatedAt: new Date(),
+      },
     })
+    .returning({ confirmedRoles: workflowStepStates.confirmedRoles })
+  const confirmedRoles = row?.confirmedRoles ?? [role]
 
   const allConfirmed = step.dualRoles.every((r) => confirmedRoles.includes(r))
   if (!allConfirmed) {

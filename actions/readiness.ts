@@ -5,6 +5,8 @@ import { db } from '@/db'
 import { readinessForms } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { advanceOrConfirmDualRole } from '@/actions/workflow'
+import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
+import { findStep, canActOnGraphStep, type UserRole } from '@/lib/workflow'
 
 export type ReadinessInput = {
   mode: 'digital' | 'upload'
@@ -38,7 +40,7 @@ export async function submitReadinessAction(
   _prev: ReadinessState,
   input: ReadinessInput,
 ): Promise<ReadinessState> {
-  const { userId } = await verifySession()
+  const { userId, role } = await verifySession()
 
   const mode = input?.mode === 'upload' ? 'upload' : 'digital'
 
@@ -58,6 +60,16 @@ export async function submitReadinessAction(
       return { status: 'error', message: 'Please sign before submitting.' }
     if (input.signatureData.length > MAX_DATA_URL)
       return { status: 'error', message: 'Signature data too large.' }
+  }
+
+  // Step-linked submissions must be authorized against the live workflow graph
+  // server-side — the client's step pairing is never trusted.
+  if (input?.projectId && input?.expectedStepN) {
+    const steps = await getLiveWorkflowSteps()
+    const step = findStep(steps, Number(input.expectedStepN))
+    if (!step || !canActOnGraphStep(step, role as UserRole)) {
+      return { status: 'error', message: 'You are not authorized to submit this form for this step.' }
+    }
   }
 
   try {
