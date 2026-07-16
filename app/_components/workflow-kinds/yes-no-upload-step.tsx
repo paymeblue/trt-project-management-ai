@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { submitYesNoUploadAction, completeStepAction } from '@/actions/workflow-graph'
 import { downscaleImage } from '@/lib/downscale-image'
+import { fireConfetti } from '@/app/_components/confetti-burst'
 
 // Delay (ms) the success confirmation stays visible before redirecting, so
 // the user has time to read it before the page navigates. Matches
@@ -19,6 +20,7 @@ export default function YesNoUploadStep({
   stepDefId,
   redirectTo,
   completeOnSubmit = true,
+  celebrateOnComplete = false,
 }: {
   projectId: string
   stepDefId: string
@@ -30,6 +32,12 @@ export default function YesNoUploadStep({
   // Delivery Timeline step's part 2). Default true preserves every existing
   // caller's behavior byte-for-byte.
   completeOnSubmit?: boolean
+  // Quick task 260716-hgy: when true, a successful completion fires a
+  // client-side GSAP confetti burst and shows a "Project delivered!"
+  // message instead of the generic step-completed text. Only the final
+  // sign_off step opts in (wired from workflow/step/page.tsx); every other
+  // caller defaults this to false and is unaffected.
+  celebrateOnComplete?: boolean
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -95,7 +103,12 @@ export default function YesNoUploadStep({
       }
       const completeRes = await completeStepAction({ projectId, stepDefId })
       if (completeRes.ok) {
-        setMessage(`✓ Step completed.${redirectTo ? ' Redirecting…' : ''}`)
+        if (celebrateOnComplete) {
+          fireConfetti()
+          setMessage(`🎉 Project delivered!${redirectTo ? ' Redirecting…' : ''}`)
+        } else {
+          setMessage(`✓ Step completed.${redirectTo ? ' Redirecting…' : ''}`)
+        }
         setOk(true)
         scheduleRedirect()
       } else {
@@ -110,7 +123,12 @@ export default function YesNoUploadStep({
     startTransition(async () => {
       const res = await completeStepAction({ projectId, stepDefId })
       if (res.ok) {
-        setMessage(`✓ Step completed.${redirectTo ? ' Redirecting…' : ''}`)
+        if (celebrateOnComplete) {
+          fireConfetti()
+          setMessage(`🎉 Project delivered!${redirectTo ? ' Redirecting…' : ''}`)
+        } else {
+          setMessage(`✓ Step completed.${redirectTo ? ' Redirecting…' : ''}`)
+        }
         setOk(true)
         scheduleRedirect()
       } else {

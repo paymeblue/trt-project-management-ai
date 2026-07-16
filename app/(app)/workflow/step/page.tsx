@@ -169,7 +169,14 @@ export default async function WorkflowStepPage({
   async function renderKind(kind: StepKind): Promise<React.ReactNode> {
     switch (kind) {
       case 'yes_no_upload':
-        return <YesNoUploadStep projectId={projectId!} stepDefId={step!.id} redirectTo={dashboard} />
+        return (
+          <YesNoUploadStep
+            projectId={projectId!}
+            stepDefId={step!.id}
+            redirectTo={dashboard}
+            celebrateOnComplete={step!.key === 'sign_off'}
+          />
+        )
       case 'approval': {
         // Fetched fresh (not from the session) — same reasoning as the
         // page-level requiredPosition gate above: position can change
