@@ -11,7 +11,14 @@ import {
 } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { advanceOrConfirmDualRole } from '@/actions/workflow'
-import { REQUIRED_PHOTOS, canEditChecklist } from '@/lib/workflow'
+import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
+import {
+  REQUIRED_PHOTOS,
+  canEditChecklist,
+  findStep,
+  canActOnGraphStep,
+  type UserRole,
+} from '@/lib/workflow'
 
 type ResponseValue = 'yes' | 'no' | 'na'
 
@@ -46,7 +53,7 @@ export async function submitChecklistAction(
   _prev: SubmitChecklistState,
   input: SubmitChecklistInput,
 ): Promise<SubmitChecklistState> {
-  const { userId } = await verifySession()
+  const { userId, role } = await verifySession()
   const definitionId = String(input?.definitionId ?? '')
   const slug = String(input?.slug ?? '')
   const answers = input?.answers ?? {}
@@ -79,6 +86,19 @@ export async function submitChecklistAction(
   }
   if (photos.some((p) => p.length > MAX_PHOTO_DATA)) {
     return { status: 'error', message: 'One of the photos is too large. Please retake it.' }
+  }
+
+  // Step-linked submissions must be authorized against the live workflow graph
+  // server-side — the client's slug/step pairing is never trusted.
+  if (projectId && input?.expectedStepN) {
+    const steps = await getLiveWorkflowSteps()
+    const step = findStep(steps, Number(input.expectedStepN))
+    if (!step || step.slug !== slug || !canActOnGraphStep(step, role as UserRole)) {
+      return {
+        status: 'error',
+        message: 'You are not authorized to submit this checklist for this step.',
+      }
+    }
   }
 
   try {
