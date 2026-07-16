@@ -11,7 +11,7 @@ import {
 } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { advanceOrConfirmDualRole } from '@/actions/workflow'
-import { getLiveWorkflowSteps, assigneeGatedRole, getStepAssigneeGate } from '@/lib/workflow-graph'
+import { getLiveWorkflowSteps, assigneeGatedRoles, getStepAssigneeGate } from '@/lib/workflow-graph'
 import {
   REQUIRED_PHOTOS,
   canEditChecklist,
@@ -103,7 +103,7 @@ export async function submitChecklistAction(
     // assigned via ops_design_confirmation may act on this project's gated
     // steps. No-op for any other role/step (e.g. a factory_pm on their own
     // half of a dual-role step).
-    if (assigneeGatedRole(step.key) === role) {
+    if (assigneeGatedRoles(step.key).includes(role)) {
       const gateUserId = await getStepAssigneeGate('live', projectId, step.key)
       if (gateUserId && gateUserId !== userId) {
         return {

@@ -13,8 +13,7 @@ import {
 import {
   getLiveWorkflowSteps,
   getStepAssigneeGate,
-  assigneeGoverningStepKey,
-  assigneeGatedRole,
+  assigneeGatedRoles,
   getApprovalState,
 } from '@/lib/workflow-graph'
 
@@ -73,7 +72,7 @@ export async function getMyWork(role: UserRole, userId: string): Promise<MyWork>
   // assignee gate ONCE (reused for both activeProjects.gatedToUserId and the
   // pending filter below). The DB lookup only runs for projects whose
   // current step is actually one of the assignee-gated design steps — most
-  // active projects skip it entirely (assigneeGoverningStepKey returns null).
+  // active projects skip it entirely (assigneeGatedRoles returns []).
   // Quick task 260714-iuj: same bounded-per-project shape as the assignee
   // gate above — only resolved for a project whose CURRENT step is actually
   // an approval-kind step, so most active projects skip this DB round trip
@@ -86,12 +85,12 @@ export async function getMyWork(role: UserRole, userId: string): Promise<MyWork>
   >()
   for (const p of active) {
     const step = findStep(steps, p.currentStep)
-    // Quick task 260716-h0i: also require assigneeGatedRole(step.key) ===
-    // role so an ungated role viewing this project (e.g. factory_pm on the
-    // dual-role materials_readiness step, whose gate applies only to the
-    // site_pm party) never sees a gate that isn't theirs.
+    // Quick task 260716-h0i: also require assigneeGatedRoles(step.key) to
+    // include this viewer's role, so an ungated role viewing this project
+    // (e.g. factory_pm on the dual-role materials_readiness step, whose gate
+    // applies only to the site_pm party) never sees a gate that isn't theirs.
     const gate =
-      step && assigneeGoverningStepKey(step.key) !== null && assigneeGatedRole(step.key) === role
+      step && assigneeGatedRoles(step.key).includes(role)
         ? await getStepAssigneeGate('live', p.id, step.key)
         : null
     gateByProjectId.set(p.id, gate)

@@ -127,19 +127,29 @@ export async function getStepById(id: string): Promise<GraphStep | undefined> {
 // via assigneeGatedRole()+getStepAssigneeGate().
 //
 // materials_readiness is DUAL-ROLE (factory_pm + site_pm both confirm
-// independently, see confirmDualRoleStepAs). `gatedRole: 'site_pm'` scopes
+// independently, see confirmDualRoleStepAs). `gatedRoles: ['site_pm']` scopes
 // the gate to ONLY the site_pm party's confirmation — a factory_pm acting on
 // their own half of this step is never subject to this gate (every call site
-// checks `assigneeGatedRole(step.key) === role` before consulting the gate,
-// so an ungated role never triggers the lookup).
-const ASSIGNEE_GATED_STEPS: Record<string, { governingKey: string; gatedRole: WorkflowRole }> = {
-  brief_taking: { governingKey: 'assign_designer_brief', gatedRole: 'design' },
-  kickoff_meeting: { governingKey: 'design_initiation', gatedRole: 'design' },
-  design_stage: { governingKey: 'design_initiation', gatedRole: 'design' },
-  confirmation: { governingKey: 'ops_design_confirmation', gatedRole: 'site_pm' },
-  materials_readiness: { governingKey: 'ops_design_confirmation', gatedRole: 'site_pm' },
-  installation_process: { governingKey: 'ops_design_confirmation', gatedRole: 'site_pm' },
-  sign_off: { governingKey: 'ops_design_confirmation', gatedRole: 'site_pm' },
+// checks `assigneeGatedRoles(step.key).includes(role)` before consulting the
+// gate, so an ungated role never triggers the lookup).
+//
+// `gatedRoles` is an ARRAY, not a single role, because canRoleActOnStep lets
+// an Architect act on any `role: 'design'` step (a deliberate special case,
+// see lib/workflow.ts) — brief_taking/kickoff_meeting/design_stage must gate
+// BOTH 'design' and 'architect', or an Architect who legitimately IS the
+// assignee would fall through the role-scope check in the visibility-only
+// consumers (lib/my-work.ts) with no ill effect for them, but a DIFFERENT,
+// non-assigned Architect would incorrectly see the step as "your turn" (the
+// real server-side enforcement in authorizeStep/the workflow/step page is
+// unconditional and was never affected — this was a visibility-only gap).
+const ASSIGNEE_GATED_STEPS: Record<string, { governingKey: string; gatedRoles: WorkflowRole[] }> = {
+  brief_taking: { governingKey: 'assign_designer_brief', gatedRoles: ['design', 'architect'] },
+  kickoff_meeting: { governingKey: 'design_initiation', gatedRoles: ['design', 'architect'] },
+  design_stage: { governingKey: 'design_initiation', gatedRoles: ['design', 'architect'] },
+  confirmation: { governingKey: 'ops_design_confirmation', gatedRoles: ['site_pm'] },
+  materials_readiness: { governingKey: 'ops_design_confirmation', gatedRoles: ['site_pm'] },
+  installation_process: { governingKey: 'ops_design_confirmation', gatedRoles: ['site_pm'] },
+  sign_off: { governingKey: 'ops_design_confirmation', gatedRoles: ['site_pm'] },
 }
 
 /** Pure: returns the governing assignment step's key for a gated step, or null. */
@@ -147,9 +157,9 @@ export function assigneeGoverningStepKey(stepKey: string): string | null {
   return ASSIGNEE_GATED_STEPS[stepKey]?.governingKey ?? null
 }
 
-/** Pure: returns the single role a gated step's assignee gate applies to, or null. */
-export function assigneeGatedRole(stepKey: string): WorkflowRole | null {
-  return ASSIGNEE_GATED_STEPS[stepKey]?.gatedRole ?? null
+/** Pure: returns the role(s) a gated step's assignee gate applies to (empty if not gated). */
+export function assigneeGatedRoles(stepKey: string): WorkflowRole[] {
+  return ASSIGNEE_GATED_STEPS[stepKey]?.gatedRoles ?? []
 }
 
 /**
