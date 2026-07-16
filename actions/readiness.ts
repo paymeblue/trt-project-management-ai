@@ -88,6 +88,7 @@ export async function submitReadinessAction(
   try {
     await db.insert(readinessForms).values({
       createdBy: userId,
+      projectId: input?.projectId ? String(input.projectId) : null,
       mode,
       project: input.project?.trim() || null,
       unit: input.unit?.trim() || null,
