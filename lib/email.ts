@@ -11,8 +11,13 @@ export type SendEmailArgs = {
   text?: string
 }
 
+/** True when this deployment has the Resend credentials needed to send email. */
+export function isEmailServiceActive(): boolean {
+  return Boolean(process.env.RESEND_API_KEY)
+}
+
 export async function sendEmail({ to, subject, html, text }: SendEmailArgs) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!isEmailServiceActive()) {
     throw new Error(
       'RESEND_API_KEY is not set. Add it to your environment variables before calling sendEmail().'
     )

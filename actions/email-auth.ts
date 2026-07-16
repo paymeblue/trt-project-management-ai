@@ -24,7 +24,7 @@ const resetSchema = z.object({
 
 // ── Action result types ───────────────────────────────────────────────────
 
-export type ResetRequestState = { message: string }
+export type ResetRequestState = { message: string; resetUrl?: string }
 export type ResetPasswordState = { message?: string; error?: string }
 export type VerifyEmailResult = { ok: boolean }
 
@@ -42,10 +42,13 @@ export async function requestPasswordResetAction(
   const parsed = emailSchema.safeParse({ email: formData.get('email') })
 
   if (parsed.success) {
-    // Fire-and-forget: we do not await errors here to avoid timing-based enumeration
-    await requestPasswordReset(parsed.data.email).catch(() => {
-      // Silently swallow — the response is always the same
-    })
+    const result = await requestPasswordReset(parsed.data.email).catch(() => null)
+    if (result?.delivery === 'manual') {
+      return {
+        message: 'Email delivery is unavailable. Copy the reset link below to continue.',
+        resetUrl: result.resetUrl,
+      }
+    }
   }
 
   // If that email exists, a reset link has been sent.

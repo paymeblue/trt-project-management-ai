@@ -3,12 +3,13 @@ import { randomBytes, createHash } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { users, verificationTokens, passwordResetTokens } from '@/db/schema'
-import { sendEmail } from '@/lib/email'
+import { isEmailServiceActive, sendEmail } from '@/lib/email'
 import { verificationEmail, passwordResetEmail } from '@/lib/email-templates'
 
 const hash = (raw: string) => createHash('sha256').update(raw).digest('hex')
 
 const TTL_MS = 1000 * 60 * 60 // 1 hour
+const appUrl = () => process.env.APP_URL ?? 'http://localhost:3000'
 
 /**
  * Issue a verification token for the given user and send the verification email.
@@ -28,7 +29,7 @@ export async function sendVerificationEmail(userId: string, email: string) {
     expiresAt: new Date(Date.now() + TTL_MS),
   })
 
-  const url = `${process.env.APP_URL}/verify-email?token=${raw}`
+  const url = `${appUrl()}/verify-email?token=${raw}`
   const { subject, html, text } = verificationEmail({ name, verifyUrl: url })
   return sendEmail({ to: email, subject, html, text })
 }
@@ -60,8 +61,9 @@ export async function consumeVerificationToken(rawToken: string) {
 }
 
 /**
- * Issue a password-reset token and email the reset link.
- * DO NOT reveal whether the email exists — always return the same shape.
+ * Issue a password-reset token and deliver the reset link. When Resend is
+ * unavailable (or rejects the send), return the link for the local UI to show
+ * and copy instead. The raw token is never persisted.
  */
 export async function requestPasswordReset(email: string) {
   const user = await db.query.users.findFirst({
@@ -70,7 +72,7 @@ export async function requestPasswordReset(email: string) {
   })
 
   // do NOT reveal whether the email exists
-  if (!user) return { data: null, error: null }
+  if (!user) return { delivery: 'none' as const }
 
   const raw = randomBytes(32).toString('hex')
   await db.insert(passwordResetTokens).values({
@@ -79,9 +81,21 @@ export async function requestPasswordReset(email: string) {
     expiresAt: new Date(Date.now() + TTL_MS),
   })
 
-  const url = `${process.env.APP_URL}/reset-password?token=${raw}`
+  const url = `${appUrl()}/reset-password?token=${raw}`
+
+  if (!isEmailServiceActive()) {
+    return { delivery: 'manual' as const, resetUrl: url }
+  }
+
   const { subject, html, text } = passwordResetEmail({ name: user.name, resetUrl: url })
-  return sendEmail({ to: email, subject, html, text })
+  try {
+    const result = await sendEmail({ to: email, subject, html, text })
+    if (!result.error) return { delivery: 'email' as const }
+  } catch {
+    // The reset token remains valid and the user can use the local fallback.
+  }
+
+  return { delivery: 'manual' as const, resetUrl: url }
 }
 
 /**

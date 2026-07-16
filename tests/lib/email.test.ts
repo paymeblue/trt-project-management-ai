@@ -19,6 +19,14 @@ beforeEach(() => {
 })
 
 describe('email utility (Resend)', () => {
+  it('reports whether Resend email delivery is configured', async () => {
+    const { isEmailServiceActive } = await import('@/lib/email')
+    expect(isEmailServiceActive()).toBe(true)
+
+    delete process.env.RESEND_API_KEY
+    expect(isEmailServiceActive()).toBe(false)
+  })
+
   describe('sendEmail()', () => {
     it('EMAIL-01: calls resend.emails.send with correct from/to/subject/html', async () => {
       sendMock.mockResolvedValue({ data: { id: 'msg-1' }, error: null })

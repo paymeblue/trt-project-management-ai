@@ -58,7 +58,7 @@ describe('email-auth Server Actions', () => {
 
   describe('requestPasswordResetAction — AUTH-03 request', () => {
     it('calls requestPasswordReset with the provided email and returns the generic message', async () => {
-      requestPasswordResetMock.mockResolvedValue({ data: { id: 'msg-1' }, error: null })
+      requestPasswordResetMock.mockResolvedValue({ delivery: 'email' })
 
       const { requestPasswordResetAction } = await import('@/actions/email-auth')
 
@@ -74,7 +74,7 @@ describe('email-auth Server Actions', () => {
     it('EMAIL-01: the request path reaches the email send (via requestPasswordReset mock)', async () => {
       // The send is inside requestPasswordReset — confirming it is called proves the
       // email path is invoked (EMAIL-01).
-      requestPasswordResetMock.mockResolvedValue({ data: { id: 'msg-2' }, error: null })
+      requestPasswordResetMock.mockResolvedValue({ delivery: 'email' })
 
       const { requestPasswordResetAction } = await import('@/actions/email-auth')
 
@@ -87,7 +87,7 @@ describe('email-auth Server Actions', () => {
 
     it('returns the same generic message when the email is unknown (no enumeration)', async () => {
       // requestPasswordReset returns the no-op shape when the user does not exist
-      requestPasswordResetMock.mockResolvedValue({ data: null, error: null })
+      requestPasswordResetMock.mockResolvedValue({ delivery: 'none' })
 
       const { requestPasswordResetAction } = await import('@/actions/email-auth')
 
@@ -109,6 +109,24 @@ describe('email-auth Server Actions', () => {
       // Parse failure: requestPasswordReset should NOT be called; message still generic
       expect(requestPasswordResetMock).not.toHaveBeenCalled()
       expect(result.message).toBe('If that email exists, a reset link has been sent.')
+    })
+
+    it('returns a copyable reset URL when email delivery is unavailable', async () => {
+      requestPasswordResetMock.mockResolvedValue({
+        delivery: 'manual',
+        resetUrl: 'http://localhost:3000/reset-password?token=raw-token',
+      })
+
+      const { requestPasswordResetAction } = await import('@/actions/email-auth')
+      const fd = new FormData()
+      fd.append('email', 'user@example.com')
+
+      const result = await requestPasswordResetAction({ message: '' }, fd)
+
+      expect(result).toEqual({
+        message: 'Email delivery is unavailable. Copy the reset link below to continue.',
+        resetUrl: 'http://localhost:3000/reset-password?token=raw-token',
+      })
     })
   })
 

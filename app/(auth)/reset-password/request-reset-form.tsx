@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import { requestPasswordResetAction } from '@/actions/email-auth'
 import type { ResetRequestState } from '@/actions/email-auth'
 
@@ -16,6 +16,13 @@ export default function RequestResetForm() {
     requestPasswordResetAction,
     initialState,
   )
+  const [copied, setCopied] = useState(false)
+
+  async function copyResetLink() {
+    if (!state.resetUrl) return
+    await navigator.clipboard.writeText(state.resetUrl)
+    setCopied(true)
+  }
 
   return (
     <div>
@@ -28,6 +35,31 @@ export default function RequestResetForm() {
         <p role="status" className="mb-4 rounded bg-green-50 p-3 text-sm text-green-700">
           {state.message}
         </p>
+      )}
+
+      {state.resetUrl && (
+        <div className="mb-4 space-y-2 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <p className="font-medium">Reset link (expires in 1 hour)</p>
+          <input
+            value={state.resetUrl}
+            readOnly
+            onFocus={(event) => event.currentTarget.select()}
+            aria-label="Password reset link"
+            className="w-full rounded border border-amber-300 bg-white px-2 py-1.5 text-xs text-gray-700"
+          />
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={copyResetLink}
+              className="font-semibold text-primary underline"
+            >
+              {copied ? 'Copied' : 'Copy link'}
+            </button>
+            <a href={state.resetUrl} className="font-semibold text-primary underline">
+              Open reset page
+            </a>
+          </div>
+        </div>
       )}
 
       <form action={formAction} className="space-y-4">
