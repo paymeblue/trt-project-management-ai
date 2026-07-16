@@ -6,7 +6,6 @@ export const dynamic = 'force-dynamic';
 
 export default async function ProjectIntakePage() {
   const { role } = await verifySession();
-  console.log(role);
   if (role !== Roles.CustomerCare && !isAdminRole(role as UserRole)) {
     return (
       <div className="mx-auto max-w-xl px-6 py-8">
