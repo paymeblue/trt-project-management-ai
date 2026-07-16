@@ -12,7 +12,7 @@ import ChecklistEditor, { type EditableItem } from '@/app/_components/checklist-
 import {
   REQUIRED_PHOTOS,
   findStep,
-  canRoleActOnStep,
+  canActOnGraphStep,
   canEditChecklist,
   type UserRole,
 } from '@/lib/workflow'
@@ -67,7 +67,7 @@ export default async function ChecklistPage({
         proj.currentStep > stepN
           ? 'This step has already been completed for this project.'
           : 'This step is not active yet for this project.'
-    } else if (!canRoleActOnStep(step.role, role as UserRole)) {
+    } else if (!canActOnGraphStep(step, role as UserRole)) {
       workflowNotice = 'It is not your turn to act on this step.'
     } else {
       workflowProjectId = projectId

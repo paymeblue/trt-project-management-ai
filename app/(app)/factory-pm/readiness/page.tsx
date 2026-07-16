@@ -3,7 +3,7 @@ import { db } from '@/db'
 import { readinessForms, projects } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import ReadinessForm from '@/app/_components/readiness-form'
-import { findStep, canRoleActOnStep, type UserRole } from '@/lib/workflow'
+import { findStep, canActOnGraphStep, type UserRole } from '@/lib/workflow'
 import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
 
 export const dynamic = 'force-dynamic'
@@ -35,7 +35,7 @@ export default async function ReadinessPage({
         proj.currentStep > stepN
           ? 'This step has already been completed for this project.'
           : 'This step is not active yet for this project.'
-    } else if (!canRoleActOnStep(step.role, role as UserRole)) {
+    } else if (!canActOnGraphStep(step, role as UserRole)) {
       workflowNotice = 'It is not your turn to act on this step.'
     } else {
       workflowProjectId = projectId
