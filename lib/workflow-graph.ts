@@ -124,7 +124,7 @@ export async function getStepById(id: string): Promise<GraphStep | undefined> {
 // ops_design_confirmation — could act on these project-wide, an
 // authorization gap now closed by real server-side enforcement at every
 // call site (actions/checklists.ts, actions/readiness.ts, actions/workflow.ts)
-// via assigneeGatedRole()+getStepAssigneeGate().
+// via assigneeGatedRoles()+getStepAssigneeGate().
 //
 // materials_readiness is DUAL-ROLE (factory_pm + site_pm both confirm
 // independently, see confirmDualRoleStepAs). `gatedRoles: ['site_pm']` scopes

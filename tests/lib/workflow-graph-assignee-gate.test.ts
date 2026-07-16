@@ -9,7 +9,7 @@ import { describe, it, expect, vi } from 'vitest'
 vi.mock('server-only', () => ({}))
 vi.mock('@/db', () => ({ db: {} }))
 
-const { assigneeGoverningStepKey, assigneeGatedRole } = await import('@/lib/workflow-graph')
+const { assigneeGoverningStepKey, assigneeGatedRoles } = await import('@/lib/workflow-graph')
 describe('assigneeGoverningStepKey (quick task 260713-ekr)', () => {
   it('maps brief_taking to assign_designer_brief', () => {
     expect(assigneeGoverningStepKey('brief_taking')).toBe('assign_designer_brief')
@@ -58,20 +58,20 @@ describe('assigneeGoverningStepKey (quick task 260716-h0i — site_pm gating)', 
   })
 })
 
-describe('assigneeGatedRole (quick task 260716-h0i)', () => {
-  it('returns site_pm for confirmation', () => {
-    expect(assigneeGatedRole('confirmation')).toBe('site_pm')
+describe('assigneeGatedRoles (quick task 260716-h0i)', () => {
+  it('returns [site_pm] for confirmation', () => {
+    expect(assigneeGatedRoles('confirmation')).toEqual(['site_pm'])
   })
 
-  it('returns site_pm for materials_readiness (the dual-role step — gate applies only to the site_pm party)', () => {
-    expect(assigneeGatedRole('materials_readiness')).toBe('site_pm')
+  it('returns [site_pm] for materials_readiness (the dual-role step — gate applies only to the site_pm party)', () => {
+    expect(assigneeGatedRoles('materials_readiness')).toEqual(['site_pm'])
   })
 
-  it('returns design for brief_taking', () => {
-    expect(assigneeGatedRole('brief_taking')).toBe('design')
+  it('returns [design, architect] for brief_taking (Architects may also act on design-role steps)', () => {
+    expect(assigneeGatedRoles('brief_taking')).toEqual(['design', 'architect'])
   })
 
-  it('returns null for an unrelated step key', () => {
-    expect(assigneeGatedRole('invoice_upload')).toBeNull()
+  it('returns [] for an unrelated step key', () => {
+    expect(assigneeGatedRoles('invoice_upload')).toEqual([])
   })
 })

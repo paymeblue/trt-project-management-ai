@@ -6,7 +6,7 @@ import { readinessForms } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { advanceOrConfirmDualRole } from '@/actions/workflow'
 import { getLiveWorkflowSteps, assigneeGatedRoles, getStepAssigneeGate } from '@/lib/workflow-graph'
-import { findStep, canActOnGraphStep, type UserRole } from '@/lib/workflow'
+import { findStep, canActOnGraphStep, type UserRole, type WorkflowRole } from '@/lib/workflow'
 
 export type ReadinessInput = {
   mode: 'digital' | 'upload'
@@ -74,7 +74,7 @@ export async function submitReadinessAction(
     // assigned via ops_design_confirmation may act on this project's gated
     // steps. No-op for any other role/step (e.g. a factory_pm on their own
     // half of a dual-role step like materials_readiness).
-    if (assigneeGatedRoles(step.key).includes(role)) {
+    if (assigneeGatedRoles(step.key).includes(role as WorkflowRole)) {
       const gateUserId = await getStepAssigneeGate('live', String(input.projectId), step.key)
       if (gateUserId && gateUserId !== userId) {
         return {

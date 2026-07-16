@@ -8,6 +8,7 @@ import {
   lastStepN,
   projectComplete,
   type UserRole,
+  type WorkflowRole,
   type MyWork,
 } from '@/lib/workflow'
 import {
@@ -90,7 +91,7 @@ export async function getMyWork(role: UserRole, userId: string): Promise<MyWork>
     // (e.g. factory_pm on the dual-role materials_readiness step, whose gate
     // applies only to the site_pm party) never sees a gate that isn't theirs.
     const gate =
-      step && assigneeGatedRoles(step.key).includes(role)
+      step && assigneeGatedRoles(step.key).includes(role as WorkflowRole)
         ? await getStepAssigneeGate('live', p.id, step.key)
         : null
     gateByProjectId.set(p.id, gate)

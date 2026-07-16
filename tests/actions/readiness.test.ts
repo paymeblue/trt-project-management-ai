@@ -6,7 +6,7 @@ const {
   insertValuesMock,
   advanceMock,
   getLiveStepsMock,
-  assigneeGatedRoleMock,
+  assigneeGatedRolesMock,
   getStepAssigneeGateMock,
 } = vi.hoisted(() => {
   const insertValuesMock = vi.fn()
@@ -17,7 +17,7 @@ const {
     insertValuesMock,
     advanceMock: vi.fn(),
     getLiveStepsMock: vi.fn(),
-    assigneeGatedRoleMock: vi.fn(),
+    assigneeGatedRolesMock: vi.fn(),
     getStepAssigneeGateMock: vi.fn(),
   }
 })
@@ -28,7 +28,7 @@ vi.mock('@/lib/dal', () => ({ verifySession: verifyMock }))
 vi.mock('@/actions/workflow', () => ({ advanceOrConfirmDualRole: advanceMock }))
 vi.mock('@/lib/workflow-graph', () => ({
   getLiveWorkflowSteps: getLiveStepsMock,
-  assigneeGatedRole: assigneeGatedRoleMock,
+  assigneeGatedRoles: assigneeGatedRolesMock,
   getStepAssigneeGate: getStepAssigneeGateMock,
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
@@ -46,7 +46,7 @@ beforeEach(() => {
   ])
   // Default: no assignee gate applies (matches the existing tests' role/step
   // combos, none of which are gated).
-  assigneeGatedRoleMock.mockReturnValue(null)
+  assigneeGatedRolesMock.mockReturnValue([])
   getStepAssigneeGateMock.mockResolvedValue(null)
 })
 
@@ -148,7 +148,7 @@ describe('submitReadinessAction — requires 2 photos', () => {
       getLiveStepsMock.mockResolvedValue([
         { n: 3, key: 'materials_readiness', label: 'Materials Readiness', role: 'site_pm', kind: 'readiness', slug: undefined, stepDefId: 'stepdef-3', dualRoles: null },
       ])
-      assigneeGatedRoleMock.mockReturnValue('site_pm')
+      assigneeGatedRolesMock.mockReturnValue(['site_pm'])
       getStepAssigneeGateMock.mockResolvedValue('s1')
 
       const { submitReadinessAction } = await import('@/actions/readiness')
@@ -166,7 +166,7 @@ describe('submitReadinessAction — requires 2 photos', () => {
       getLiveStepsMock.mockResolvedValue([
         { n: 3, key: 'materials_readiness', label: 'Materials Readiness', role: 'site_pm', kind: 'readiness', slug: undefined, stepDefId: 'stepdef-3', dualRoles: null },
       ])
-      assigneeGatedRoleMock.mockReturnValue('site_pm')
+      assigneeGatedRolesMock.mockReturnValue(['site_pm'])
       // Gate is held by a DIFFERENT user ('s1') than the caller ('s2').
       getStepAssigneeGateMock.mockResolvedValue('s1')
 
@@ -194,11 +194,11 @@ describe('submitReadinessAction — requires 2 photos', () => {
         },
       ])
       // The step IS site_pm-gated, but the caller's role ('factory_pm')
-      // never matches assigneeGatedRole('materials_readiness') ('site_pm'),
+      // never appears in assigneeGatedRoles('materials_readiness') (['site_pm']),
       // so submitReadinessAction must never even consult the gate — even
       // though, if it did, getStepAssigneeGateMock would resolve a userId
       // that differs from the caller and would otherwise reject them.
-      assigneeGatedRoleMock.mockReturnValue('site_pm')
+      assigneeGatedRolesMock.mockReturnValue(['site_pm'])
       getStepAssigneeGateMock.mockResolvedValue('some-other-site-pm-id')
 
       const { submitReadinessAction } = await import('@/actions/readiness')

@@ -86,17 +86,17 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 // Quick task 260716-h0i: partial mock — getLiveWorkflowSteps stays wired to
 // the real implementation (it reads through dbMock's orderBy chain, which
 // the rest of this file already depends on for its LIVE_WORKFLOW_STEPS-based
-// fixtures) while assigneeGatedRole/getStepAssigneeGate are replaced with
+// fixtures) while assigneeGatedRoles/getStepAssigneeGate are replaced with
 // controllable test doubles.
-const { assigneeGatedRoleMock, getStepAssigneeGateMock } = vi.hoisted(() => ({
-  assigneeGatedRoleMock: vi.fn(),
+const { assigneeGatedRolesMock, getStepAssigneeGateMock } = vi.hoisted(() => ({
+  assigneeGatedRolesMock: vi.fn(),
   getStepAssigneeGateMock: vi.fn(),
 }))
 vi.mock('@/lib/workflow-graph', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/workflow-graph')>()
   return {
     ...actual,
-    assigneeGatedRole: assigneeGatedRoleMock,
+    assigneeGatedRoles: assigneeGatedRolesMock,
     getStepAssigneeGate: getStepAssigneeGateMock,
   }
 })
@@ -110,7 +110,7 @@ beforeEach(() => {
   returningMock.mockResolvedValue([{ confirmedRoles: [] }])
   // Default: no assignee gate applies (matches the existing tests' role/step
   // combos, none of which are gated).
-  assigneeGatedRoleMock.mockReturnValue(null)
+  assigneeGatedRolesMock.mockReturnValue([])
   getStepAssigneeGateMock.mockResolvedValue(null)
 })
 
@@ -202,7 +202,7 @@ describe('advanceProjectStep', () => {
       // step 20 = installation_process (site_pm)
       verifyMock.mockResolvedValue({ userId: 's1', role: 'site_pm' })
       selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 20, status: 'not_delivered' }])
-      assigneeGatedRoleMock.mockReturnValue('site_pm')
+      assigneeGatedRolesMock.mockReturnValue(['site_pm'])
       getStepAssigneeGateMock.mockResolvedValue('s1')
 
       const { advanceProjectStep } = await import('@/actions/workflow')
@@ -216,7 +216,7 @@ describe('advanceProjectStep', () => {
     it('rejects an unassigned site_pm on a gated step, before any DB write', async () => {
       verifyMock.mockResolvedValue({ userId: 's2', role: 'site_pm' })
       selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 20, status: 'not_delivered' }])
-      assigneeGatedRoleMock.mockReturnValue('site_pm')
+      assigneeGatedRolesMock.mockReturnValue(['site_pm'])
       // Gate is held by a DIFFERENT user ('s1') than the caller ('s2').
       getStepAssigneeGateMock.mockResolvedValue('s1')
 
@@ -299,7 +299,7 @@ describe('confirmDualRoleStepAs', () => {
   describe('assignee gate (quick task 260716-h0i)', () => {
     it('allows the assigned site_pm to confirm their half of materials_readiness', async () => {
       returningMock.mockResolvedValue([{ confirmedRoles: ['site_pm'] }])
-      assigneeGatedRoleMock.mockReturnValue('site_pm')
+      assigneeGatedRolesMock.mockReturnValue(['site_pm'])
       getStepAssigneeGateMock.mockResolvedValue('s1')
 
       const { confirmDualRoleStepAs } = await import('@/actions/workflow')
@@ -316,7 +316,7 @@ describe('confirmDualRoleStepAs', () => {
     })
 
     it('rejects an unassigned site_pm on materials_readiness, before any write', async () => {
-      assigneeGatedRoleMock.mockReturnValue('site_pm')
+      assigneeGatedRolesMock.mockReturnValue(['site_pm'])
       // Gate is held by a DIFFERENT user ('s1') than the caller ('s2').
       getStepAssigneeGateMock.mockResolvedValue('s1')
 
@@ -340,11 +340,11 @@ describe('confirmDualRoleStepAs', () => {
     it('DUAL-ROLE SAFETY: a factory_pm confirming their own half of materials_readiness is unaffected by the site_pm gate', async () => {
       returningMock.mockResolvedValue([{ confirmedRoles: ['factory_pm'] }])
       // The step IS site_pm-gated, but the caller's role ('factory_pm')
-      // never matches assigneeGatedRole('materials_readiness') ('site_pm'),
+      // never appears in assigneeGatedRoles('materials_readiness') (['site_pm']),
       // so confirmDualRoleStepAs must never even consult the gate — even
       // though, if it did, getStepAssigneeGateMock would resolve a userId
       // that differs from the caller and would otherwise reject them.
-      assigneeGatedRoleMock.mockReturnValue('site_pm')
+      assigneeGatedRolesMock.mockReturnValue(['site_pm'])
       getStepAssigneeGateMock.mockResolvedValue('some-other-site-pm-id')
 
       const { confirmDualRoleStepAs } = await import('@/actions/workflow')

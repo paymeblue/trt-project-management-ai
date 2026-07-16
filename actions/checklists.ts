@@ -18,6 +18,7 @@ import {
   findStep,
   canActOnGraphStep,
   type UserRole,
+  type WorkflowRole,
 } from '@/lib/workflow'
 
 type ResponseValue = 'yes' | 'no' | 'na'
@@ -103,7 +104,7 @@ export async function submitChecklistAction(
     // assigned via ops_design_confirmation may act on this project's gated
     // steps. No-op for any other role/step (e.g. a factory_pm on their own
     // half of a dual-role step).
-    if (assigneeGatedRoles(step.key).includes(role)) {
+    if (assigneeGatedRoles(step.key).includes(role as WorkflowRole)) {
       const gateUserId = await getStepAssigneeGate('live', projectId, step.key)
       if (gateUserId && gateUserId !== userId) {
         return {

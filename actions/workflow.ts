@@ -5,7 +5,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { projects, projectStepCompletions, workflowStepStates } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
-import { canRoleActOnStep, findStep, lastStepN, type UserRole } from '@/lib/workflow'
+import { canRoleActOnStep, findStep, lastStepN, type UserRole, type WorkflowRole } from '@/lib/workflow'
 import { getLiveWorkflowSteps, assigneeGatedRoles, getStepAssigneeGate } from '@/lib/workflow-graph'
 
 function revalidateBoards() {
@@ -43,7 +43,7 @@ export async function advanceProjectStep(opts: {
   // Quick task 260716-h0i: real server-side enforcement — only the site_pm
   // assigned via ops_design_confirmation may act on this project's gated
   // steps. No-op for any other role/step.
-  if (assigneeGatedRoles(step.key).includes(role)) {
+  if (assigneeGatedRoles(step.key).includes(role as WorkflowRole)) {
     const gateUserId = await getStepAssigneeGate('live', projectId, step.key)
     if (gateUserId && gateUserId !== userId) return false
   }
@@ -132,9 +132,9 @@ export async function confirmDualRoleStepAs(opts: {
   // Quick task 260716-h0i: real server-side enforcement — the dual-role
   // materials_readiness step's site_pm party must be the one assigned via
   // ops_design_confirmation; the factory_pm party is completely unaffected
-  // (assigneeGatedRole('materials_readiness') === 'site_pm', so this is a
+  // (assigneeGatedRoles('materials_readiness') is ['site_pm'], so this is a
   // no-op whenever role === 'factory_pm').
-  if (assigneeGatedRoles(step.key).includes(role)) {
+  if (assigneeGatedRoles(step.key).includes(role as WorkflowRole)) {
     const gateUserId = await getStepAssigneeGate('live', projectId, step.key)
     if (gateUserId && gateUserId !== userId) {
       return {
