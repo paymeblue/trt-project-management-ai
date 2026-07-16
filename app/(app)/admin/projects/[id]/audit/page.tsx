@@ -1,6 +1,11 @@
 import Link from 'next/link'
 import { requireRole } from '@/lib/dal'
-import { getProjectAudit, type AuditRow, type AuditChecklistSubmission } from '@/lib/project-audit'
+import {
+  getProjectAudit,
+  type AuditRow,
+  type AuditChecklistSubmission,
+  type AuditReadinessSubmission,
+} from '@/lib/project-audit'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,6 +40,69 @@ function ChecklistSubmissionDetails({ submission }: { submission: AuditChecklist
                 key={i}
                 src={src}
                 alt={`Checklist photo ${i + 1}`}
+                className="h-20 w-20 rounded-md border border-gray-200 object-cover"
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </details>
+  )
+}
+
+function ReadinessSubmissionDetails({ submission }: { submission: AuditReadinessSubmission }) {
+  const legacyUploadIsImage = submission.uploadData?.startsWith('data:image/') ?? false
+  return (
+    <details className="rounded-md border border-gray-200 bg-white p-2">
+      <summary className="cursor-pointer text-xs font-medium text-primary">
+        Readiness ({submission.mode}) — {submission.submittedBy ?? 'Unknown'} · {fmt(submission.submittedAt)}
+      </summary>
+      <div className="mt-2 space-y-1">
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 py-1">
+          <p className="text-xs text-gray-700">Confirmed by</p>
+          <span className="shrink-0 text-xs font-semibold text-gray-900">{submission.confirmedBy ?? '—'}</span>
+        </div>
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 py-1">
+          <p className="text-xs text-gray-700">Signed date</p>
+          <span className="shrink-0 text-xs font-semibold text-gray-900">{submission.signedDate ?? '—'}</span>
+        </div>
+        {submission.signatureData && (
+          <div className="mt-2">
+            <p className="text-xs text-gray-700">Signature</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={submission.signatureData}
+              alt="Signature"
+              className="mt-1 h-20 w-40 rounded-md border border-gray-200 object-contain"
+            />
+          </div>
+        )}
+        {submission.uploadData && (
+          <div className="mt-2">
+            <p className="text-xs text-gray-700">Legacy upload</p>
+            {legacyUploadIsImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={submission.uploadData}
+                alt={submission.uploadName ?? 'Uploaded scan'}
+                className="mt-1 h-20 w-20 rounded-md border border-gray-200 object-cover"
+              />
+            ) : (
+              // Non-image uploads: filename text only — never a clickable
+              // data: link (T-bpp-03: a data:text/html upload opened in a new
+              // tab would execute as the app origin's document).
+              <span className="text-xs text-gray-600">{submission.uploadName ?? 'File uploaded'}</span>
+            )}
+          </div>
+        )}
+        {submission.photos.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {submission.photos.map((src, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={i}
+                src={src}
+                alt={`Readiness photo ${i + 1}`}
                 className="h-20 w-20 rounded-md border border-gray-200 object-cover"
               />
             ))}
@@ -110,6 +178,15 @@ function AuditTableRow({ row }: { row: AuditRow }) {
           <td colSpan={7} className="space-y-2 bg-gray-50 px-4 py-3">
             {row.checklistSubmissions.map((submission, i) => (
               <ChecklistSubmissionDetails key={i} submission={submission} />
+            ))}
+          </td>
+        </tr>
+      )}
+      {row.readinessSubmissions.length > 0 && (
+        <tr>
+          <td colSpan={7} className="space-y-2 bg-gray-50 px-4 py-3">
+            {row.readinessSubmissions.map((submission, i) => (
+              <ReadinessSubmissionDetails key={i} submission={submission} />
             ))}
           </td>
         </tr>

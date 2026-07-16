@@ -9,7 +9,13 @@ vi.mock('server-only', () => ({}))
 vi.mock('@/db', () => ({ db: {} }))
 
 const { assembleAuditRows } = await import('@/lib/project-audit')
-import type { AssembleAuditRowsInput, AuditUser, AuditCompletion, AuditStepState } from '@/lib/project-audit'
+import type {
+  AssembleAuditRowsInput,
+  AuditUser,
+  AuditCompletion,
+  AuditStepState,
+  AuditReadinessSubmission,
+} from '@/lib/project-audit'
 import type { LiveWorkflowStep } from '@/lib/workflow-graph'
 
 function step(overrides: Partial<LiveWorkflowStep> & Pick<LiveWorkflowStep, 'n' | 'key' | 'stepDefId'>): LiveWorkflowStep {
@@ -30,6 +36,7 @@ function emptyInput(steps: LiveWorkflowStep[]): AssembleAuditRowsInput {
     checklistsBySlug: new Map(),
     usersById: new Map<string, AuditUser>(),
     positionLabels: { head_of_operations: 'Head of Operations' },
+    readinessSubmissionsForProject: [],
   }
 }
 
@@ -206,5 +213,29 @@ describe('assembleAuditRows', () => {
 
     const [emptyRow] = assembleAuditRows(emptyInput(steps))
     expect(emptyRow.assignedUserName).toBeNull()
+  })
+
+  it('attaches readinessSubmissionsForProject to a readiness-kind step, and leaves a non-readiness step empty', () => {
+    const steps = [
+      step({ n: 1, key: 'materials_readiness', stepDefId: 'def-1', kind: 'readiness' }),
+      step({ n: 2, key: 'confirm', stepDefId: 'def-2', kind: 'yes_no_upload' }),
+    ]
+    const submission: AuditReadinessSubmission = {
+      mode: 'digital',
+      submittedBy: 'Factory Fred',
+      submittedAt: new Date('2026-01-01T10:00:00Z'),
+      confirmedBy: 'Fred',
+      signedDate: '2026-01-01',
+      signatureData: 'data:image/png;base64,AAAA',
+      uploadData: null,
+      uploadName: null,
+      photos: ['data:image/png;base64,BBBB'],
+    }
+    const input = emptyInput(steps)
+    input.readinessSubmissionsForProject = [submission]
+
+    const [readinessRow, otherRow] = assembleAuditRows(input)
+    expect(readinessRow.readinessSubmissions).toEqual([submission])
+    expect(otherRow.readinessSubmissions).toEqual([])
   })
 })
