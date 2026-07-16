@@ -3,21 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateUserRoleAction, deleteUserAction, resetUserPasswordAction } from '@/actions/admin-users'
+import { ALL_USER_ROLES } from '@/lib/workflow'
 
 type Row = { id: string; name: string; email: string; role: string }
-
-const ROLES = [
-  { value: 'factory_pm', label: 'Factory PM' },
-  { value: 'site_pm', label: 'Site PM' },
-  { value: 'super_admin', label: 'Super Admin' },
-  { value: 'operations', label: 'Operations' },
-  { value: 'design', label: 'Design' },
-  { value: 'architect', label: 'Architect' },
-  { value: 'production', label: 'Production' },
-  { value: 'customer_care', label: 'Customer Care' },
-  { value: 'factory_operations', label: 'Factory Operations' },
-  { value: 'factory_manager', label: 'Factory Manager' },
-]
 
 const ADMIN_ROLES = ['super_admin', 'operations']
 
@@ -116,7 +104,7 @@ export default function AdminUsersTable({ users, meId }: { users: Row[]; meId: s
                       onChange={(e) => setRoles((r) => ({ ...r, [u.id]: e.target.value }))}
                       className="rounded-md border border-gray-300 px-2 py-1 text-sm disabled:opacity-50"
                     >
-                      {ROLES.map((r) => (
+                      {ALL_USER_ROLES.map((r) => (
                         <option key={r.value} value={r.value}>
                           {r.label}
                         </option>

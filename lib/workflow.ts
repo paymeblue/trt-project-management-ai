@@ -231,6 +231,15 @@ export function userRoleLabel(role: string): string {
   return USER_ROLE_LABELS[role as UserRole] ?? 'User'
 }
 
+// Single source of truth for admin role <select> dropdowns. Derived from
+// USER_ROLE_LABELS so it can never drift out of sync — do not hand-duplicate
+// this list in components; import ALL_USER_ROLES instead.
+export const ALL_USER_ROLES: { value: UserRole; label: string }[] = Object.entries(
+  USER_ROLE_LABELS,
+)
+  .map(([value, label]) => ({ value: value as UserRole, label }))
+  .sort((a, b) => a.label.localeCompare(b.label))
+
 const ROLE_DASHBOARD: Record<UserRole, string> = {
   factory_pm: '/factory-pm/dashboard',
   site_pm: '/site-pm/dashboard',

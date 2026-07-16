@@ -3,17 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createUserAction } from '@/actions/admin-users';
-
-const ROLES = [
-  { value: 'factory_pm', label: 'Factory PM' },
-  { value: 'site_pm', label: 'Site PM' },
-  { value: 'design', label: 'Design' },
-  { value: 'architect', label: 'Architect' },
-  { value: 'production', label: 'Production' },
-  { value: 'customer_care', label: 'Customer Care' },
-  { value: 'factory_operations', label: 'Factory Operations' },
-  { value: 'factory_manager', label: 'Factory Manager' },
-];
+import { ALL_USER_ROLES } from '@/lib/workflow';
 
 export default function AdminCreateUser() {
   const router = useRouter();
@@ -78,7 +68,7 @@ export default function AdminCreateUser() {
             onChange={(e) => setRole(e.target.value)}
             className={inputCls}
           >
-            {ROLES.map((r) => (
+            {ALL_USER_ROLES.map((r) => (
               <option key={r.value} value={r.value}>
                 {r.label}
               </option>

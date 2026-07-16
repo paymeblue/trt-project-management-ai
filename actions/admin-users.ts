@@ -24,19 +24,6 @@ const ASSIGNABLE_ROLES: UserRole[] = [
   Roles.FactoryManager,
 ]
 
-// Roles an admin may create from the UI. PMs + the future departments; the
-// admin/operations accounts still come from seeds.
-const CREATABLE_ROLES: UserRole[] = [
-  Roles.FactoryPm,
-  Roles.SitePm,
-  Roles.Design,
-  Roles.Architect,
-  Roles.Production,
-  Roles.CustomerCare,
-  Roles.FactoryOperations,
-  Roles.FactoryManager,
-]
-
 type ActionResult = { ok: boolean; error?: string }
 type CreateUserResult = ActionResult & { tempPassword?: string; emailed?: boolean }
 
@@ -59,7 +46,10 @@ export async function createUserAction(input: {
 
   if (name.length < 2) return { ok: false, error: 'Name must be at least 2 characters.' }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, error: 'Enter a valid email.' }
-  if (!CREATABLE_ROLES.includes(role)) return { ok: false, error: 'That role can\'t be created here.' }
+  // A super admin can create an account for any assignable role, including
+  // Super Admin and Operations — admin/operations accounts are no longer
+  // seed-only.
+  if (!ASSIGNABLE_ROLES.includes(role)) return { ok: false, error: 'That role can\'t be created here.' }
 
   const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1)
   if (existing.length > 0) return { ok: false, error: 'A user with that email already exists.' }
