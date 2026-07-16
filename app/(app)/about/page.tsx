@@ -1,19 +1,19 @@
-import { eq } from 'drizzle-orm'
-import { db } from '@/db'
-import { staticContent } from '@/db/schema'
-import { verifySession, isAdminRole } from '@/lib/dal'
-import { updateAboutAction } from '@/actions/content'
-import TrtFlowDiagram from '@/app/_components/trt-flow-diagram'
-import { roleDashboard } from '@/lib/workflow'
+import { eq } from 'drizzle-orm';
+import { db } from '@/db';
+import { staticContent } from '@/db/schema';
+import { verifySession, isAdminRole } from '@/lib/dal';
+import { updateAboutAction } from '@/actions/content';
+import TrtFlowDiagram from '@/app/_components/trt-flow-diagram';
+import { roleDashboard } from '@/lib/workflow';
 
-export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic';
 
 const ROLES: { name: string; icon: string; blurb: string }[] = [
   {
     name: 'Customer Care',
     icon: 'support_agent',
     blurb:
-      'First point of contact. Captures a client\'s intent from the intake call and creates their project (unpaid by default) — the very first step in the workflow.',
+      "First point of contact. Captures a client's intent from the intake call and creates their project (unpaid by default) — the very first step in the workflow.",
   },
   {
     name: 'Operations',
@@ -37,7 +37,7 @@ const ROLES: { name: string; icon: string; blurb: string }[] = [
     name: 'Design',
     icon: 'design_services',
     blurb:
-      'The Head Designer assigns a Designer or Architect to take the client\'s brief, then again — a second, independent assignment — to begin the actual design work. The assigned person runs the Kickoff Meeting, Design Meeting, and Brief Taking, then produces the drawing and records the client\'s approval at Design Stage, handing off to Confirmation.',
+      "The Head of Design assigns a Designer or Architect to take the client's brief, then again — a second, independent assignment — to begin the actual design work. The assigned person runs the Kickoff Meeting, Design Meeting, and Brief Taking, then produces the drawing and records the client's approval at Design Stage, handing off to Confirmation.",
   },
   {
     name: 'Architect',
@@ -69,22 +69,25 @@ const ROLES: { name: string; icon: string; blurb: string }[] = [
     blurb:
       'Oversees everything (largely read-only). Manages users and static content (About TRT, Email Formats), authors process flow charts, and monitors activity across every role. Created from the CLI only.',
   },
-]
+];
 
 export default async function AboutPage() {
-  const { role } = await verifySession()
+  const { role } = await verifySession();
   const [about] = await db
     .select()
     .from(staticContent)
     .where(eq(staticContent.slug, 'about_trt'))
-    .limit(1)
+    .limit(1);
 
-  const body = about?.body ?? ''
-  const isAdmin = isAdminRole(role)
+  const body = about?.body ?? '';
+  const isAdmin = isAdminRole(role);
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">
-      <a href={roleDashboard(role)} className="text-sm text-primary hover:underline">
+      <a
+        href={roleDashboard(role)}
+        className="text-sm text-primary hover:underline"
+      >
         ← Dashboard
       </a>
       <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">About TRT</h1>
@@ -116,7 +119,9 @@ export default async function AboutPage() {
           {body ? (
             <p className="whitespace-pre-wrap">{body}</p>
           ) : (
-            <p className="text-gray-400">No content yet. A Super Admin can add it here.</p>
+            <p className="text-gray-400">
+              No content yet. A Super Admin can add it here.
+            </p>
           )}
         </div>
       )}
@@ -132,8 +137,8 @@ export default async function AboutPage() {
         Roles on the platform
       </h2>
       {(() => {
-        const superior = ROLES.find((r) => r.name === 'Super Admin')
-        const subs = ROLES.filter((r) => r.name !== 'Super Admin')
+        const superior = ROLES.find((r) => r.name === 'Super Admin');
+        const subs = ROLES.filter((r) => r.name !== 'Super Admin');
         return (
           <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex flex-col items-center">
@@ -141,13 +146,19 @@ export default async function AboutPage() {
               {superior && (
                 <div className="w-full max-w-md rounded-xl border-2 border-primary bg-primary/5 p-5 text-center shadow-sm">
                   <div className="mb-1 flex items-center justify-center gap-2">
-                    <span className="material-symbols-outlined text-primary">{superior.icon}</span>
-                    <h3 className="text-base font-bold text-gray-900">{superior.name}</h3>
+                    <span className="material-symbols-outlined text-primary">
+                      {superior.icon}
+                    </span>
+                    <h3 className="text-base font-bold text-gray-900">
+                      {superior.name}
+                    </h3>
                   </div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                     Oversees all roles
                   </p>
-                  <p className="mt-2 text-sm leading-relaxed text-gray-600">{superior.blurb}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                    {superior.blurb}
+                  </p>
                 </div>
               )}
               {/* Connectors */}
@@ -156,22 +167,31 @@ export default async function AboutPage() {
               {/* Subordinates */}
               <div className="flex w-full flex-col gap-4 sm:flex-row sm:flex-wrap">
                 {subs.map((r) => (
-                  <div key={r.name} className="flex min-w-[220px] flex-1 flex-col items-center">
+                  <div
+                    key={r.name}
+                    className="flex min-w-[220px] flex-1 flex-col items-center"
+                  >
                     <div className="h-4 w-px bg-gray-300" />
                     <div className="w-full rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
                       <div className="mb-1 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary">{r.icon}</span>
-                        <h3 className="text-base font-semibold text-gray-900">{r.name}</h3>
+                        <span className="material-symbols-outlined text-primary">
+                          {r.icon}
+                        </span>
+                        <h3 className="text-base font-semibold text-gray-900">
+                          {r.name}
+                        </h3>
                       </div>
-                      <p className="text-sm leading-relaxed text-gray-600">{r.blurb}</p>
+                      <p className="text-sm leading-relaxed text-gray-600">
+                        {r.blurb}
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           </div>
-        )
+        );
       })()}
     </div>
-  )
+  );
 }

@@ -27,6 +27,16 @@ function matchesPosition(step: LiveWorkflowStep, viewerPosition: string | null):
   return step.receiverRequiredPosition != null && viewerPosition === step.receiverRequiredPosition
 }
 
+function waitingOn(step: LiveWorkflowStep): string {
+  if (step.requiredPosition) {
+    return `Waiting on ${step.requiredPosition
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')}`
+  }
+  return `Waiting on ${workflowRoleLabel(step.role)}`
+}
+
 // Dismissable navbar indicator: shows the "current" in-progress project + the
 // step it's on, with a dropdown to switch between projects (a PM may juggle
 // several at once). Data is live (polled by MyWorkProvider).
@@ -106,7 +116,7 @@ export default function HeaderProjectSwitcher({
             </span>
             <span className="block truncate text-label-sm leading-tight text-on-surface-variant">
               {step ? `Step ${step.n}/${lastN}: ${step.label}` : 'In progress'}
-              {step ? (mine ? ' · your turn' : ` · ${workflowRoleLabel(step.role)}`) : ''}
+              {step ? (mine ? ' · your turn' : ` · ${waitingOn(step)}`) : ''}
               {' · '}
               <DeadlineCountdown deadline={selected.deadline} compact />
             </span>
@@ -163,7 +173,9 @@ export default function HeaderProjectSwitcher({
                   )}
                 </span>
                 <span className="truncate text-label-sm text-on-surface-variant">
-                  {s ? `Step ${s.n}/${lastN}: ${s.label}` : 'In progress'}
+                  {s
+                    ? `Step ${s.n}/${lastN}: ${s.label}${youract ? ' · Your turn' : ` · ${waitingOn(s)}`}`
+                    : 'In progress'}
                 </span>
               </button>
             )
