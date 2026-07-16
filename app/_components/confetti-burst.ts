@@ -44,7 +44,7 @@ export function fireConfetti(): void {
     },
   })
 
-  pieces.forEach((piece, index) => {
+  pieces.forEach((piece) => {
     const fallDistance = window.innerHeight * (0.6 + Math.random() * 0.4)
     const drift = (Math.random() - 0.5) * 320
     const rotation = (Math.random() - 0.5) * 720
