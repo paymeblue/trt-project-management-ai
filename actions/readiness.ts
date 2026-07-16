@@ -5,7 +5,7 @@ import { db } from '@/db'
 import { readinessForms } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { advanceOrConfirmDualRole } from '@/actions/workflow'
-import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
+import { getLiveWorkflowSteps, assigneeGatedRole, getStepAssigneeGate } from '@/lib/workflow-graph'
 import { findStep, canActOnGraphStep, type UserRole } from '@/lib/workflow'
 
 export type ReadinessInput = {
@@ -69,6 +69,19 @@ export async function submitReadinessAction(
     const step = findStep(steps, Number(input.expectedStepN))
     if (!step || !canActOnGraphStep(step, role as UserRole)) {
       return { status: 'error', message: 'You are not authorized to submit this form for this step.' }
+    }
+    // Quick task 260716-h0i: real server-side enforcement — only the site_pm
+    // assigned via ops_design_confirmation may act on this project's gated
+    // steps. No-op for any other role/step (e.g. a factory_pm on their own
+    // half of a dual-role step like materials_readiness).
+    if (assigneeGatedRole(step.key) === role) {
+      const gateUserId = await getStepAssigneeGate('live', String(input.projectId), step.key)
+      if (gateUserId && gateUserId !== userId) {
+        return {
+          status: 'error',
+          message: 'This step is assigned to a specific Site PM for this project.',
+        }
+      }
     }
   }
 

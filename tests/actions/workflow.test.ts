@@ -83,6 +83,24 @@ vi.mock('@/db', () => ({ db: dbMock }))
 vi.mock('@/lib/dal', () => ({ verifySession: verifyMock }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
+// Quick task 260716-h0i: partial mock — getLiveWorkflowSteps stays wired to
+// the real implementation (it reads through dbMock's orderBy chain, which
+// the rest of this file already depends on for its LIVE_WORKFLOW_STEPS-based
+// fixtures) while assigneeGatedRole/getStepAssigneeGate are replaced with
+// controllable test doubles.
+const { assigneeGatedRoleMock, getStepAssigneeGateMock } = vi.hoisted(() => ({
+  assigneeGatedRoleMock: vi.fn(),
+  getStepAssigneeGateMock: vi.fn(),
+}))
+vi.mock('@/lib/workflow-graph', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/workflow-graph')>()
+  return {
+    ...actual,
+    assigneeGatedRole: assigneeGatedRoleMock,
+    getStepAssigneeGate: getStepAssigneeGateMock,
+  }
+})
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.resetModules()
@@ -90,6 +108,10 @@ beforeEach(() => {
   updateWhereMock.mockResolvedValue(undefined)
   selectOrderByMock.mockResolvedValue(liveStepDefRows)
   returningMock.mockResolvedValue([{ confirmedRoles: [] }])
+  // Default: no assignee gate applies (matches the existing tests' role/step
+  // combos, none of which are gated).
+  assigneeGatedRoleMock.mockReturnValue(null)
+  getStepAssigneeGateMock.mockResolvedValue(null)
 })
 
 describe('advanceProjectStep', () => {
@@ -173,6 +195,38 @@ describe('advanceProjectStep', () => {
 
     expect(ok).toBe(false)
   })
+
+  // Quick task 260716-h0i: real server-side assignee-gate enforcement.
+  describe('assignee gate (quick task 260716-h0i)', () => {
+    it('allows the assigned site_pm on a gated step', async () => {
+      // step 20 = installation_process (site_pm)
+      verifyMock.mockResolvedValue({ userId: 's1', role: 'site_pm' })
+      selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 20, status: 'not_delivered' }])
+      assigneeGatedRoleMock.mockReturnValue('site_pm')
+      getStepAssigneeGateMock.mockResolvedValue('s1')
+
+      const { advanceProjectStep } = await import('@/actions/workflow')
+      const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 20 })
+
+      expect(ok).toBe(true)
+      expect(insertValuesMock).toHaveBeenCalledOnce()
+      expect(getStepAssigneeGateMock).toHaveBeenCalledWith('live', 'p1', 'installation_process')
+    })
+
+    it('rejects an unassigned site_pm on a gated step, before any DB write', async () => {
+      verifyMock.mockResolvedValue({ userId: 's2', role: 'site_pm' })
+      selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 20, status: 'not_delivered' }])
+      assigneeGatedRoleMock.mockReturnValue('site_pm')
+      // Gate is held by a DIFFERENT user ('s1') than the caller ('s2').
+      getStepAssigneeGateMock.mockResolvedValue('s1')
+
+      const { advanceProjectStep } = await import('@/actions/workflow')
+      const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 20 })
+
+      expect(ok).toBe(false)
+      expect(insertValuesMock).not.toHaveBeenCalled()
+    })
+  })
 })
 
 describe('confirmDualRoleStepAs', () => {
@@ -238,5 +292,72 @@ describe('confirmDualRoleStepAs', () => {
     expect(res).toEqual({ ok: false, advanced: false, message: 'Not your step.' })
     expect(workflowStepStatesInsertMock).not.toHaveBeenCalled()
     expect(insertValuesMock).not.toHaveBeenCalled()
+  })
+
+  // Quick task 260716-h0i: real server-side assignee-gate enforcement on the
+  // dual-role materials_readiness step's site_pm party.
+  describe('assignee gate (quick task 260716-h0i)', () => {
+    it('allows the assigned site_pm to confirm their half of materials_readiness', async () => {
+      returningMock.mockResolvedValue([{ confirmedRoles: ['site_pm'] }])
+      assigneeGatedRoleMock.mockReturnValue('site_pm')
+      getStepAssigneeGateMock.mockResolvedValue('s1')
+
+      const { confirmDualRoleStepAs } = await import('@/actions/workflow')
+      const res = await confirmDualRoleStepAs({
+        projectId: 'p1',
+        expectedStepN: 17,
+        userId: 's1',
+        role: 'site_pm',
+      })
+
+      expect(res.ok).toBe(true)
+      expect(workflowStepStatesInsertMock).toHaveBeenCalledOnce()
+      expect(getStepAssigneeGateMock).toHaveBeenCalledWith('live', 'p1', 'materials_readiness')
+    })
+
+    it('rejects an unassigned site_pm on materials_readiness, before any write', async () => {
+      assigneeGatedRoleMock.mockReturnValue('site_pm')
+      // Gate is held by a DIFFERENT user ('s1') than the caller ('s2').
+      getStepAssigneeGateMock.mockResolvedValue('s1')
+
+      const { confirmDualRoleStepAs } = await import('@/actions/workflow')
+      const res = await confirmDualRoleStepAs({
+        projectId: 'p1',
+        expectedStepN: 17,
+        userId: 's2',
+        role: 'site_pm',
+      })
+
+      expect(res).toEqual({
+        ok: false,
+        advanced: false,
+        message: 'This step is assigned to a specific Site PM for this project.',
+      })
+      expect(workflowStepStatesInsertMock).not.toHaveBeenCalled()
+      expect(insertValuesMock).not.toHaveBeenCalled()
+    })
+
+    it('DUAL-ROLE SAFETY: a factory_pm confirming their own half of materials_readiness is unaffected by the site_pm gate', async () => {
+      returningMock.mockResolvedValue([{ confirmedRoles: ['factory_pm'] }])
+      // The step IS site_pm-gated, but the caller's role ('factory_pm')
+      // never matches assigneeGatedRole('materials_readiness') ('site_pm'),
+      // so confirmDualRoleStepAs must never even consult the gate — even
+      // though, if it did, getStepAssigneeGateMock would resolve a userId
+      // that differs from the caller and would otherwise reject them.
+      assigneeGatedRoleMock.mockReturnValue('site_pm')
+      getStepAssigneeGateMock.mockResolvedValue('some-other-site-pm-id')
+
+      const { confirmDualRoleStepAs } = await import('@/actions/workflow')
+      const res = await confirmDualRoleStepAs({
+        projectId: 'p1',
+        expectedStepN: 17,
+        userId: 'f1',
+        role: 'factory_pm',
+      })
+
+      expect(res.ok).toBe(true)
+      expect(workflowStepStatesInsertMock).toHaveBeenCalledOnce()
+      expect(getStepAssigneeGateMock).not.toHaveBeenCalled()
+    })
   })
 })
