@@ -6,7 +6,7 @@ import { db } from '@/db'
 import { projects, projectStepCompletions, workflowStepStates } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { canRoleActOnStep, findStep, lastStepN, type UserRole } from '@/lib/workflow'
-import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
+import { getLiveWorkflowSteps, assigneeGatedRole, getStepAssigneeGate } from '@/lib/workflow-graph'
 
 function revalidateBoards() {
   revalidatePath('/site-pm/projects')
@@ -39,6 +39,14 @@ export async function advanceProjectStep(opts: {
   const step = findStep(steps, expectedStepN)
   if (!step) return false
   if (!canRoleActOnStep(step.role, role as UserRole)) return false
+
+  // Quick task 260716-h0i: real server-side enforcement — only the site_pm
+  // assigned via ops_design_confirmation may act on this project's gated
+  // steps. No-op for any other role/step.
+  if (assigneeGatedRole(step.key) === role) {
+    const gateUserId = await getStepAssigneeGate('live', projectId, step.key)
+    if (gateUserId && gateUserId !== userId) return false
+  }
 
   await db.insert(projectStepCompletions).values({
     projectId,
@@ -119,6 +127,22 @@ export async function confirmDualRoleStepAs(opts: {
   }
   if (!(step.dualRoles as string[]).includes(role)) {
     return { ok: false, advanced: false, message: 'Not your step.' }
+  }
+
+  // Quick task 260716-h0i: real server-side enforcement — the dual-role
+  // materials_readiness step's site_pm party must be the one assigned via
+  // ops_design_confirmation; the factory_pm party is completely unaffected
+  // (assigneeGatedRole('materials_readiness') === 'site_pm', so this is a
+  // no-op whenever role === 'factory_pm').
+  if (assigneeGatedRole(step.key) === role) {
+    const gateUserId = await getStepAssigneeGate('live', projectId, step.key)
+    if (gateUserId && gateUserId !== userId) {
+      return {
+        ok: false,
+        advanced: false,
+        message: 'This step is assigned to a specific Site PM for this project.',
+      }
+    }
   }
 
   // Atomic upsert: the array_append CASE avoids a JS read-then-write, which
