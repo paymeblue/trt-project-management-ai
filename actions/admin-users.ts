@@ -10,6 +10,7 @@ import { requireAdmin, isAdminRole } from '@/lib/dal'
 import { Roles, userRoleLabel, type UserRole } from '@/lib/workflow'
 import { sendEmail } from '@/lib/email'
 import { credentialsEmail } from '@/lib/email-templates'
+import { positionExists } from '@/lib/positions'
 
 const ASSIGNABLE_ROLES: UserRole[] = [
   Roles.FactoryPm,
@@ -101,6 +102,35 @@ export async function updateUserRoleAction(userId: string, newRole: string): Pro
   await db
     .update(users)
     .set({ role: newRole as UserRole, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+  revalidatePath('/admin/users')
+  return { ok: true }
+}
+
+/**
+ * Admin-only: set (or clear) another user's position (title), e.g. Head of
+ * Design, Operations Admin. Previously position was self-service only via
+ * /profile — this lets an admin assign it directly from Manage Users, same
+ * protection rules as updateUserRoleAction (cannot touch another admin).
+ */
+export async function updateUserPositionAction(
+  userId: string,
+  newPosition: string | null,
+): Promise<ActionResult> {
+  const { userId: meId } = await requireAdmin()
+  if (newPosition && !(await positionExists(newPosition))) {
+    return { ok: false, error: 'Invalid position.' }
+  }
+
+  const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+  if (!target) return { ok: false, error: 'User not found.' }
+  if (isAdminRole(target.role as UserRole) && target.id !== meId) {
+    return { ok: false, error: 'You cannot modify another administrator.' }
+  }
+
+  await db
+    .update(users)
+    .set({ position: newPosition, updatedAt: new Date() })
     .where(eq(users.id, userId))
   revalidatePath('/admin/users')
   return { ok: true }

@@ -3,7 +3,7 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { requireAdmin } from '@/lib/dal'
 import { Roles } from '@/lib/workflow'
-import { getPositionsWithCounts } from '@/lib/positions'
+import { getPositionsWithCounts, getPositions } from '@/lib/positions'
 import AdminUsersTable from '@/app/_components/admin-users-table'
 import AdminCreateUser from '@/app/_components/admin-create-user'
 import PositionsManager from '@/app/_components/positions-manager'
@@ -13,10 +13,11 @@ export const dynamic = 'force-dynamic'
 export default async function AdminUsersPage() {
   const { userId, role } = await requireAdmin()
   const rows = await db
-    .select({ id: users.id, name: users.name, email: users.email, role: users.role })
+    .select({ id: users.id, name: users.name, email: users.email, role: users.role, position: users.position })
     .from(users)
     .orderBy(desc(users.createdAt))
   const positions = await getPositionsWithCounts()
+  const positionOptions = await getPositions()
   const isSuperAdmin = role === Roles.SuperAdmin
 
   return (

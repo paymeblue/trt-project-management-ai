@@ -91,6 +91,13 @@ export default function SignInForm() {
       <p className="mt-6 text-center text-sm text-gray-500">
         Accounts are created by your administrator. Contact them if you need access.
       </p>
+
+      <a
+        href="/sign-in?newSession=1"
+        className="mt-2 block text-center text-sm font-medium text-primary hover:underline"
+      >
+        Sign in as a different user
+      </a>
     </div>
   );
 }

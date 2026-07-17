@@ -6,6 +6,7 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import SidebarNav from '@/app/_components/sidebar-nav';
 import SignOutButton from '@/app/_components/sign-out-button';
+import TabSignOutButton from '@/app/_components/tab-sign-out-button';
 import PaulArredo from '@/app/_components/paul-arredo';
 import ThemeToggle from '@/app/_components/theme-toggle';
 import MobileSidebar from '@/app/_components/mobile-sidebar';
@@ -102,8 +103,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
         <SidebarNav role={role} />
 
-        <div className="border-t border-outline-variant p-4">
+        <div className="border-t border-outline-variant p-4 flex flex-wrap gap-2">
           <SignOutButton />
+          <TabSignOutButton />
         </div>
       </aside>
 
