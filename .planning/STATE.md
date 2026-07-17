@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 Phase: 20.1 (Per-Tab Independent Auth Sessions) — INSERTED, ready to plan
 Plan: 4 of 4
 Status: Phase 20 ready to execute; Phase 20.1 inserted ahead of it for the urgent auth architecture fix — run /gsd:plan-phase 20.1
-Last activity: 2026-07-16 -- Fixed assignee-gate regression: Architects who ARE the correctly-assigned brief_taking/kickoff_meeting/design_stage owner were falling through the role-scope visibility check (assigneeGatedRole singular -> assigneeGatedRoles array, now covers ['design','architect'])
+Last activity: 2026-07-17 -- Completed quick task 260717-cl0: Materials/Accessories Readiness checklist photo/answer gating fixed (per-item photo-on-yes, Material/Accessories mandatory to answer, Upholstery optional); Phase 20.1 (Per-Tab Independent Auth Sessions) fully planned — 4 PLAN.md files across 4 waves, ready for plan-checking
 
 ## Performance Metrics
 
@@ -165,6 +165,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 | 2026-07-11 | assignee-notification | Closed Phase 19's ROLE-02 gap — notifyUser wired into assignUser after durable write, header bell mounted for every role (was super_admin-only), markOne no longer routes assignment notifications to /disputes | complete ✓ |
 | 2026-07-12 | fix-inconsistent-step-completion-feedbac | Live-QA audit found step advancement itself was correct on all 23 steps, but yes_no_upload/approval step renderers (10/23 steps) showed success and error messages in identical gray text with no auto-redirect; ported the working green/red + auto-redirect pattern from assignment-step.tsx into both, and replaced silent redirect() bounces on unauthorized-role/position-mismatch hits with a rendered message | complete ✓ |
 | 2026-07-13 | 260713-c0d-replace-the-workflow-configurator-s-list | Replaced Workflow Configurator List view's native HTML5 drag-and-drop (+ confirm modal) with single-click up/down icon buttons and a per-row move-to-position number input, mirroring checklist-editor.tsx's ItemRow pattern; `moveConfigStepToIndexAction` and Graph view untouched | complete ✓ |
+| 2026-07-17 | 260717-cl0-fix-the-material-readiness-checklist-for | Materials/Accessories Readiness checklist (factory_manager_readiness): removed incorrect bulk 3-photo requirement, replaced with per-item photo required only when answered "yes" (missingConditionalPhotos), plus Material/Accessories now mandatory to answer while Upholstery stays fully optional (missingRequiredAnswers) — both client-gated and server-enforced, scoped to this one checklist slug only | complete ✓ |
 
 ## Deferred Items
 
