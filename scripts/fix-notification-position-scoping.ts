@@ -1,16 +1,18 @@
 /**
- * One-time repair (debug session: notification-position-scoping).
+ * One-time repair (debug session: notification-position-scoping; extended
+ * 2026-07-17 to cover step 19 per user-reported item #12 in the same class).
  *
  * Root cause: `set_delivery_timeline` (step 5), `internal_approval` (step
- * 12), and `send_for_production` (step 13, SENDER side) all have
- * `role='operations'` with `requiredPosition` NULL in graph='live'.
+ * 12), `send_for_production` (step 13, SENDER side), and
+ * `approval_installation` (step 19) all have `role='operations'` with
+ * `requiredPosition` NULL in graph='live'.
  * `canRoleActOnStep()` (lib/workflow.ts) special-cases stepRole='operations'
  * to `isAdminRole(userRole)` — true for BOTH `operations`- and
  * `super_admin`-role users, with no further narrowing when
  * `requiredPosition` is falsy. That NULL was deliberate under a since-
  * superseded design decision (D-01, quick task 260713-rb2/260714-qe4 — see
  * db/workflow-live-steps.ts comments), which REQUIREMENTS.md STG-11 and this
- * debug session's trigger now supersede for these 3 ops-approval-chain
+ * debug session's trigger now supersede for these ops-approval-chain
  * steps specifically: they must be scoped to the exact Operations Admin
  * position (`operations_manager_admin`), not any operations/super_admin
  * title.
@@ -21,7 +23,7 @@
  * approvalSenderEligible/approvalReceiverEligible in lib/workflow-graph.ts,
  * and lib/my-work.ts's position-mismatch exclusion) already implements the
  * exact-position gate correctly; it was simply never fed a value for these
- * 3 rows. `send_for_production`'s receiverRequiredPosition
+ * rows. `send_for_production`'s receiverRequiredPosition
  * (chief_production_officer) is already correct and is left untouched —
  * only its SENDER-side requiredPosition is set here.
  *
@@ -45,7 +47,12 @@ const { workflowStepDefinitions, positions } = schema
 
 const GRAPH = 'live'
 const TARGET_POSITION = 'operations_manager_admin'
-const TARGET_KEYS = ['set_delivery_timeline', 'internal_approval', 'send_for_production'] as const
+const TARGET_KEYS = [
+  'set_delivery_timeline',
+  'internal_approval',
+  'send_for_production',
+  'approval_installation',
+] as const
 
 async function main() {
   const [pos] = await db
