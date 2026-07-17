@@ -8,6 +8,7 @@ import {
 } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import ChecklistWizard, { type WizardItem } from '@/app/_components/checklist-wizard'
+import EscalateButton from '@/app/_components/escalate-button'
 import {
   REQUIRED_PHOTOS,
   findStep,
@@ -164,6 +165,14 @@ export default async function ChecklistPage({
           }),
         )}
       />
+
+      {workflowProjectId && (
+        <EscalateButton
+          projectId={workflowProjectId}
+          checklistLabel={def.name}
+          viewerRole={role as UserRole}
+        />
+      )}
 
       <h2 className="mb-3 mt-10 text-sm font-semibold uppercase tracking-wide text-gray-500">
         View submissions

@@ -3,6 +3,7 @@ import { db } from '@/db'
 import { readinessForms, projects } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import ReadinessForm from '@/app/_components/readiness-form'
+import EscalateButton from '@/app/_components/escalate-button'
 import { findStep, canActOnGraphStep, type UserRole } from '@/lib/workflow'
 import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
 
@@ -92,6 +93,14 @@ export default async function ReadinessPage({
         returnTo={workflowProjectId ? '/factory-pm/projects' : null}
         initialProject={workflowProjectName}
       />
+
+      {workflowProjectId && (
+        <EscalateButton
+          projectId={workflowProjectId}
+          checklistLabel="Materials / Accessories Readiness Form"
+          viewerRole={role as UserRole}
+        />
+      )}
 
       <h2 className="mb-3 mt-10 text-sm font-semibold text-gray-900">Your submissions</h2>
       <div className="space-y-2">
