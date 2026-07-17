@@ -290,10 +290,53 @@ export const REQUIRED_PHOTOS: Record<string, number> = {
   // v2.0 Phase 22: "has optimisation been done? ... upload document" — the
   // one required attachment for the Production Process checklist.
   production_process: 1,
-  // v2.0 Phase 22: the Factory Manager's "3 readiness forms" (material,
-  // accessories, upholstery) are captured as 3 required photo attachments,
-  // mirroring the existing Materials/Accessories Readiness Form pattern.
-  factory_manager_readiness: 3,
+  // factory_manager_readiness deliberately absent: quick task 260717-cl0
+  // replaced the incorrect flat "3 photos on the last step" rule with the
+  // answer-gated, per-item rule below (missingConditionalPhotos).
+}
+
+// Quick task 260717-cl0: the Materials / Accessories Readiness checklist DB
+// slug — shared constant so client and server agree on which checklist gets
+// the answer-gated per-item photo rule and the mandatory-answer rule.
+export const FM_READINESS_SLUG = 'factory_manager_readiness'
+
+// The one item under factory_manager_readiness that stays fully optional
+// (may be left unanswered, and only needs a photo if answered "yes").
+// Matched by label (template items have no stable machine key yet) so the
+// rule survives minor label edits.
+export function isOptionalFmReadinessItem(item: { label: string }): boolean {
+  return item.label.toLowerCase().includes('upholstery')
+}
+
+// Returns the ids of items answered "yes" but missing their required photo.
+// Scoped to FM_READINESS_SLUG — every other checklist slug is untouched.
+export function missingConditionalPhotos(
+  slug: string,
+  items: { id: string }[],
+  answers: Record<string, { value?: string | null } | undefined>,
+  photosByItem: Record<string, string[]>,
+): string[] {
+  if (slug !== FM_READINESS_SLUG) return []
+  return items
+    .filter((item) => answers[item.id]?.value === 'yes')
+    .filter((item) => (photosByItem[item.id]?.length ?? 0) < 1)
+    .map((item) => item.id)
+}
+
+// Returns the ids of mandatory-to-answer items (everything under
+// factory_manager_readiness except the optional item) that are currently
+// unanswered — including an answer object present with a blank/null value.
+// Scoped to FM_READINESS_SLUG — every other checklist slug is untouched.
+export function missingRequiredAnswers(
+  slug: string,
+  items: { id: string; label: string }[],
+  answers: Record<string, { value?: string | null } | undefined>,
+): string[] {
+  if (slug !== FM_READINESS_SLUG) return []
+  return items
+    .filter((item) => !isOptionalFmReadinessItem(item))
+    .filter((item) => !answers[item.id]?.value)
+    .map((item) => item.id)
 }
 
 // Destination for an actionable step. `ack` steps are completed inline from the
