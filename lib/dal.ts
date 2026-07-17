@@ -9,22 +9,46 @@ import { isAdminRole, type UserRole } from "@/lib/workflow"
 export type Role = UserRole
 export { isAdminRole }
 
+// Given a raw bearer token string, decode + check typ==='access' + fail
+// closed. Shared by verifySession()'s header branch and
+// verifySessionForAction() (D-20.1-04-B) — a single choke point for
+// per-tab-token verification so the two call sites can never drift apart.
+async function resolveTabIdentity(rawToken: string): Promise<{ userId: string; role: Role }> {
+  const payload = await verifyTabToken(rawToken)
+  // Fail closed: an invalid/expired token must never fall through to the
+  // shared cookie — that would resolve to whichever user's cookie happens
+  // to be in the browser, i.e. a different tab's identity (D-20.1-01-C).
+  if (!payload || payload.typ !== "access") redirect("/sign-in")
+  return { userId: payload.sub, role: payload.role as Role }
+}
+
 export const verifySession = cache(async (): Promise<{ userId: string; role: Role }> => {
   const authorization = (await headers()).get("authorization")
   if (authorization?.startsWith("Bearer ")) {
     const token = authorization.slice("Bearer ".length)
-    const payload = await verifyTabToken(token)
-    // Fail closed: an invalid/expired header must never fall through to the
-    // shared cookie — that would resolve to whichever user's cookie happens
-    // to be in the browser, i.e. a different tab's identity (D-20.1-01-C).
-    if (!payload || payload.typ !== "access") redirect("/sign-in")
-    return { userId: payload.sub, role: payload.role as Role }
+    return resolveTabIdentity(token)
   }
 
   const session = await auth()
   if (!session?.user?.id) redirect("/sign-in")
   return { userId: session.user.id, role: session.user.role as Role }
 })
+
+// Server-Action-callable sibling to verifySession(). Server Actions cannot
+// receive a client-attached Authorization header (there is no request the
+// client controls headers on) — the per-tab token must instead travel as an
+// ordinary bound function argument (RESEARCH.md Pattern 3). NOT wrapped in
+// cache(): each Server Action invocation is a distinct call, not part of a
+// shared Server-Component render pass.
+export async function verifySessionForAction(
+  explicitToken?: string | null,
+): Promise<{ userId: string; role: Role }> {
+  if (explicitToken) return resolveTabIdentity(explicitToken)
+
+  const session = await auth()
+  if (!session?.user?.id) redirect("/sign-in")
+  return { userId: session.user.id, role: session.user.role as Role }
+}
 
 export async function requireRole(role: Role) {
   const s = await verifySession()

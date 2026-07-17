@@ -124,4 +124,67 @@ describe("DAL (NextAuth session-based)", () => {
       expect(verifyTabTokenMock).not.toHaveBeenCalled()
     })
   })
+
+  describe("verifySessionForAction()", () => {
+    it("explicit valid token: returns { userId, role } from the token, without calling auth()", async () => {
+      verifyTabTokenMock.mockResolvedValue({ sub: "tab-user-3", role: "operations", typ: "access" })
+      const { verifySessionForAction } = await import("@/lib/dal")
+      const result = await verifySessionForAction("valid-access-token")
+      expect(result).toEqual({ userId: "tab-user-3", role: "operations" })
+      expect(verifyTabTokenMock).toHaveBeenCalledWith("valid-access-token")
+      expect(authMock).not.toHaveBeenCalled()
+    })
+
+    it("explicit invalid/expired token: throws REDIRECT and does NOT call auth() (fail-closed)", async () => {
+      verifyTabTokenMock.mockResolvedValue(null)
+      const { verifySessionForAction } = await import("@/lib/dal")
+      await expect(verifySessionForAction("expired-or-garbage")).rejects.toThrow("REDIRECT")
+      expect(authMock).not.toHaveBeenCalled()
+    })
+
+    it("explicit token with typ='refresh': throws REDIRECT and does NOT call auth()", async () => {
+      verifyTabTokenMock.mockResolvedValue({ sub: "tab-user-4", typ: "refresh" })
+      const { verifySessionForAction } = await import("@/lib/dal")
+      await expect(verifySessionForAction("some-refresh-token")).rejects.toThrow("REDIRECT")
+      expect(authMock).not.toHaveBeenCalled()
+    })
+
+    it("explicitToken omitted: falls through to the mocked auth() cookie path", async () => {
+      authMock.mockResolvedValue({ user: { id: "cookie-user-2", role: "factory_pm" } })
+      const { verifySessionForAction } = await import("@/lib/dal")
+      const result = await verifySessionForAction()
+      expect(result).toEqual({ userId: "cookie-user-2", role: "factory_pm" })
+      expect(verifyTabTokenMock).not.toHaveBeenCalled()
+    })
+
+    it("explicitToken = null: falls through to the mocked auth() cookie path", async () => {
+      authMock.mockResolvedValue({ user: { id: "cookie-user-3", role: "site_pm" } })
+      const { verifySessionForAction } = await import("@/lib/dal")
+      const result = await verifySessionForAction(null)
+      expect(result).toEqual({ userId: "cookie-user-3", role: "site_pm" })
+      expect(verifyTabTokenMock).not.toHaveBeenCalled()
+    })
+
+    it("explicitToken = undefined explicitly passed: falls through to the mocked auth() cookie path", async () => {
+      authMock.mockResolvedValue({ user: { id: "cookie-user-4", role: "site_pm" } })
+      const { verifySessionForAction } = await import("@/lib/dal")
+      const result = await verifySessionForAction(undefined)
+      expect(result).toEqual({ userId: "cookie-user-4", role: "site_pm" })
+      expect(verifyTabTokenMock).not.toHaveBeenCalled()
+    })
+
+    it("explicitToken = empty string: falls through to the mocked auth() cookie path (treated as no token)", async () => {
+      authMock.mockResolvedValue({ user: { id: "cookie-user-5", role: "site_pm" } })
+      const { verifySessionForAction } = await import("@/lib/dal")
+      const result = await verifySessionForAction("")
+      expect(result).toEqual({ userId: "cookie-user-5", role: "site_pm" })
+      expect(verifyTabTokenMock).not.toHaveBeenCalled()
+    })
+
+    it("auth() returns null even with no explicit token: throws REDIRECT", async () => {
+      authMock.mockResolvedValue(null)
+      const { verifySessionForAction } = await import("@/lib/dal")
+      await expect(verifySessionForAction()).rejects.toThrow("REDIRECT")
+    })
+  })
 })
