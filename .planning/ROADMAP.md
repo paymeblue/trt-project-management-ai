@@ -378,6 +378,16 @@ Plans:
 **No second invoicing gate**: the earlier-drafted independent invoicing checkpoint after Brief Taking was cut from the finalized 18-stage flow (confirmed 2026-07-09) — one payment gate is sufficient, do not build a second.
 **Plans**: TBD (set at /gsd-plan-phase 20) — scope is now just: (a) narrow PAY-02's gate with `requiredPosition`, (b) extend PAY-02 toggle access to `customer_care`, (c) wire criterion 3's check into Phase 21's new steps when they're built.
 
+### Phase 20.1: Per-Tab Independent Auth Sessions (INSERTED)
+
+**Goal:** Replace the single shared cookie-based session (NextAuth/Auth.js v5 JWT, one `authjs.session-token` cookie per browser) with a per-tab token scheme so different users can be signed in concurrently in different tabs of the same non-incognito browser, without breaking server-side session verification (`lib/dal.ts` DAL pattern used by every Server Component/Action/Route Handler). Root cause confirmed via debug session `.planning/debug/auth-single-session-multi-tab.md` (2026-07-17): cookies are inherently one-per-browser-origin, not per-tab — this is a genuine auth-architecture change (token storage/transport mechanism, CSRF posture implications) touching every session read-path in the app, not a quick patch.
+**Requirements**: TBD (set at /gsd-plan-phase 20.1)
+**Depends on:** Phase 1 (Foundation — Auth, Roles, Email, Schema, DAL)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 20.1 to break down)
+
 ### Phase 21: Front-of-Funnel Stages — Designer Assignment Through Design Approval
 **Goal**: A project can be carried by Design through two distinct designer-assignment moments, kickoff/brief/meeting, and client design approval, arriving at the existing Confirmation step in exactly the state it already expects. (Project Intent itself — STG-01 — already shipped ad hoc; this phase covers STG-02 through STG-07.)
 **Depends on**: Phase 16, Phase 18, Phase 19, Phase 20
