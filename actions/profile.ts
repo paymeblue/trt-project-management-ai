@@ -4,11 +4,11 @@ import { revalidatePath } from 'next/cache'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { users } from '@/db/schema'
-import { verifySession } from '@/lib/dal'
+import { verifySessionForAction } from '@/lib/dal'
 import { positionExists } from '@/lib/positions'
 
-export async function updateProfileAction(formData: FormData): Promise<void> {
-  const { userId } = await verifySession()
+export async function updateProfileAction(tabToken: string | null, formData: FormData): Promise<void> {
+  const { userId } = await verifySessionForAction(tabToken)
   const name = String(formData.get('name') ?? '').trim()
   const positionRaw = String(formData.get('position') ?? '').trim()
   const position = positionRaw && (await positionExists(positionRaw)) ? positionRaw : null
