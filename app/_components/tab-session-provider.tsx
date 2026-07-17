@@ -4,6 +4,18 @@ import { useEffect } from 'react'
 
 const REFRESH_BUFFER_MS = 2 * 60 * 1000
 
+// Fired by any caller (e.g. new-session-form.tsx) immediately after writing a
+// freshly-minted per-tab token to sessionStorage, so the override below can
+// activate synchronously BEFORE that caller's own router.push() fires its
+// RSC fetch. TabSessionProvider is mounted once in the root layout and does
+// not remount on client-side navigation, so its own mount-time check alone
+// would miss a token that first appears mid-session (the D-03 "sign in as a
+// different user" flow) — that gap was caught live during the Task 4
+// checkpoint (a freshly-minted per-tab session's first navigation rendered
+// the ORIGINAL shared-cookie user's dashboard, not the new user's, because
+// the fetch override hadn't been installed yet).
+export const TAB_SESSION_ACTIVATE_EVENT = 'trt-pm:tab-session-activate'
+
 // Installs a window.fetch override, but ONLY for tabs holding a per-tab
 // token in sessionStorage (Phase 20.1). Tabs using the default shared-cookie
 // session never touch window.fetch at all — this is a strict no-op for them.
@@ -24,17 +36,7 @@ export default function TabSessionProvider({
   children: React.ReactNode
 }) {
   useEffect(() => {
-    const token = sessionStorage.getItem('tabAccessToken')
-    if (!token) return // default shared-cookie tab: do not touch fetch at all
-
-    const originalFetch = window.fetch
-    window.fetch = (input, init = {}) => {
-      const headers = new Headers(init.headers)
-      const current = sessionStorage.getItem('tabAccessToken')
-      if (current) headers.set('Authorization', `Bearer ${current}`)
-      return originalFetch(input, { ...init, headers })
-    }
-
+    let originalFetch: typeof window.fetch | undefined
     let timeoutId: ReturnType<typeof setTimeout> | undefined
 
     const clearTabSession = () => {
@@ -46,12 +48,13 @@ export default function TabSessionProvider({
     const scheduleRefresh = () => {
       const expiresAt = Number(sessionStorage.getItem('tabTokenExpiresAt'))
       const refreshToken = sessionStorage.getItem('tabRefreshToken')
-      if (!expiresAt || !refreshToken) return
+      if (!expiresAt || !refreshToken || !originalFetch) return
+      const baseFetch = originalFetch
 
       const delay = Math.max(0, expiresAt - Date.now() - REFRESH_BUFFER_MS)
       timeoutId = setTimeout(async () => {
         try {
-          const res = await originalFetch('/api/auth/tab-refresh', {
+          const res = await baseFetch('/api/auth/tab-refresh', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refreshToken }),
@@ -73,10 +76,29 @@ export default function TabSessionProvider({
       }, delay)
     }
 
-    scheduleRefresh()
+    // Idempotent: a tab that already activated (e.g. via the mount-time
+    // check) ignores a later activate event, and vice versa.
+    const activate = () => {
+      const token = sessionStorage.getItem('tabAccessToken')
+      if (!token || originalFetch) return
+
+      originalFetch = window.fetch
+      window.fetch = (input, init = {}) => {
+        const headers = new Headers(init.headers)
+        const current = sessionStorage.getItem('tabAccessToken')
+        if (current) headers.set('Authorization', `Bearer ${current}`)
+        return originalFetch!(input, { ...init, headers })
+      }
+
+      scheduleRefresh()
+    }
+
+    activate() // default shared-cookie tab: sessionStorage is empty, stays a no-op
+    window.addEventListener(TAB_SESSION_ACTIVATE_EVENT, activate)
 
     return () => {
-      window.fetch = originalFetch
+      window.removeEventListener(TAB_SESSION_ACTIVATE_EVENT, activate)
+      if (originalFetch) window.fetch = originalFetch
       if (timeoutId) clearTimeout(timeoutId)
     }
   }, [])

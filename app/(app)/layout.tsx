@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
-import { redirect } from 'next/navigation';
 import { eq } from 'drizzle-orm';
-import { auth } from '@/auth';
+import { verifySession } from '@/lib/dal';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import SidebarNav from '@/app/_components/sidebar-nav';
@@ -22,11 +21,19 @@ import { getLiveWorkflowSteps } from '@/lib/workflow-graph';
 import { isAdminRole, userRoleLabel, type UserRole } from '@/lib/workflow';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  const session = await auth();
-  if (!session?.user) redirect('/sign-in');
+  // Header-first, cookie-fallback (Phase 20.1): a tab running a per-tab
+  // session must see ITS OWN identity in the sidebar/header chrome, not the
+  // shared cookie's. auth() only ever reads the shared cookie — verifySession()
+  // is the DAL choke point that also honors a per-tab Authorization header,
+  // and every Server Component in this tree must go through it (PATTERNS.md).
+  const { userId, role } = await verifySession();
 
-  const name = session.user.name ?? 'User';
-  const role = (session.user.role as string) ?? 'factory_pm';
+  const [me] = await db
+    .select({ name: users.name, avatarData: users.avatarData, position: users.position })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  const name = me?.name ?? 'User';
   const initials =
     name
       .split(' ')
@@ -34,14 +41,6 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       .slice(0, 2)
       .join('')
       .toUpperCase() || 'U';
-
-  const [me] = session.user.id
-    ? await db
-        .select({ avatarData: users.avatarData, position: users.position })
-        .from(users)
-        .where(eq(users.id, session.user.id))
-        .limit(1)
-    : [];
   const avatarData = me?.avatarData ?? null;
 
   // Admin roles (super_admin / operations) display their job position instead
@@ -52,7 +51,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   // Header switcher + forcing gate get a server-rendered snapshot; the provider
   // then polls /api/my-work to keep them near-real-time.
-  const initialWork = await getMyWork(role as UserRole, session.user.id!);
+  const initialWork = await getMyWork(role as UserRole, userId);
   // Live workflow steps (Phase 17, WF-06): seeded once per request from the DB
   // graph, exposed to client components via useWorkflowSteps().
   const liveSteps = await getLiveWorkflowSteps();
@@ -122,7 +121,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             />
             <HeaderProjectSwitcher
               viewerRole={role as UserRole}
-              viewerUserId={session.user.id!}
+              viewerUserId={userId}
               viewerPosition={me?.position ?? null}
             />
           </div>

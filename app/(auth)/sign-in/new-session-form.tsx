@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { tabSigninAction } from '@/actions/tab-auth';
 import type { TabSigninState } from '@/actions/tab-auth';
 import PasswordInput from '@/app/_components/password-input';
+import { TAB_SESSION_ACTIVATE_EVENT } from '@/app/_components/tab-session-provider';
 
 const initialState: TabSigninState = {};
 
@@ -27,7 +28,22 @@ export default function NewSessionForm() {
       sessionStorage.setItem('tabAccessToken', state.accessToken);
       sessionStorage.setItem('tabRefreshToken', state.refreshToken);
       sessionStorage.setItem('tabTokenExpiresAt', String(state.expiresAt));
+      // TabSessionProvider mounts once at the root layout and won't see this
+      // brand-new token on its own — tell it to activate the fetch override
+      // NOW, synchronously, before router.push() below fires the RSC fetch
+      // for /dashboard. Without this, that first navigation goes out
+      // unauthenticated-by-header and falls through to the shared cookie,
+      // rendering the ORIGINAL user's dashboard instead of this new one.
+      window.dispatchEvent(new Event(TAB_SESSION_ACTIVATE_EVENT));
       router.push('/dashboard');
+      // The (app) layout (sidebar, name/role header) is a shared segment
+      // Next's client Router Cache can reuse across a soft navigation even
+      // though page.tsx re-executes verifySession() fresh — without this,
+      // the URL and page body correctly reflect the new per-tab user while
+      // the sidebar keeps showing the ORIGINAL user's nav shape. refresh()
+      // discards the cached segment tree so the layout re-renders from the
+      // new Authorization-header identity too.
+      router.refresh();
     }
   }, [state, router]);
 
