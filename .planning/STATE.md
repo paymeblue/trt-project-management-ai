@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
-status: completed
-stopped_at: Phase 19 already complete (shipped 2026-07-11); a redundant discuss-phase session ran concurrently and its 19-CONTEXT.md/19-DISCUSSION-LOG.md are kept only as a historical record, not consumed for planning. Ready for Phase 20.
-last_updated: "2026-07-14T16:30:00.000Z"
-last_activity: "2026-07-14 -- Completed quick task 260714-qe4: live graph restructured 22→21 per owner batch-2 spec (CC 2-phase Invoicing, ops timeline step, Head of Projects assigns Site PM, site confirmation moved before drawing correction, installation_readiness removed, Installation Process consolidates sorting/execution/close-out, Site PM sign-off upload); Test Project remapped to step 14; PARITY 21/21"
+status: executing
+stopped_at: Phase 20.1 context gathered
+last_updated: "2026-07-17T07:41:40.319Z"
+last_activity: "2026-07-16 -- Fixed assignee-gate regression: Architects who ARE the correctly-assigned brief_taking/kickoff_meeting/design_stage owner were falling through the role-scope visibility check (assigneeGatedRole singular -> assigneeGatedRoles array, now covers ['design','architect'])"
 progress:
-  total_phases: 22
+  total_phases: 23
   completed_phases: 4
   total_plans: 20
   completed_plans: 20
-  percent: 18
+  percent: 17
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 
 ## Current Position
 
-Phase: 19 (New Roles & Assignment) — COMPLETE (4/4 plans). ROLE-01..07 all Complete (ROLE-02's assignee-notification gap closed by quick task 260711-assignee-notification).
+Phase: 20.1 (Per-Tab Independent Auth Sessions) — INSERTED, ready to plan
 Plan: 4 of 4
-Status: Phase complete — ready for Phase 20 (mostly delivered ad hoc already; scope is narrow, see ROADMAP.md Phase 20 section)
+Status: Phase 20 ready to execute; Phase 20.1 inserted ahead of it for the urgent auth architecture fix — run /gsd:plan-phase 20.1
 Last activity: 2026-07-16 -- Fixed assignee-gate regression: Architects who ARE the correctly-assigned brief_taking/kickoff_meeting/design_stage owner were falling through the role-scope visibility check (assigneeGatedRole singular -> assigneeGatedRoles array, now covers ['design','architect'])
 
 ## Performance Metrics
@@ -45,6 +45,10 @@ Last activity: 2026-07-16 -- Fixed assignee-gate regression: Architects who ARE 
 | - | - | - | - |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 20.1 inserted after Phase 20: Per-tab independent auth sessions (per-tab token scheme replacing shared session cookie), urgent insertion from user-reported auth bug triage 2026-07-17 (URGENT)
 
 | Phase 16 P01 | 25min | 2 tasks | 1 files |
 | Phase 16 P02 | 15min | 3 tasks | 4 files |
@@ -170,6 +174,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 
 ## Session Continuity
 
-Last session: 2026-07-12T18:07:23.272Z
-Stopped at: Phase 19 already complete (shipped 2026-07-11); a redundant discuss-phase session ran concurrently and its 19-CONTEXT.md/19-DISCUSSION-LOG.md are kept only as a historical record, not consumed for planning. Ready for Phase 20.
+Last session: 2026-07-17T07:41:40.312Z
+Stopped at: Phase 20.1 context gathered
 Resume file: 
+.planning/phases/20.1-per-tab-independent-auth-sessions-replace-the-single-shared-/20.1-CONTEXT.md
