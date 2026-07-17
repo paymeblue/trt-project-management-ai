@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: executing
-stopped_at: Phase 20.1 context gathered
-last_updated: "2026-07-17T13:50:37.124Z"
-last_activity: 2026-07-17 -- Phase 20.1 execution started
+stopped_at: Completed 20.1-01-PLAN.md
+last_updated: "2026-07-17T14:15:28.257Z"
+last_activity: 2026-07-17
 progress:
   total_phases: 23
   completed_phases: 4
   total_plans: 24
-  completed_plans: 20
+  completed_plans: 21
   percent: 17
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 ## Current Position
 
 Phase: 20.1 (Per-Tab Independent Auth Sessions) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 20.1
-Last activity: 2026-07-17 -- Phase 20.1 execution started
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-07-17
 
 ## Performance Metrics
 
@@ -45,6 +45,8 @@ Last activity: 2026-07-17 -- Phase 20.1 execution started
 | - | - | - | - |
 
 ## Accumulated Context
+
+| Phase 20.1 P01 | 15min | 3 tasks | 7 files |
 
 ### Roadmap Evolution
 
@@ -120,6 +122,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 19-02, 2026-07-11]: `factory_operations` and `factory_manager` (ROLE-01) each got their own Phase-15-pattern dashboard shell (`app/(app)/factory-operations/dashboard/page.tsx`, `app/(app)/factory-manager/dashboard/page.tsx`) + sidebar NAV entries, replacing their prior `ROLE_DASHBOARD` fallback to `/production/dashboard`. About page organogram (`ROLES` array) grew to cover both, describing their real live workflow steps (Production Process checklist, Quality Control readiness forms — both already shipped ad hoc in Phase 22e). `trt-flow-diagram.tsx` needed zero changes — its `ROLE_COLOR`/legend/`DETAIL` maps already covered both roles from that same Phase 22e ad hoc work. Continued the Phase 19-01 precedent of direct-editing STATE.md rather than invoking `gsd-sdk query state.*` handlers, to avoid the same frontmatter-clobbering side effect.
 - [Phase 19-03, 2026-07-11]: Closed ROLE-05's remaining gap — profile page's free-text position `<input list=datalist>` replaced with a `<select>` bound to `POSITION_VALUES`/`POSITION_LABELS` (lib/workflow.ts, 19-01), `actions/profile.ts` gained a server-side `POSITION_VALUES.includes()` guard coercing any out-of-enum value to `null` before the DB write, admin user creation (`admin-create-user.tsx` + `createUserAction`) had `position` removed entirely (D: position is not collected at account creation), and the Workflow Configurator's `requiredPosition` control (workflow-configurator-shared.tsx) was converted from `KNOWN_POSITIONS` one-click-buttons + `__custom__` free-text fallback to a plain enum-backed `<select>` — the free-text fallback is gone so a super admin can no longer author a `requiredPosition` gate value that could never match any real user. `KNOWN_POSITIONS` export removed (no longer imported anywhere after admin-create-user.tsx stopped using it). Verified: `tsc --noEmit` and `npm run lint` clean after each task. Continued the direct-STATE.md-edit precedent from 19-01/19-02.
 - [Phase 19-04, 2026-07-11]: Wrote `scripts/verify-role-assignment.ts` to prove ROLE-02/03/06/07 against real shipped code + live DB data (throwaway users/project, cleaned up after). ROLE-07 (targetRoles array widening), ROLE-03 (roleEnum excludes all 6 super-admin title strings), and ROLE-06 (architect role + dashboard) all PASS. ROLE-02's pool-membership half also PASSES (design/architect-role user accepted on the live `assign_designer_brief` step, out-of-pool `factory_pm` user rejected with `assignee-role-mismatch`) — but the script's assignee-notification assertion genuinely FAILS: neither `assignUser` (lib/workflow-graph.ts) nor `assignUserAction` (actions/workflow-graph.ts) ever writes a `notifications` row for the assignee. Per this plan's own must_haves truth ("any genuine gap found during verification is recorded as a finding, not silently marked complete"), ROLE-02 was left `[~]` Partial in REQUIREMENTS.md rather than force-flipped to `[x]` — the missing notification wiring is new production code outside this plan's `files_modified` scope (verification + docs only) and is deferred to a future plan/quick-task. REQUIREMENTS.md: ROLE-01/03/05/06/07 flipped to Complete with verification notes; D-19-04-A reconciliation note added under ROLE-01 clarifying the roadmap's "ops_factory" wording maps to the already-shipped `factory_operations` enum value (no rename, note only). ROADMAP.md: Phase 19 marked Complete (4/4 plans), with an explicit Status caveat documenting both the ROLE-02 partial finding and a separately-discovered, out-of-scope staleness in `scripts/verify-design-pipeline.ts` (its hardcoded `design_meeting` step no longer exists in the live graph — removed by later, unrelated ad hoc work; not fixed here, logged as deferred). Phase 19 is now complete; Phase 20 is next (mostly already delivered ad hoc, narrow remaining scope).
+- [Phase 20.1]: Per-tab tokens use distinct JWT salt (trt-pm.tab-session), same AUTH_SECRET; 20min access / 8h refresh TTLs with typ claim; verifySession() fails closed on invalid Authorization header rather than falling back to the shared cookie
 
 ### Pending Todos
 
@@ -175,7 +178,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 
 ## Session Continuity
 
-Last session: 2026-07-17T07:41:40.312Z
-Stopped at: Phase 20.1 context gathered
+Last session: 2026-07-17T14:15:28.250Z
+Stopped at: Completed 20.1-01-PLAN.md
 Resume file: 
-.planning/phases/20.1-per-tab-independent-auth-sessions-replace-the-single-shared-/20.1-CONTEXT.md
+None
