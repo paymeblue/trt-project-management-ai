@@ -2,17 +2,34 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateUserRoleAction, deleteUserAction, resetUserPasswordAction } from '@/actions/admin-users'
+import {
+  updateUserRoleAction,
+  updateUserPositionAction,
+  deleteUserAction,
+  resetUserPasswordAction,
+} from '@/actions/admin-users'
 import { ALL_USER_ROLES } from '@/lib/workflow'
 
-type Row = { id: string; name: string; email: string; role: string }
+type Row = { id: string; name: string; email: string; role: string; position: string | null }
+type PositionOption = { slug: string; label: string }
 
 const ADMIN_ROLES = ['super_admin', 'operations']
 
-export default function AdminUsersTable({ users, meId }: { users: Row[]; meId: string }) {
+export default function AdminUsersTable({
+  users,
+  meId,
+  positionOptions,
+}: {
+  users: Row[]
+  meId: string
+  positionOptions: PositionOption[]
+}) {
   const router = useRouter()
   const [roles, setRoles] = useState<Record<string, string>>(
     Object.fromEntries(users.map((u) => [u.id, u.role])),
+  )
+  const [positions, setPositions] = useState<Record<string, string>>(
+    Object.fromEntries(users.map((u) => [u.id, u.position ?? ''])),
   )
   const [busy, setBusy] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Row | null>(null)
@@ -28,9 +45,15 @@ export default function AdminUsersTable({ users, meId }: { users: Row[]; meId: s
       return
     }
     setBusy(u.id)
-    const res = await updateUserRoleAction(u.id, roles[u.id])
+    const roleRes = await updateUserRoleAction(u.id, roles[u.id])
+    if (!roleRes.ok) {
+      setBusy(null)
+      setWarning(roleRes.error ?? 'Update failed.')
+      return
+    }
+    const posRes = await updateUserPositionAction(u.id, positions[u.id] || null)
     setBusy(null)
-    if (!res.ok) setWarning(res.error ?? 'Update failed.')
+    if (!posRes.ok) setWarning(posRes.error ?? 'Position update failed.')
     else router.refresh()
   }
 
@@ -84,6 +107,7 @@ export default function AdminUsersTable({ users, meId }: { users: Row[]; meId: s
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Role</th>
+              <th className="px-4 py-3">Position</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -107,6 +131,21 @@ export default function AdminUsersTable({ users, meId }: { users: Row[]; meId: s
                       {ALL_USER_ROLES.map((r) => (
                         <option key={r.value} value={r.value}>
                           {r.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={positions[u.id]}
+                      disabled={locked}
+                      onChange={(e) => setPositions((p) => ({ ...p, [u.id]: e.target.value }))}
+                      className="rounded-md border border-gray-300 px-2 py-1 text-sm disabled:opacity-50"
+                    >
+                      <option value="">— None —</option>
+                      {positionOptions.map((p) => (
+                        <option key={p.slug} value={p.slug}>
+                          {p.label}
                         </option>
                       ))}
                     </select>

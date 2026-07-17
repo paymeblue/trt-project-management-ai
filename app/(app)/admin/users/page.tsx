@@ -36,7 +36,7 @@ export default async function AdminUsersPage() {
       <h2 className="mb-3 mt-10 text-sm font-semibold uppercase tracking-wide text-gray-500">
         All users
       </h2>
-      <AdminUsersTable users={rows} meId={userId} />
+      <AdminUsersTable users={rows} meId={userId} positionOptions={positionOptions} />
 
       <h2 className="mb-3 mt-10 text-sm font-semibold uppercase tracking-wide text-gray-500">
         Positions
