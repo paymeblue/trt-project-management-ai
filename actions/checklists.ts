@@ -17,6 +17,9 @@ import {
   canEditChecklist,
   findStep,
   canActOnGraphStep,
+  missingConditionalPhotos,
+  missingRequiredAnswers,
+  FM_READINESS_SLUG,
   type UserRole,
   type WorkflowRole,
 } from '@/lib/workflow'
@@ -41,6 +44,10 @@ export type SubmitChecklistInput = {
   expectedStepN?: number | null
   // Photo-evidence data URLs (required for some checklists, e.g. delivery_project).
   photos?: string[] | null
+  // Quick task 260717-cl0: per-item photo evidence, keyed by template item id
+  // — required only for items answered "yes" on the Materials/Accessories
+  // Readiness checklist (FM_READINESS_SLUG). Ignored for every other slug.
+  photosByItem?: Record<string, string[]> | null
 }
 
 export type SubmitChecklistState = {
@@ -89,6 +96,43 @@ export async function submitChecklistAction(
     return { status: 'error', message: 'One of the photos is too large. Please retake it.' }
   }
 
+  // Quick task 260717-cl0: per-item photo evidence — sanitize server-side,
+  // never trust the client. Only meaningful for FM_READINESS_SLUG; ignored
+  // (and never persisted) for every other checklist.
+  const rawPhotosByItem =
+    slug === FM_READINESS_SLUG && input?.photosByItem && typeof input.photosByItem === 'object'
+      ? input.photosByItem
+      : {}
+  const photosByItem: Record<string, string[]> = {}
+  for (const item of items) {
+    const arr = Array.isArray(rawPhotosByItem[item.id]) ? rawPhotosByItem[item.id] : []
+    photosByItem[item.id] = arr
+      .filter((p) => typeof p === 'string' && p.startsWith('data:image/'))
+      .slice(0, 1)
+  }
+  const itemPhotosFlat = Object.values(photosByItem).flat()
+  if (itemPhotosFlat.some((p) => p.length > MAX_PHOTO_DATA)) {
+    return { status: 'error', message: 'One of the photos is too large. Please retake it.' }
+  }
+
+  // Quick task 260717-cl0: authoritative server-side gates for the Materials/
+  // Accessories Readiness checklist — never trust the client's Next/Submit
+  // gating. No-ops for every other slug (both helpers short-circuit).
+  const missingAnswers = missingRequiredAnswers(slug, items, answers)
+  if (missingAnswers.length > 0) {
+    return {
+      status: 'error',
+      message: 'Answer the Material and Accessories readiness items before submitting.',
+    }
+  }
+  const missingPhotos = missingConditionalPhotos(slug, items, answers, photosByItem)
+  if (missingPhotos.length > 0) {
+    return {
+      status: 'error',
+      message: 'Attach a photo for each item you answered "yes".',
+    }
+  }
+
   // Step-linked submissions must be authorized against the live workflow graph
   // server-side — the client's slug/step pairing is never trusted.
   if (projectId && input?.expectedStepN) {
@@ -116,6 +160,10 @@ export async function submitChecklistAction(
   }
 
   try {
+    // Quick task 260717-cl0: per-item photos flatten into the existing
+    // `checklists.photoData` array alongside any bulk photos, matching the
+    // current base64 storage shape — evidence stays saved either way.
+    const allPhotos = [...photos, ...itemPhotosFlat]
     const [created] = await db
       .insert(checklists)
       .values({
@@ -124,7 +172,7 @@ export async function submitChecklistAction(
         createdBy: userId,
         status: 'submitted',
         submittedAt: new Date(),
-        photoData: photos.length > 0 ? photos : null,
+        photoData: allPhotos.length > 0 ? allPhotos : null,
       })
       .returning({ id: checklists.id })
 

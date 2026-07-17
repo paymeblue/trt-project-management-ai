@@ -8,6 +8,7 @@ import {
   type SubmitChecklistState,
 } from '@/actions/checklists'
 import { downscaleImage } from '@/lib/downscale-image'
+import { FM_READINESS_SLUG, missingConditionalPhotos, missingRequiredAnswers } from '@/lib/workflow'
 
 export type WizardItem = {
   id: string
@@ -45,6 +46,12 @@ export default function ChecklistWizard({
   const [answers, setAnswers] = useState<Record<string, ChecklistAnswer>>({})
   const [photos, setPhotos] = useState<string[]>([])
   const [photoError, setPhotoError] = useState('')
+  // Quick task 260717-cl0: per-item photo evidence for the Materials/
+  // Accessories Readiness checklist — capped at 1 photo per item, only
+  // required when that item is answered "yes". Scoped entirely to
+  // FM_READINESS_SLUG; every other checklist keeps the bulk `photos` flow.
+  const [photosByItem, setPhotosByItem] = useState<Record<string, string[]>>({})
+  const [itemPhotoError, setItemPhotoError] = useState<Record<string, string>>({})
   const [state, dispatch, pending] = useActionState(submitChecklistAction, INITIAL)
 
   // When this checklist was opened from a project workflow step and the step
@@ -79,6 +86,18 @@ export default function ChecklistWizard({
   const progress = useMemo(
     () => (total === 0 ? 0 : Math.round(((stepIdx + 1) / total) * 100)),
     [stepIdx, total],
+  )
+
+  // Quick task 260717-cl0: shared gating helpers (lib/workflow.ts) — no-ops
+  // for every slug other than FM_READINESS_SLUG. Computed above the early
+  // returns below so these hooks always run in the same order every render.
+  const missingPhotoIds = useMemo(
+    () => missingConditionalPhotos(slug, items, answers, photosByItem),
+    [slug, items, answers, photosByItem],
+  )
+  const missingAnswerIds = useMemo(
+    () => missingRequiredAnswers(slug, items, answers),
+    [slug, items, answers],
   )
 
   if (total === 0) {
@@ -127,8 +146,31 @@ export default function ChecklistWizard({
     }
   }
 
+  // Quick task 260717-cl0: per-item photo capture for the Materials/
+  // Accessories Readiness checklist — capped at 1 photo per item.
+  async function onItemPhoto(itemId: string, e: React.ChangeEvent<HTMLInputElement>) {
+    setItemPhotoError((prev) => ({ ...prev, [itemId]: '' }))
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file
+    if (!file) return
+    try {
+      const data = await downscaleImage(file, 1280, 0.8)
+      setPhotosByItem((prev) => ({ ...prev, [itemId]: [data] }))
+    } catch {
+      setItemPhotoError((prev) => ({
+        ...prev,
+        [itemId]: 'Could not read this image. Please try another.',
+      }))
+    }
+  }
+
   const photosNeeded = Math.max(0, requirePhotos - photos.length)
   const photosOk = photos.length >= requirePhotos
+
+  const labelById = (id: string) => items.find((i) => i.id === id)?.label ?? ''
+  const currentStepMissingAnswer = group.items.some((it) => missingAnswerIds.includes(it.id))
+  const currentStepMissingPhoto = group.items.some((it) => missingPhotoIds.includes(it.id))
+  const submitGated = missingAnswerIds.length > 0 || missingPhotoIds.length > 0
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
@@ -196,6 +238,59 @@ export default function ChecklistWizard({
                   className="mt-3 w-full rounded-md border border-gray-200 px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
                   placeholder="Notes (optional)"
                 />
+
+                {/* Quick task 260717-cl0: per-item photo evidence, gated on this
+                    item being answered "yes" — scoped to the Materials/
+                    Accessories Readiness checklist only. */}
+                {slug === FM_READINESS_SLUG && current.value === 'yes' && (
+                  <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+                    <p className="text-xs font-semibold text-gray-900">
+                      Photo evidence <span className="text-error">*</span>
+                    </p>
+                    {(photosByItem[item.id]?.length ?? 0) > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {(photosByItem[item.id] ?? []).map((p, i) => (
+                          <div key={i} className="relative">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={p}
+                              alt={`${item.label} evidence`}
+                              className="h-16 w-16 rounded-md border border-gray-200 object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPhotosByItem((prev) => ({ ...prev, [item.id]: [] }))
+                              }
+                              className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-white"
+                              title="Remove"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">close</span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-primary">
+                        <span className="material-symbols-outlined text-base">add_a_photo</span>
+                        Add photo
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => onItemPhoto(item.id, e)}
+                        />
+                      </label>
+                    )}
+                    {itemPhotoError[item.id] && (
+                      <p className="mt-1 text-xs text-error">{itemPhotoError[item.id]}</p>
+                    )}
+                  </div>
+                )}
+
+                {slug === FM_READINESS_SLUG && missingAnswerIds.includes(item.id) && (
+                  <p className="mt-2 text-xs text-error">Answer this item before continuing.</p>
+                )}
               </div>
             </fieldset>
           )
@@ -247,6 +342,18 @@ export default function ChecklistWizard({
         <p className="mt-4 text-sm text-error">{state.message ?? 'Something went wrong.'}</p>
       )}
 
+      {/* Quick task 260717-cl0: summary of what's outstanding for the
+          Materials/Accessories Readiness checklist (answer-required and/or
+          photo-required items), shown only when Next/Submit is blocked. */}
+      {slug === FM_READINESS_SLUG && isLast && submitGated && (
+        <p className="mt-4 text-sm text-error">
+          {missingAnswerIds.length > 0 &&
+            `Still need an answer: ${missingAnswerIds.map(labelById).join(', ')}. `}
+          {missingPhotoIds.length > 0 &&
+            `Still need a photo: ${missingPhotoIds.map(labelById).join(', ')}.`}
+        </p>
+      )}
+
       {/* Navigation */}
       <div className="mt-6 flex items-center justify-between">
         <button
@@ -261,9 +368,19 @@ export default function ChecklistWizard({
         {isLast ? (
           <button
             type="button"
-            onClick={() => dispatch({ definitionId, slug, answers, projectId, expectedStepN, photos })}
-            disabled={pending || !photosOk}
-            title={!photosOk ? `Attach ${requirePhotos} photos first` : undefined}
+            onClick={() =>
+              dispatch({ definitionId, slug, answers, projectId, expectedStepN, photos, photosByItem })
+            }
+            disabled={pending || !photosOk || submitGated}
+            title={
+              !photosOk
+                ? `Attach ${requirePhotos} photos first`
+                : missingAnswerIds.length > 0
+                  ? 'Answer this item before continuing'
+                  : missingPhotoIds.length > 0
+                    ? 'Attach a photo before continuing'
+                    : undefined
+            }
             className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
           >
             {pending && (
@@ -275,7 +392,15 @@ export default function ChecklistWizard({
           <button
             type="button"
             onClick={() => setStepIdx((s) => Math.min(total - 1, s + 1))}
-            className="rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90"
+            disabled={currentStepMissingAnswer || currentStepMissingPhoto}
+            title={
+              currentStepMissingAnswer
+                ? 'Answer this item before continuing'
+                : currentStepMissingPhoto
+                  ? 'Attach a photo before continuing'
+                  : undefined
+            }
+            className="rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-40"
           >
             Next
           </button>
