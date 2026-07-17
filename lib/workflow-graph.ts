@@ -7,6 +7,7 @@ import {
   workflowStepEdges,
   workflowStepStates,
   projectStepCompletions,
+  projectStepDeadlines,
   workflowConfigAccess,
   users,
   projects,
@@ -14,6 +15,7 @@ import {
 import type { GraphStep, StepKind, UserRole, WorkflowRole, WorkflowStep } from '@/lib/workflow'
 import { stepRequiredKinds, canRoleActOnStep } from '@/lib/workflow'
 import { notifyUser } from '@/lib/notifications'
+import { emailSuperAdminsTaskCompleted, emailSuperAdminsProjectClosedOut } from '@/lib/notify-super-admins-email'
 
 // ── Read engine for the DB-driven workflow graph (Phase 16, WF-01/WF-02) ──
 // Every function reads live from the database on each call — no module-level
@@ -279,13 +281,13 @@ async function syncProjectCurrentStepAfterCompletion(
   projectId: string,
   completedStepOrderIndex: number,
   graph: string,
-): Promise<void> {
+): Promise<boolean> {
   const [proj] = await db
     .select({ currentStep: projects.currentStep, status: projects.status })
     .from(projects)
     .where(eq(projects.id, projectId))
     .limit(1)
-  if (!proj || proj.currentStep !== completedStepOrderIndex) return
+  if (!proj || proj.currentStep !== completedStepOrderIndex) return false
 
   const steps = await getGraphSteps(graph)
   const lastN = steps.length ? Math.max(...steps.map((s) => s.orderIndex)) : completedStepOrderIndex
@@ -299,6 +301,51 @@ async function syncProjectCurrentStepAfterCompletion(
       updatedAt: new Date(),
     })
     .where(eq(projects.id, projectId))
+  return done
+}
+
+/**
+ * Item #11: fires the two email digests off completeGraphStep — every real
+ * completion (checklist/yes-no-upload/approval/assignment/skip) always sends
+ * the task-completed email; a completion that just finished the LAST step
+ * also sends the project-closed-out email with a deadline met/missed flag
+ * (compared against that final step's own per-step deadline, falling back to
+ * the project-wide deliveryDate — same resolution order as lib/my-work.ts's
+ * currentDeadline). Both email sends are best-effort (see
+ * lib/notify-super-admins-email.ts) and never block or fail the caller.
+ */
+async function sendCompletionEmails(opts: {
+  projectId: string
+  step: GraphStep
+  actorId: string
+  projectJustClosedOut: boolean
+}): Promise<void> {
+  const [proj] = await db
+    .select({ name: projects.name, deliveryDate: projects.deliveryDate })
+    .from(projects)
+    .where(eq(projects.id, opts.projectId))
+    .limit(1)
+  const [actor] = await db.select({ name: users.name }).from(users).where(eq(users.id, opts.actorId)).limit(1)
+  const projectName = proj?.name ?? 'a project'
+  const actorName = actor?.name ?? 'Someone'
+
+  await emailSuperAdminsTaskCompleted({ projectName, stepLabel: opts.step.label, actorName })
+
+  if (opts.projectJustClosedOut) {
+    const [stepDeadlineRow] = await db
+      .select({ deadline: projectStepDeadlines.deadline })
+      .from(projectStepDeadlines)
+      .where(
+        and(
+          eq(projectStepDeadlines.projectId, opts.projectId),
+          eq(projectStepDeadlines.stepN, opts.step.orderIndex),
+        ),
+      )
+      .limit(1)
+    const effectiveDeadline = stepDeadlineRow?.deadline ?? proj?.deliveryDate ?? null
+    const metDeadline = effectiveDeadline ? new Date() <= effectiveDeadline : null
+    await emailSuperAdminsProjectClosedOut({ projectName, metDeadline })
+  }
 }
 
 /**
@@ -344,7 +391,8 @@ export async function completeGraphStep(opts: {
       completedBy: actorId,
       skipped: true,
     })
-    await syncProjectCurrentStepAfterCompletion(projectId, step.orderIndex, step.graph)
+    const projectJustClosedOut = await syncProjectCurrentStepAfterCompletion(projectId, step.orderIndex, step.graph)
+    await sendCompletionEmails({ projectId, step, actorId, projectJustClosedOut })
     return { ok: true, actionable: await getActionableSteps(projectId, step.graph) }
   }
 
@@ -373,7 +421,8 @@ export async function completeGraphStep(opts: {
     completedBy: actorId,
     skipped: false,
   })
-  await syncProjectCurrentStepAfterCompletion(projectId, step.orderIndex, step.graph)
+  const projectJustClosedOut = await syncProjectCurrentStepAfterCompletion(projectId, step.orderIndex, step.graph)
+  await sendCompletionEmails({ projectId, step, actorId, projectJustClosedOut })
 
   return { ok: true, actionable: await getActionableSteps(projectId, step.graph) }
 }

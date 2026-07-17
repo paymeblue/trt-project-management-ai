@@ -49,3 +49,49 @@ export function passwordResetEmail({ name, resetUrl }: { name: string; resetUrl:
 
   return { subject, html, text }
 }
+
+// Item #11: super admins get emailed when each task/step is completed for a
+// project, and again when the project is closed out (with a deadline
+// met/missed flag). Both fire from a single choke point (completeGraphStep)
+// so every completion path — checklist, yes/no+upload, approval, assignment,
+// skip — is covered without touching each individual action.
+export function taskCompletedEmail({
+  projectName,
+  stepLabel,
+  actorName,
+}: {
+  projectName: string
+  stepLabel: string
+  actorName: string
+}) {
+  const subject = `Task completed: ${stepLabel} — ${projectName}`
+  const html = `
+<p>${actorName} completed <strong>${stepLabel}</strong> on <strong>${projectName}</strong>.</p>
+`.trim()
+  const text = `${actorName} completed ${stepLabel} on ${projectName}.`
+
+  return { subject, html, text }
+}
+
+export function projectClosedOutEmail({
+  projectName,
+  metDeadline,
+}: {
+  projectName: string
+  metDeadline: boolean | null
+}) {
+  const subject = `Project closed out: ${projectName}`
+  const deadlineLine =
+    metDeadline === null
+      ? 'No deadline was set for the final step, so on-time status could not be determined.'
+      : metDeadline
+        ? 'It was delivered within its final step deadline.'
+        : 'It was delivered PAST its final step deadline.'
+  const html = `
+<p><strong>${projectName}</strong> has been closed out — every step is complete.</p>
+<p>${deadlineLine}</p>
+`.trim()
+  const text = `${projectName} has been closed out — every step is complete.\n\n${deadlineLine}`
+
+  return { subject, html, text }
+}
