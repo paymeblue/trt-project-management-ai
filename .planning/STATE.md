@@ -4,12 +4,12 @@ milestone: v2.0
 milestone_name: Configurable Production Workflow Engine
 status: executing
 stopped_at: Phase 20.1 context gathered
-last_updated: "2026-07-17T07:41:40.319Z"
-last_activity: "2026-07-16 -- Fixed assignee-gate regression: Architects who ARE the correctly-assigned brief_taking/kickoff_meeting/design_stage owner were falling through the role-scope visibility check (assigneeGatedRole singular -> assigneeGatedRoles array, now covers ['design','architect'])"
+last_updated: "2026-07-17T13:50:37.124Z"
+last_activity: 2026-07-17 -- Phase 20.1 execution started
 progress:
   total_phases: 23
   completed_phases: 4
-  total_plans: 20
+  total_plans: 24
   completed_plans: 20
   percent: 17
 ---
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-09)
 
 **Core value:** A PM on the floor or on-site can complete a structured checklist (with photo evidence) on their phone and have it permanently recorded — replacing paper, with role-scoped visibility and read-only Super Admin oversight.
-**Current focus:** Phase 20 -- Payment & Timeline Gating (next; mostly delivered ad hoc already — PAY-01/PAY-03 complete, PAY-02 partial pending head_of_operations requiredPosition narrowing + extending the toggle to customer_care, both now unblocked by Phase 19's completed position-enum work)
+**Current focus:** Phase 20.1 — Per-Tab Independent Auth Sessions
 
 ## Current Position
 
-Phase: 20.1 (Per-Tab Independent Auth Sessions) — INSERTED, ready to plan
-Plan: 4 of 4
-Status: Phase 20 ready to execute; Phase 20.1 inserted ahead of it for the urgent auth architecture fix — run /gsd:plan-phase 20.1
-Last activity: 2026-07-17 -- Completed quick task 260717-cl0: Materials/Accessories Readiness checklist photo/answer gating fixed (per-item photo-on-yes, Material/Accessories mandatory to answer, Upholstery optional); Phase 20.1 (Per-Tab Independent Auth Sessions) fully planned — 4 PLAN.md files across 4 waves, ready for plan-checking
+Phase: 20.1 (Per-Tab Independent Auth Sessions) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 20.1
+Last activity: 2026-07-17 -- Phase 20.1 execution started
 
 ## Performance Metrics
 

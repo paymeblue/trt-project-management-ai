@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 
 const authMock = vi.fn()
+const headersGetMock = vi.fn(() => null as string | null)
+const verifyTabTokenMock = vi.fn()
 
 vi.mock("@/auth", () => ({ auth: () => authMock() }))
 vi.mock("next/navigation", () => ({
@@ -11,10 +13,19 @@ vi.mock("next/navigation", () => ({
     throw new Error("FORBIDDEN")
   }),
 }))
+vi.mock("next/headers", () => ({
+  headers: async () => ({ get: headersGetMock }),
+}))
+vi.mock("@/lib/tab-session", () => ({
+  verifyTabToken: (token: string) => verifyTabTokenMock(token),
+}))
 vi.mock("server-only", () => ({}))
 
 beforeEach(() => {
   authMock.mockReset()
+  headersGetMock.mockReset()
+  headersGetMock.mockReturnValue(null)
+  verifyTabTokenMock.mockReset()
   vi.resetModules()
 })
 
@@ -74,6 +85,43 @@ describe("DAL (NextAuth session-based)", () => {
       authMock.mockResolvedValue({ user: { id: "u4", role: "site_pm" } })
       const { requireOwnerOrAdmin } = await import("@/lib/dal")
       await expect(requireOwnerOrAdmin("someone-else")).rejects.toThrow("FORBIDDEN")
+    })
+  })
+
+  describe("verifySession() — per-tab Authorization header (D-06)", () => {
+    it("valid Bearer header with typ: access returns { userId, role } from the token, without calling auth()", async () => {
+      headersGetMock.mockReturnValue("Bearer valid-access-token")
+      verifyTabTokenMock.mockResolvedValue({ sub: "tab-user-1", role: "factory_pm", typ: "access" })
+      const { verifySession } = await import("@/lib/dal")
+      const result = await verifySession()
+      expect(result).toEqual({ userId: "tab-user-1", role: "factory_pm" })
+      expect(verifyTabTokenMock).toHaveBeenCalledWith("valid-access-token")
+      expect(authMock).not.toHaveBeenCalled()
+    })
+
+    it("invalid/expired Bearer header (verifyTabToken resolves null) throws REDIRECT and does NOT call auth() (fail-closed, D-20.1-01-C)", async () => {
+      headersGetMock.mockReturnValue("Bearer expired-or-garbage")
+      verifyTabTokenMock.mockResolvedValue(null)
+      const { verifySession } = await import("@/lib/dal")
+      await expect(verifySession()).rejects.toThrow("REDIRECT")
+      expect(authMock).not.toHaveBeenCalled()
+    })
+
+    it("a refresh-typed token presented as an access token throws REDIRECT and does NOT call auth()", async () => {
+      headersGetMock.mockReturnValue("Bearer some-refresh-token")
+      verifyTabTokenMock.mockResolvedValue({ sub: "tab-user-2", typ: "refresh" })
+      const { verifySession } = await import("@/lib/dal")
+      await expect(verifySession()).rejects.toThrow("REDIRECT")
+      expect(authMock).not.toHaveBeenCalled()
+    })
+
+    it("no Authorization header at all falls through to the existing auth() cookie path unchanged", async () => {
+      headersGetMock.mockReturnValue(null)
+      authMock.mockResolvedValue({ user: { id: "cookie-user", role: "site_pm" } })
+      const { verifySession } = await import("@/lib/dal")
+      const result = await verifySession()
+      expect(result).toEqual({ userId: "cookie-user", role: "site_pm" })
+      expect(verifyTabTokenMock).not.toHaveBeenCalled()
     })
   })
 })

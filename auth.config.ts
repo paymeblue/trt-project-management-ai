@@ -9,7 +9,7 @@ export const authConfig = {
   session: { strategy: "jwt" },
   callbacks: {
     authorized({ auth, request }) {
-      const isLoggedIn = !!auth?.user
+      const isLoggedIn = !!auth?.user || request.headers.has('authorization')
       const path = request.nextUrl.pathname
       const isPublic = ["/sign-in", "/sign-up", "/reset-password", "/verify-email", "/"].some(
         (p) => path === p || path.startsWith("/api/auth"),
