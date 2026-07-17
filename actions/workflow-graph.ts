@@ -118,6 +118,11 @@ export async function completeStepAction(input: {
   return { ok: true }
 }
 
+// Steps whose upload is mandatory, not optional — checked here (not just
+// client-side) because the client gate is UX only. sign_off is the site PM's
+// final delivery confirmation and must carry photo/PDF evidence.
+const UPLOAD_REQUIRED_STEP_KEYS = ['sign_off'] as const
+
 export async function submitYesNoUploadAction(input: {
   projectId: string
   stepDefId: string
@@ -127,6 +132,10 @@ export async function submitYesNoUploadAction(input: {
 }): Promise<WorkflowGraphActionState> {
   const auth = await authorizeStep(input.stepDefId, input.projectId)
   if (!auth.ok) return auth
+  const step = await getStepById(input.stepDefId)
+  if (step && UPLOAD_REQUIRED_STEP_KEYS.includes(step.key as (typeof UPLOAD_REQUIRED_STEP_KEYS)[number]) && !input.uploadData) {
+    return { ok: false, message: 'Attach a photo or PDF before submitting.' }
+  }
   try {
     await submitYesNoUpload({
       projectId: input.projectId,

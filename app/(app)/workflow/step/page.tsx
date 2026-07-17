@@ -175,6 +175,7 @@ export default async function WorkflowStepPage({
             stepDefId={step!.id}
             redirectTo={dashboard}
             celebrateOnComplete={step!.key === 'sign_off'}
+            requireUpload={step!.key === 'sign_off'}
           />
         )
       case 'approval': {

@@ -21,6 +21,7 @@ export default function YesNoUploadStep({
   redirectTo,
   completeOnSubmit = true,
   celebrateOnComplete = false,
+  requireUpload = false,
 }: {
   projectId: string
   stepDefId: string
@@ -38,6 +39,12 @@ export default function YesNoUploadStep({
   // sign_off step opts in (wired from workflow/step/page.tsx); every other
   // caller defaults this to false and is unaffected.
   celebrateOnComplete?: boolean
+  // When true, an upload is mandatory before Submit is allowed — the answer
+  // alone is not enough. Only sign_off opts in (wired from
+  // workflow/step/page.tsx); every other caller defaults false, preserving
+  // "Upload (optional)" behavior byte-for-byte. Enforced server-side too in
+  // submitYesNoUploadAction — this client gate is UX only.
+  requireUpload?: boolean
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -78,6 +85,11 @@ export default function YesNoUploadStep({
   function submit() {
     if (!answer) {
       setMessage('Choose yes or no first.')
+      setOk(false)
+      return
+    }
+    if (requireUpload && !uploadData) {
+      setMessage('Attach a photo or PDF before submitting.')
       setOk(false)
       return
     }
@@ -171,7 +183,9 @@ export default function YesNoUploadStep({
       </div>
 
       <div>
-        <p className="mb-1 text-xs font-medium text-gray-600">Upload (optional)</p>
+        <p className="mb-1 text-xs font-medium text-gray-600">
+          Upload {requireUpload ? '(required)' : '(optional)'}
+        </p>
         <input type="file" accept="image/*,.pdf" onChange={onFile} disabled={pending} />
         {uploadName && <p className="mt-1 text-xs text-gray-500">Attached: {uploadName}</p>}
       </div>
@@ -179,7 +193,7 @@ export default function YesNoUploadStep({
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={pending}
+          disabled={pending || (requireUpload && !uploadData)}
           onClick={submit}
           className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
         >
