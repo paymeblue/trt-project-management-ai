@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { submitYesNoUploadAction, completeStepAction } from '@/actions/workflow-graph'
-import { downscaleImage } from '@/lib/downscale-image'
+import { readUploadFile, UploadFileError } from '@/lib/read-upload-file'
 import { fireConfetti } from '@/app/_components/confetti-burst'
 
 // Delay (ms) the success confirmation stays visible before redirecting, so
@@ -73,11 +73,11 @@ export default function YesNoUploadStep({
     e.target.value = ''
     if (!file) return
     try {
-      const data = await downscaleImage(file, 1280, 0.8)
+      const data = await readUploadFile(file)
       setUploadData(data)
       setUploadName(file.name)
-    } catch {
-      setMessage('Could not read that file. Please try another.')
+    } catch (err) {
+      setMessage(err instanceof UploadFileError ? err.message : 'Could not read that file. Please try another.')
       setOk(false)
     }
   }

@@ -116,3 +116,50 @@ describe('submitYesNoUploadAction — mandatory upload on sign_off', () => {
     expect(submitYesNoUploadMock).toHaveBeenCalledOnce()
   })
 })
+
+describe('submitYesNoUploadAction — upload size cap (item #2, 5MB)', () => {
+  it('rejects uploadData over the 5MB-equivalent data-URL length', async () => {
+    getStepByIdMock.mockResolvedValue({
+      id: 'step-brief',
+      key: 'brief_taking',
+      role: 'design',
+      requiredPosition: null,
+      receiverRequiredPosition: null,
+    })
+    verifyMock.mockResolvedValue({ userId: 'user-1', role: 'design' })
+
+    const res = await submitYesNoUploadAction({
+      projectId: 'proj-1',
+      stepDefId: 'step-brief',
+      answer: 'yes',
+      uploadData: 'data:application/pdf;base64,' + 'A'.repeat(7_000_001),
+      uploadName: 'big.pdf',
+    })
+
+    expect(res.ok).toBe(false)
+    expect(res.message).toMatch(/too large/i)
+    expect(submitYesNoUploadMock).not.toHaveBeenCalled()
+  })
+
+  it('allows uploadData at or under the size cap', async () => {
+    getStepByIdMock.mockResolvedValue({
+      id: 'step-brief',
+      key: 'brief_taking',
+      role: 'design',
+      requiredPosition: null,
+      receiverRequiredPosition: null,
+    })
+    verifyMock.mockResolvedValue({ userId: 'user-1', role: 'design' })
+
+    const res = await submitYesNoUploadAction({
+      projectId: 'proj-1',
+      stepDefId: 'step-brief',
+      answer: 'yes',
+      uploadData: 'data:application/pdf;base64,' + 'A'.repeat(100),
+      uploadName: 'small.pdf',
+    })
+
+    expect(res.ok).toBe(true)
+    expect(submitYesNoUploadMock).toHaveBeenCalledOnce()
+  })
+})

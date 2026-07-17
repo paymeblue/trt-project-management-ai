@@ -123,6 +123,11 @@ export async function completeStepAction(input: {
 // final delivery confirmation and must carry photo/PDF evidence.
 const UPLOAD_REQUIRED_STEP_KEYS = ['sign_off'] as const
 
+// 5MB PDF, base64-encoded (~4/3 expansion) — matches item #2's "5mb" cap.
+// Images stay well under this via downscaleImage's client-side compression;
+// this ceiling exists specifically to bound PDFs, which are stored as-is.
+const MAX_UPLOAD_DATA_LENGTH = 7_000_000
+
 export async function submitYesNoUploadAction(input: {
   projectId: string
   stepDefId: string
@@ -135,6 +140,9 @@ export async function submitYesNoUploadAction(input: {
   const step = await getStepById(input.stepDefId)
   if (step && UPLOAD_REQUIRED_STEP_KEYS.includes(step.key as (typeof UPLOAD_REQUIRED_STEP_KEYS)[number]) && !input.uploadData) {
     return { ok: false, message: 'Attach a photo or PDF before submitting.' }
+  }
+  if (input.uploadData && input.uploadData.length > MAX_UPLOAD_DATA_LENGTH) {
+    return { ok: false, message: 'That file is too large (max 5MB).' }
   }
   try {
     await submitYesNoUpload({
