@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
-import { projects, projectStepCompletions, projectStepDeadlines, workflowStepStates } from '@/db/schema'
+import { projects, projectStepCompletions, projectStepDeadlines, workflowStepStates, users } from '@/db/schema'
 import { requireAdmin, verifySession } from '@/lib/dal'
 import { FIRST_ACTION_STEP, Roles, isAdminRole, lastStepN, projectComplete, type UserRole } from '@/lib/workflow'
 import { getLiveWorkflowSteps, getStepById, completeGraphStep, confirmPaymentReceived } from '@/lib/workflow-graph'
@@ -208,6 +208,14 @@ export async function confirmClientPaidAction(input: {
   const { userId, role } = await verifySession()
   if (role !== Roles.CustomerCare && !isAdminRole(role as UserRole)) {
     return { ok: false, message: 'Only Customer Care can confirm payment.' }
+  }
+  if (isAdminRole(role as UserRole) && role !== Roles.CustomerCare) {
+    // PAY-02: narrow the admin path to Head of Operations specifically —
+    // any operations/super_admin was too broad (roadmap Phase 20 criterion 2).
+    const [actor] = await db.select({ position: users.position }).from(users).where(eq(users.id, userId)).limit(1)
+    if (actor?.position !== 'head_of_operations') {
+      return { ok: false, message: 'Only Head of Operations can confirm payment.' }
+    }
   }
 
   const step = await getStepById(input.stepDefId)
