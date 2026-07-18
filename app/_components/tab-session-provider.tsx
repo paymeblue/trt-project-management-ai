@@ -109,21 +109,14 @@ export default function TabSessionProvider({
 
       scheduleRefresh()
       if (opts?.forceRerender) {
-        // DIAGNOSTIC FINDING (2026-07-18): both router.refresh() and
-        // router.replace() to the same path resolved via the shared cookie
-        // server-side, NOT the header — confirmed via a server-side log
-        // showing "resolved via cookie" for the corrected request. Next's
-        // refresh()/replace() internals do not call window.fetch for a
-        // same-path re-render the way this app's ORIGINAL smoke test proved
-        // router.push() does (Task 1.5 / RESEARCH.md Pattern 4 — that test
-        // used push() to a genuinely different path, e.g. /sign-in ->
-        // /dashboard, which correctly carried the header). Route through the
-        // proven mechanism: push to a scratch path then immediately back,
-        // forcing Next to treat this as two real navigations (not a no-op
-        // same-path refresh), both going through window.fetch.
-        const current = window.location.pathname + window.location.search
+        // TEST (2026-07-18 continued): isolating whether returning to the
+        // SAME URL that already committed a forbidden()/error boundary on
+        // the initial (wrong-identity) render is what prevents the
+        // corrected content from painting, even though the server resolves
+        // the corrected identity successfully (confirmed via logs). Land on
+        // a safe, always-accessible route instead of round-tripping back to
+        // the exact prior URL.
         router.push('/dashboard')
-        router.replace(current)
       }
     }
 
