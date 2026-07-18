@@ -51,12 +51,17 @@ export default function TabSessionProvider({
 
     const scheduleRefresh = () => {
       const expiresAt = Number(sessionStorage.getItem('tabTokenExpiresAt'))
-      const refreshToken = sessionStorage.getItem('tabRefreshToken')
-      if (!expiresAt || !refreshToken || !originalFetch) return
+      if (!expiresAt || !sessionStorage.getItem('tabRefreshToken') || !originalFetch) return
       const baseFetch = originalFetch
 
       const delay = Math.max(0, expiresAt - Date.now() - REFRESH_BUFFER_MS)
       timeoutId = setTimeout(async () => {
+        // Read the refresh token at FIRE time, not schedule time: if this
+        // tab switched users while the timer was pending, a token captured
+        // at scheduling would refresh — and silently restore — the PREVIOUS
+        // user's session over the new one.
+        const refreshToken = sessionStorage.getItem('tabRefreshToken')
+        if (!refreshToken) return
         try {
           const res = await baseFetch('/api/auth/tab-refresh', {
             method: 'POST',
@@ -103,7 +108,17 @@ export default function TabSessionProvider({
     // after dispatching the activate event, so it does not need this.
     const activate = (opts?: { forceRerender?: boolean }) => {
       const token = sessionStorage.getItem('tabAccessToken')
-      if (!token || originalFetch) return
+      if (!token) return
+      if (originalFetch) {
+        // Already active: this tab just SWITCHED users (a new sign-in
+        // overwrote sessionStorage and re-fired the activate event). The
+        // fetch override reads the current token per request, so it needs
+        // nothing — but the pending silent-refresh timer was scheduled
+        // against the PREVIOUS session's expiry. Re-arm it for the new one.
+        if (timeoutId) clearTimeout(timeoutId)
+        scheduleRefresh()
+        return
+      }
 
       originalFetch = window.fetch
       window.fetch = (input, init = {}) => {

@@ -5,6 +5,8 @@ import { cookies } from 'next/headers';
 import { AuthError } from 'next-auth';
 import { z } from 'zod';
 import { signIn, signOut } from '@/auth';
+import { verifyCredentials } from '@/lib/auth/verify-credentials';
+import { mintTabAccessToken, mintTabRefreshToken, ACCESS_TTL_S } from '@/lib/tab-session';
 
 // ── Action result types ───────────────────────────────────────────────────────
 
@@ -20,6 +22,9 @@ export type SignupState = {
 
 export type SigninState = {
   message?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: number;
 };
 
 // ── signUpAction ──────────────────────────────────────────────────────────────
@@ -61,16 +66,38 @@ export async function signinAction(
   }
   const { email, password } = parsed.data;
 
+  // Every sign-in is per-tab (Phase 20.1 follow-up): verify credentials
+  // directly first — we need the user's id/role to mint this tab's tokens,
+  // and failing here avoids touching the shared cookie at all on a bad
+  // password.
+  const user = await verifyCredentials(email, password);
+  if (!user) {
+    return { message: 'Invalid email or password.' };
+  }
+
   try {
-    await signIn('credentials', { email, password, redirectTo: '/dashboard' });
+    // Still set the shared cookie (redirect: false — the client navigates
+    // after storing the tab tokens): it remains the fallback identity for
+    // tabs that hold no per-tab token (e.g. a brand-new tab opened later).
+    await signIn('credentials', { email, password, redirect: false });
   } catch (error) {
     if (error instanceof AuthError) {
       return { message: 'Invalid email or password.' };
     }
-    // Re-throw redirect errors (NEXT_REDIRECT) so Next.js handles them
     throw error;
   }
-  return {};
+
+  // Mint this tab's own tokens so signing in as a different user in ANOTHER
+  // tab (which replaces the browser-wide shared cookie) can never change who
+  // THIS tab is. The client stores these in sessionStorage and activates the
+  // per-tab session before navigating — the same contract as tabSigninAction.
+  const accessToken = await mintTabAccessToken(user.id, user.role);
+  const refreshToken = await mintTabRefreshToken(user.id);
+  return {
+    accessToken,
+    refreshToken,
+    expiresAt: Date.now() + ACCESS_TTL_S * 1000,
+  };
 }
 
 // ── signoutAction ─────────────────────────────────────────────────────────────

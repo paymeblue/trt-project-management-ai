@@ -58,6 +58,20 @@ vi.mock('next-auth', () => ({
   },
 }))
 
+// Mock credential verification + per-tab token minting (signinAction now
+// mints this tab's tokens on every sign-in — Phase 20.1 follow-up)
+const verifyCredentialsMock = vi.fn()
+vi.mock('@/lib/auth/verify-credentials', () => ({
+  verifyCredentials: (email: string, password: string) => verifyCredentialsMock(email, password),
+}))
+const mintAccessMock = vi.fn()
+const mintRefreshMock = vi.fn()
+vi.mock('@/lib/tab-session', () => ({
+  mintTabAccessToken: (id: string, role: string) => mintAccessMock(id, role),
+  mintTabRefreshToken: (id: string) => mintRefreshMock(id),
+  ACCESS_TTL_S: 1200,
+}))
+
 // Mock sendVerificationEmail
 const sendVerificationEmailMock = vi.fn()
 
@@ -82,8 +96,13 @@ beforeEach(() => {
   // Default email mock resolves successfully
   sendVerificationEmailMock.mockResolvedValue({ data: { id: 'email-1' }, error: null })
 
-  // Default signIn mock: resolves (redirect happens inside the action after signIn)
+  // Default signIn mock: resolves (redirect: false — the client navigates)
   signInMock.mockResolvedValue(undefined)
+
+  // Default: credentials verify to a real user; token mints succeed
+  verifyCredentialsMock.mockResolvedValue({ id: 'user-1', role: 'factory_pm' })
+  mintAccessMock.mockResolvedValue('minted-access-token')
+  mintRefreshMock.mockResolvedValue('minted-refresh-token')
 })
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -136,17 +155,14 @@ describe('auth actions (NextAuth Credentials)', () => {
   // ── AUTH-04 ───────────────────────────────────────────────────────────────
 
   describe('AUTH-04: signinAction and signoutAction wrap NextAuth', () => {
-    it('signinAction calls signIn(credentials) with the provided email and password', async () => {
-      // signIn with redirectTo causes Next to redirect — mock it to throw REDIRECT
-      signInMock.mockRejectedValue(new Error('REDIRECT'))
-
+    it('signinAction sets the shared cookie (redirect: false) AND returns per-tab tokens', async () => {
       const { signinAction } = await import('@/actions/auth')
 
       const fd = new FormData()
       fd.append('email', 'login@example.com')
       fd.append('password', 'mypass1234')
 
-      await signinAction({}, fd).catch(() => {})
+      const result = await signinAction({}, fd)
 
       expect(signInMock).toHaveBeenCalledOnce()
       expect(signInMock).toHaveBeenCalledWith(
@@ -154,15 +170,23 @@ describe('auth actions (NextAuth Credentials)', () => {
         expect.objectContaining({
           email: 'login@example.com',
           password: 'mypass1234',
-          redirectTo: '/dashboard',
+          redirect: false,
         }),
       )
+      // Per-tab tokens minted for the verified user so THIS tab keeps its
+      // own identity even if another tab later replaces the shared cookie.
+      expect(mintAccessMock).toHaveBeenCalledWith('user-1', 'factory_pm')
+      expect(mintRefreshMock).toHaveBeenCalledWith('user-1')
+      expect(result).toMatchObject({
+        accessToken: 'minted-access-token',
+        refreshToken: 'minted-refresh-token',
+      })
+      expect(result.expiresAt).toBeGreaterThan(Date.now())
+      expect(result.message).toBeUndefined()
     })
 
-    it('signinAction returns { message } on AuthError (wrong credentials)', async () => {
-      // Simulate NextAuth CredentialsSignin error
-      const { AuthError } = await import('next-auth')
-      signInMock.mockRejectedValue(new AuthError('CredentialsSignin'))
+    it('signinAction returns { message } on bad credentials WITHOUT touching the shared cookie', async () => {
+      verifyCredentialsMock.mockResolvedValue(null)
 
       const { signinAction } = await import('@/actions/auth')
 
@@ -173,6 +197,24 @@ describe('auth actions (NextAuth Credentials)', () => {
       const result = await signinAction({}, fd)
 
       expect(result).toHaveProperty('message', 'Invalid email or password.')
+      expect(signInMock).not.toHaveBeenCalled()
+      expect(mintAccessMock).not.toHaveBeenCalled()
+    })
+
+    it('signinAction returns { message } when signIn itself throws AuthError', async () => {
+      const { AuthError } = await import('next-auth')
+      signInMock.mockRejectedValue(new AuthError('CredentialsSignin'))
+
+      const { signinAction } = await import('@/actions/auth')
+
+      const fd = new FormData()
+      fd.append('email', 'login@example.com')
+      fd.append('password', 'mypass1234')
+
+      const result = await signinAction({}, fd)
+
+      expect(result).toHaveProperty('message', 'Invalid email or password.')
+      expect(mintAccessMock).not.toHaveBeenCalled()
     })
 
     it('signoutAction signs out (redirect:false), clears cookies, then redirects to /sign-in', async () => {
