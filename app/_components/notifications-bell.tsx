@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { markNotificationsReadAction } from '@/actions/notifications'
+import { getTabToken } from '@/lib/use-tab-token'
 
 type Item = {
   id: string
@@ -86,7 +87,7 @@ export default function NotificationsBell() {
         unread: Math.max(0, f.unread - (wasUnread ? 1 : 0)),
       }
     })
-    await markNotificationsReadAction(item.id)
+    await markNotificationsReadAction(getTabToken(), item.id)
     // Escalations/flags/bypasses carry a project — land the admin on its
     // discussion thread so they can act (REQ-G10). /disputes is a
     // super-admin-only destination, so NO_NAVIGATE_TYPES (any role) must
@@ -101,7 +102,7 @@ export default function NotificationsBell() {
 
   async function markAll() {
     setFeed((f) => ({ items: f.items.map((i) => ({ ...i, read: true })), unread: 0 }))
-    await markNotificationsReadAction()
+    await markNotificationsReadAction(getTabToken())
     refresh()
   }
 
