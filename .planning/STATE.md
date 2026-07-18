@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 
 Phase: 20.1 (Per-Tab Independent Auth Sessions) — COMPLETE (4/4 plans)
 Plan: 4 of 4
-Status: Phase 20.1 complete. Next: Phase 20 (Payment & Timeline Gating) — mostly delivered ad hoc already, narrow remaining scope. Ready for /gsd:verify-work 20.1 or /gsd:plan-phase 20.
+Status: Phase 20.1 complete (per-tab auth sessions, shipped + verified live). Phase 20 (Payment & Timeline Gating) is now also effectively closed: PAY-01/PAY-03 were already ad hoc, PAY-02 finished 2026-07-18 (Customer Care direct payment-confirmation access confirmed already in place; admin path narrowed to Head of Operations specifically, commit 26b4674). PAY-02's criterion 3 (wiring the payment gate into Phase 21's new steps) can't be done until Phase 21's steps exist. Next: Phase 21 (Front-of-Funnel Stages — Designer Assignment Through Design Approval). Start with /gsd:discuss-phase 21 or /gsd:plan-phase 21.
 Last activity: 2026-07-17
 
 ## Performance Metrics
