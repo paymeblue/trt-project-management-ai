@@ -71,3 +71,19 @@ the same conditions.
 production build (rules out dev-mode HMR/cache quirks) and/or add
 request-scoped logging inside `resolveTabIdentity`/`requireAdmin` to
 capture the actually-resolved role per request during a repro run.
+
+**Update 2026-07-18 — tested against a production build, did not reproduce.**
+Ran `npm run build && npx next start`, then drove a real per-tab operations
+session (`qa.ops2`, per-tab token via the newSession flow) against
+`/admin/dashboard` and `/admin/timeline` with `agent-browser`: 8 full
+page-reload navigations, 10 rapid client-side soft-navigations
+(Dashboard↔Timeline sidebar clicks), and 5 more soft-navigations after
+letting the background polling components (`/api/notifications`,
+`/api/my-work`) run for 8+ seconds under load — 23 navigation attempts
+total, zero 403s, zero incorrect-identity renders. This is strong evidence
+the bug is a **dev-mode-only artifact** (most likely React's `cache()`
+interacting with webpack HMR/Fast Refresh module-instance churn in `next
+dev`, one of the originally-listed candidates) rather than a defect that
+affects real users in production. Downgraded from "needs investigation" to
+"known dev-mode quirk, no user-facing impact — no fix planned unless it
+resurfaces in production."
