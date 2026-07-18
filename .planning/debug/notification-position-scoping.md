@@ -88,6 +88,11 @@ next_action: DONE — fix applied and self-verified (see Resolution). Awaiting h
   found: "For each of set_delivery_timeline, internal_approval, and send_for_production (sender), exactly ONE user (position=operations_manager_admin) is ALLOWED; all others (head_of_operations x3, chief_production_officer x2, head_of_projects x2, no-position x1) are denied. send_for_production's RECEIVER gate is unchanged (still exactly the 2 chief_production_officer holders)."
   implication: "Fix verified functionally correct and precisely scoped — matches every symptom in the trigger with no side effects on the receiver gate."
 
+- timestamp: 2026-07-18
+  checked: "Re-verified live DB state during quick task 260718-q20 (read-only query, graph='live'), now including the step-19 extension from commit e0cc3f1"
+  found: "All FOUR rows (set_delivery_timeline, internal_approval, send_for_production sender, approval_installation) have required_position='operations_manager_admin'; send_for_production's receiver_required_position is still 'chief_production_officer'. The data fix is applied and intact — including approval_installation (step 19), confirming the extended script was run against live."
+  implication: "The position-scoping restriction survives in the live DB. Remaining pending item is unchanged: end-to-end human/app confirmation with a project actually sitting on one of these steps. Separately, the sibling per-tab notification scope hole (markNotificationsReadAction acting as the shared-cookie user) was fixed and live-verified in quick task 260718-q20."
+
 ## Resolution
 
 root_cause: |
