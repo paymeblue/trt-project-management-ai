@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 const REFRESH_BUFFER_MS = 2 * 60 * 1000
 
@@ -35,6 +36,8 @@ export default function TabSessionProvider({
 }: {
   children: React.ReactNode
 }) {
+  const router = useRouter()
+
   useEffect(() => {
     let originalFetch: typeof window.fetch | undefined
     let timeoutId: ReturnType<typeof setTimeout> | undefined
@@ -78,7 +81,21 @@ export default function TabSessionProvider({
 
     // Idempotent: a tab that already activated (e.g. via the mount-time
     // check) ignores a later activate event, and vice versa.
-    const activate = () => {
+    //
+    // `forceRerender`: a HARD refresh (F5, typed URL, new tab to an existing
+    // per-tab session) is the browser's own native top-level navigation —
+    // it happens BEFORE any JS runs, so it can never carry the Authorization
+    // header. That first server render resolves via the shared cookie, not
+    // this tab's per-tab user (the bug: "user refreshes, sees the wrong
+    // user"). Once this effect finally runs and the override is installed,
+    // router.refresh() re-fetches the current route's RSC payload through
+    // the now-overridden window.fetch — WITH the header — re-rendering every
+    // Server Component (including the root/app layout) as the correct
+    // per-tab user. A brief flash of the shared-cookie identity is the
+    // tradeoff; silently staying wrong is not acceptable. The event-driven
+    // path (new-session-form.tsx) already does its own router.push after
+    // dispatching the activate event, so it does not need this.
+    const activate = (opts?: { forceRerender?: boolean }) => {
       const token = sessionStorage.getItem('tabAccessToken')
       if (!token || originalFetch) return
 
@@ -91,17 +108,20 @@ export default function TabSessionProvider({
       }
 
       scheduleRefresh()
+      if (opts?.forceRerender) router.refresh()
     }
 
-    activate() // default shared-cookie tab: sessionStorage is empty, stays a no-op
-    window.addEventListener(TAB_SESSION_ACTIVATE_EVENT, activate)
+    const onActivateEvent = () => activate()
+
+    activate({ forceRerender: true }) // mount-time: default shared-cookie tab has empty sessionStorage (no-op); a per-tab tab re-renders itself correctly after a hard refresh
+    window.addEventListener(TAB_SESSION_ACTIVATE_EVENT, onActivateEvent)
 
     return () => {
-      window.removeEventListener(TAB_SESSION_ACTIVATE_EVENT, activate)
+      window.removeEventListener(TAB_SESSION_ACTIVATE_EVENT, onActivateEvent)
       if (originalFetch) window.fetch = originalFetch
       if (timeoutId) clearTimeout(timeoutId)
     }
-  }, [])
+  }, [router])
 
   return children
 }
