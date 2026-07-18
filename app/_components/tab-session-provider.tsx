@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 
 const REFRESH_BUFFER_MS = 2 * 60 * 1000
+
+// Identity-agnostic client route (outside the (app) layout group) used to
+// recover a per-tab session after a hard refresh — see activate() below.
+export const TAB_SESSION_RESTORE_PATH = '/tab-session/restore'
 
 // Fired by any caller (e.g. new-session-form.tsx) immediately after writing a
 // freshly-minted per-tab token to sessionStorage, so the override below can
@@ -36,8 +39,6 @@ export default function TabSessionProvider({
 }: {
   children: React.ReactNode
 }) {
-  const router = useRouter()
-
   useEffect(() => {
     let originalFetch: typeof window.fetch | undefined
     let timeoutId: ReturnType<typeof setTimeout> | undefined
@@ -87,14 +88,19 @@ export default function TabSessionProvider({
     // it happens BEFORE any JS runs, so it can never carry the Authorization
     // header. That first server render resolves via the shared cookie, not
     // this tab's per-tab user (the bug: "user refreshes, sees the wrong
-    // user"). Once this effect finally runs and the override is installed,
-    // router.refresh() re-fetches the current route's RSC payload through
-    // the now-overridden window.fetch — WITH the header — re-rendering every
-    // Server Component (including the root/app layout) as the correct
-    // per-tab user. A brief flash of the shared-cookie identity is the
-    // tradeoff; silently staying wrong is not acceptable. The event-driven
-    // path (new-session-form.tsx) already does its own router.push after
-    // dispatching the activate event, so it does not need this.
+    // user"). In-document corrections (router.refresh(), same-path replace(),
+    // push() between routes sharing the (app) layout) all failed live —
+    // either the request bypassed window.fetch entirely or Next reused the
+    // already-committed wrong-identity layout segment from the client Router
+    // Cache. The only reliable reset is a NATIVE navigation to an
+    // identity-agnostic route OUTSIDE the (app) group: the fresh document
+    // starts with an empty Router Cache, and the restore page's soft
+    // navigation back (through the by-then-installed fetch override) mounts
+    // the entire (app) tree — layout chrome included — as the per-tab user.
+    // A brief flash of the shared-cookie identity before this effect runs is
+    // the tradeoff; silently staying wrong is not acceptable. The
+    // event-driven path (new-session-form.tsx) does its own router.push
+    // after dispatching the activate event, so it does not need this.
     const activate = (opts?: { forceRerender?: boolean }) => {
       const token = sessionStorage.getItem('tabAccessToken')
       if (!token || originalFetch) return
@@ -108,21 +114,20 @@ export default function TabSessionProvider({
       }
 
       scheduleRefresh()
-      if (opts?.forceRerender) {
-        // TEST (2026-07-18 continued): isolating whether returning to the
-        // SAME URL that already committed a forbidden()/error boundary on
-        // the initial (wrong-identity) render is what prevents the
-        // corrected content from painting, even though the server resolves
-        // the corrected identity successfully (confirmed via logs). Land on
-        // a safe, always-accessible route instead of round-tripping back to
-        // the exact prior URL.
-        router.push('/dashboard')
+      if (
+        opts?.forceRerender &&
+        window.location.pathname !== TAB_SESSION_RESTORE_PATH
+      ) {
+        const current = window.location.pathname + window.location.search
+        window.location.replace(
+          `${TAB_SESSION_RESTORE_PATH}?to=${encodeURIComponent(current)}`,
+        )
       }
     }
 
     const onActivateEvent = () => activate()
 
-    activate({ forceRerender: true }) // mount-time: default shared-cookie tab has empty sessionStorage (no-op); a per-tab tab re-renders itself correctly after a hard refresh
+    activate({ forceRerender: true }) // mount-time: default shared-cookie tab has empty sessionStorage (no-op); a per-tab tab bounces through the restore route after a hard refresh
     window.addEventListener(TAB_SESSION_ACTIVATE_EVENT, onActivateEvent)
 
     return () => {
@@ -130,7 +135,7 @@ export default function TabSessionProvider({
       if (originalFetch) window.fetch = originalFetch
       if (timeoutId) clearTimeout(timeoutId)
     }
-  }, [router])
+  }, [])
 
   return children
 }

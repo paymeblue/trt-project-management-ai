@@ -11,9 +11,17 @@ export const authConfig = {
     authorized({ auth, request }) {
       const isLoggedIn = !!auth?.user || request.headers.has('authorization')
       const path = request.nextUrl.pathname
-      const isPublic = ["/sign-in", "/sign-up", "/reset-password", "/verify-email", "/"].some(
-        (p) => path === p || path.startsWith("/api/auth"),
-      )
+      // /tab-session/restore is the identity-agnostic per-tab-session bounce
+      // page (Phase 20.1 hard-refresh recovery) — it renders no data and must
+      // stay reachable even when the shared cookie is missing/expired.
+      const isPublic = [
+        "/sign-in",
+        "/sign-up",
+        "/reset-password",
+        "/verify-email",
+        "/tab-session/restore",
+        "/",
+      ].some((p) => path === p || path.startsWith("/api/auth"))
       if (isPublic) return true
       return isLoggedIn
     },
