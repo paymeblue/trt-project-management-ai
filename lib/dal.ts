@@ -50,6 +50,15 @@ export async function verifySessionForAction(
   return { userId: session.user.id, role: session.user.role as Role }
 }
 
+// Server-Action-callable sibling to requireAdmin(), same rationale as
+// verifySessionForAction: Server Action POSTs carry no Authorization header,
+// so the per-tab token must arrive as an explicit bound argument.
+export async function requireAdminForAction(explicitToken?: string | null) {
+  const s = await verifySessionForAction(explicitToken)
+  if (!isAdminRole(s.role)) forbidden()
+  return s
+}
+
 export async function requireRole(role: Role) {
   const s = await verifySession()
   if (s.role !== role) forbidden()

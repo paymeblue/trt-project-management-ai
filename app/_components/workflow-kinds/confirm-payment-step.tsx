@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { confirmClientPaidAction } from '@/actions/projects'
+import { getTabToken } from '@/lib/use-tab-token'
 
 // Delay (ms) the success confirmation stays visible before redirecting —
 // mirrors yes-no-upload-step.tsx's REDIRECT_DELAY_MS.
@@ -37,7 +38,7 @@ export default function ConfirmPaymentStep({
   function submit() {
     setMessage(null)
     startTransition(async () => {
-      const res = await confirmClientPaidAction({ projectId, stepDefId })
+      const res = await confirmClientPaidAction(getTabToken(), { projectId, stepDefId })
       if (res.ok) {
         setMessage(`✓ Payment confirmed. Project marked paid.${redirectTo ? ' Redirecting…' : ''}`)
         setOk(true)

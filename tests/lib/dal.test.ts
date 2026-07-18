@@ -187,4 +187,33 @@ describe("DAL (NextAuth session-based)", () => {
       await expect(verifySessionForAction()).rejects.toThrow("REDIRECT")
     })
   })
+
+  describe("requireAdminForAction()", () => {
+    it("explicit token with an admin role (operations) passes without calling auth()", async () => {
+      verifyTabTokenMock.mockResolvedValue({ sub: "tab-admin-1", role: "operations", typ: "access" })
+      const { requireAdminForAction } = await import("@/lib/dal")
+      const result = await requireAdminForAction("valid-admin-token")
+      expect(result).toEqual({ userId: "tab-admin-1", role: "operations" })
+      expect(authMock).not.toHaveBeenCalled()
+    })
+
+    it("explicit token with a non-admin role throws FORBIDDEN", async () => {
+      verifyTabTokenMock.mockResolvedValue({ sub: "tab-user-9", role: "factory_pm", typ: "access" })
+      const { requireAdminForAction } = await import("@/lib/dal")
+      await expect(requireAdminForAction("valid-pm-token")).rejects.toThrow("FORBIDDEN")
+    })
+
+    it("no token: falls through to the cookie path and still enforces the admin gate", async () => {
+      authMock.mockResolvedValue({ user: { id: "cookie-pm", role: "site_pm" } })
+      const { requireAdminForAction } = await import("@/lib/dal")
+      await expect(requireAdminForAction(null)).rejects.toThrow("FORBIDDEN")
+    })
+
+    it("no token with an admin cookie session passes", async () => {
+      authMock.mockResolvedValue({ user: { id: "cookie-admin", role: "super_admin" } })
+      const { requireAdminForAction } = await import("@/lib/dal")
+      const result = await requireAdminForAction(null)
+      expect(result).toEqual({ userId: "cookie-admin", role: "super_admin" })
+    })
+  })
 })

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { processes } from '@/db/schema'
-import { verifySession, isAdminRole } from '@/lib/dal'
+import { verifySessionForAction, isAdminRole } from '@/lib/dal'
 
 export type ProcessActionResult = { ok: boolean; slug?: string; error?: string }
 
@@ -30,11 +30,11 @@ async function uniqueSlug(title: string): Promise<string> {
 }
 
 /** Admin-only: add a process flow from an uploaded image. */
-export async function createProcessImageAction(input: {
+export async function createProcessImageAction(tabToken: string | null, input: {
   title: string
   imageData: string
 }): Promise<ProcessActionResult> {
-  const { userId, role } = await verifySession()
+  const { userId, role } = await verifySessionForAction(tabToken)
   if (!isAdminRole(role)) return { ok: false, error: 'Only administrators can add process flows.' }
 
   const title = String(input?.title ?? '').trim()
@@ -51,12 +51,12 @@ export async function createProcessImageAction(input: {
 }
 
 /** Admin-only: rename and/or replace the image of a process flow. */
-export async function updateProcessImageAction(input: {
+export async function updateProcessImageAction(tabToken: string | null, input: {
   slug: string
   title?: string
   imageData?: string
 }): Promise<ProcessActionResult> {
-  const { role } = await verifySession()
+  const { role } = await verifySessionForAction(tabToken)
   if (!isAdminRole(role)) return { ok: false, error: 'Only administrators can update process flows.' }
 
   const slug = String(input?.slug ?? '').trim()
@@ -79,8 +79,8 @@ export async function updateProcessImageAction(input: {
 }
 
 /** Admin-only: delete a process flow. */
-export async function deleteProcessAction(slug: string): Promise<ProcessActionResult> {
-  const { role } = await verifySession()
+export async function deleteProcessAction(tabToken: string | null, slug: string): Promise<ProcessActionResult> {
+  const { role } = await verifySessionForAction(tabToken)
   if (!isAdminRole(role)) return { ok: false, error: 'Only administrators can delete process flows.' }
 
   const clean = String(slug).trim()

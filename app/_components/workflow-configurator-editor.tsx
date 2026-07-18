@@ -11,6 +11,7 @@ import {
 import type { WorkflowRole, StepKind, GraphStep } from '@/lib/workflow'
 import { ROLE_OPTIONS, KIND_OPTIONS, StatusNote, StepFieldsPanel } from '@/app/_components/workflow-configurator-shared'
 import ConfiguratorGraph from '@/app/_components/workflow-configurator-graph'
+import { getTabToken } from '@/lib/use-tab-token'
 
 export default function ConfiguratorEditor({
   graph,
@@ -36,7 +37,7 @@ export default function ConfiguratorEditor({
     const currentIndex = steps.findIndex((s) => s.id === stepId)
     if (currentIndex === -1 || currentIndex === clamped) return
     startTransition(async () => {
-      const res = await moveConfigStepToIndexAction(graph, stepId, clamped)
+      const res = await moveConfigStepToIndexAction(getTabToken(), graph, stepId, clamped)
       setMoveState(res)
       if (res.status === 'success') refresh()
     })
@@ -129,7 +130,7 @@ function PinSettings({
 
   function save() {
     startTransition(async () => {
-      const res = await changeConfigPinAction(newPin, hint)
+      const res = await changeConfigPinAction(getTabToken(), newPin, hint)
       setState(res)
       if (res.status === 'success') {
         setNewPin('')
@@ -297,7 +298,7 @@ function AddStepRow({ graph, onAdded }: { graph: string; onAdded: () => void }) 
       return
     }
     startTransition(async () => {
-      const res = await addConfigStepAction({ graph, stepKey, label, role, fulfillmentKind: kind })
+      const res = await addConfigStepAction(getTabToken(), { graph, stepKey, label, role, fulfillmentKind: kind })
       setState(res)
       if (res.status === 'success') {
         setStepKey('')

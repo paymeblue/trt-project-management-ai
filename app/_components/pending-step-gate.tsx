@@ -8,6 +8,7 @@ import { completeAckStepAction, type AckStepState } from '@/actions/workflow'
 import { useMyWork } from '@/app/_components/my-work-provider'
 import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
 import DeadlineCountdown from '@/app/_components/deadline-countdown'
+import { getTabToken } from '@/lib/use-tab-token'
 
 const INITIAL_ACK: AckStepState = { ok: false }
 
@@ -44,7 +45,7 @@ export default function PendingStepGate({ viewerRole }: { viewerRole: UserRole }
   const { pending, refresh } = useMyWork()
   const steps = useWorkflowSteps()
   const pathname = usePathname()
-  const [ackState, dispatchAck, ackPending] = useActionState(completeAckStepAction, INITIAL_ACK)
+  const [ackState, dispatchAck, ackPending] = useActionState(completeAckStepAction.bind(null, getTabToken()), INITIAL_ACK)
   const [notes, setNotes] = useState('')
   // Per-session dismissals (reset on full reload) so the modal can be closed
   // without nagging on every poll — keyed by project + step so a different

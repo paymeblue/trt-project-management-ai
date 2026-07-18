@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { submitYesNoUploadAction, completeStepAction } from '@/actions/workflow-graph'
 import { readUploadFile, UploadFileError } from '@/lib/read-upload-file'
 import { fireConfetti } from '@/app/_components/confetti-burst'
+import { getTabToken } from '@/lib/use-tab-token'
 
 // Delay (ms) the success confirmation stays visible before redirecting, so
 // the user has time to read it before the page navigates. Matches
@@ -95,7 +96,7 @@ export default function YesNoUploadStep({
     }
     setMessage(null)
     startTransition(async () => {
-      const res = await submitYesNoUploadAction({
+      const res = await submitYesNoUploadAction(getTabToken(), {
         projectId,
         stepDefId,
         answer,
@@ -113,7 +114,7 @@ export default function YesNoUploadStep({
         router.refresh()
         return
       }
-      const completeRes = await completeStepAction({ projectId, stepDefId })
+      const completeRes = await completeStepAction(getTabToken(), { projectId, stepDefId })
       if (completeRes.ok) {
         if (celebrateOnComplete) {
           fireConfetti()
@@ -133,7 +134,7 @@ export default function YesNoUploadStep({
   function complete() {
     setMessage(null)
     startTransition(async () => {
-      const res = await completeStepAction({ projectId, stepDefId })
+      const res = await completeStepAction(getTabToken(), { projectId, stepDefId })
       if (res.ok) {
         if (celebrateOnComplete) {
           fireConfetti()

@@ -8,7 +8,7 @@ const { verifyMock, selectMock, notifyUserMock } = vi.hoisted(() => ({
 
 vi.mock('server-only', () => ({}))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
-vi.mock('@/lib/dal', () => ({ verifySession: verifyMock }))
+vi.mock('@/lib/dal', () => ({ verifySession: verifyMock, verifySessionForAction: verifyMock }))
 vi.mock('@/lib/notifications', () => ({ notifyUser: notifyUserMock }))
 vi.mock('@/db', () => ({
   db: {
@@ -31,9 +31,20 @@ beforeEach(() => {
 })
 
 describe('escalateChecklistAction', () => {
+  it('forwards the bound per-tab token to verifySessionForAction (D-20.1-04-A)', async () => {
+    selectMock
+      .mockReturnValueOnce(projectQuery({ name: 'Test Project' }))
+      .mockReturnValueOnce(usersQuery([{ id: 'hop-1' }]))
+    await escalateChecklistAction('tab-token-123', {
+      projectId: 'proj-1',
+      checklistLabel: 'Test Checklist',
+    })
+    expect(verifyMock).toHaveBeenCalledWith('tab-token-123')
+  })
+
   it('rejects roles with no configured escalation target (e.g. super_admin)', async () => {
     verifyMock.mockResolvedValue({ userId: 'user-1', role: 'super_admin' })
-    const res = await escalateChecklistAction({ projectId: 'proj-1', checklistLabel: 'Test Checklist' })
+    const res = await escalateChecklistAction(null, { projectId: 'proj-1', checklistLabel: 'Test Checklist' })
     expect(res.ok).toBe(false)
     expect(res.message).toMatch(/no escalation path/i)
     expect(notifyUserMock).not.toHaveBeenCalled()
@@ -44,7 +55,7 @@ describe('escalateChecklistAction', () => {
       .mockReturnValueOnce(projectQuery({ name: 'Test Project' }))
       .mockReturnValueOnce(usersQuery([{ id: 'hop-1' }, { id: 'hop-2' }]))
 
-    const res = await escalateChecklistAction({
+    const res = await escalateChecklistAction(null, {
       projectId: 'proj-1',
       checklistLabel: 'Materials / Accessories Readiness Form',
       reason: 'Missing signature',
@@ -68,7 +79,7 @@ describe('escalateChecklistAction', () => {
       .mockReturnValueOnce(projectQuery({ name: 'Test Project' }))
       .mockReturnValueOnce(usersQuery([]))
 
-    const res = await escalateChecklistAction({ projectId: 'proj-1', checklistLabel: 'Test' })
+    const res = await escalateChecklistAction(null, { projectId: 'proj-1', checklistLabel: 'Test' })
 
     expect(res.ok).toBe(false)
     expect(res.message).toMatch(/no one currently holds/i)
@@ -78,7 +89,7 @@ describe('escalateChecklistAction', () => {
   it('returns an error when the project does not exist', async () => {
     selectMock.mockReturnValueOnce(projectQuery(undefined))
 
-    const res = await escalateChecklistAction({ projectId: 'missing', checklistLabel: 'Test' })
+    const res = await escalateChecklistAction(null, { projectId: 'missing', checklistLabel: 'Test' })
 
     expect(res.ok).toBe(false)
     expect(res.message).toMatch(/project not found/i)

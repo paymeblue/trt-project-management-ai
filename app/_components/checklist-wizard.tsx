@@ -9,6 +9,7 @@ import {
 } from '@/actions/checklists'
 import { downscaleImage } from '@/lib/downscale-image'
 import { FM_READINESS_SLUG, missingConditionalPhotos, missingRequiredAnswers } from '@/lib/workflow'
+import { getTabToken } from '@/lib/use-tab-token'
 
 export type WizardItem = {
   id: string
@@ -52,7 +53,7 @@ export default function ChecklistWizard({
   // FM_READINESS_SLUG; every other checklist keeps the bulk `photos` flow.
   const [photosByItem, setPhotosByItem] = useState<Record<string, string[]>>({})
   const [itemPhotoError, setItemPhotoError] = useState<Record<string, string>>({})
-  const [state, dispatch, pending] = useActionState(submitChecklistAction, INITIAL)
+  const [state, dispatch, pending] = useActionState(submitChecklistAction.bind(null, getTabToken()), INITIAL)
 
   // When this checklist was opened from a project workflow step and the step
   // advanced, return the user to their project board.

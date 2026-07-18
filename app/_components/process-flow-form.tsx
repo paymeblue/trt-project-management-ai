@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createProcessImageAction } from '@/actions/processes'
 import { downscaleImage } from '@/lib/downscale-image'
+import { getTabToken } from '@/lib/use-tab-token'
 
 export default function ProcessFlowForm() {
   const router = useRouter()
@@ -31,7 +32,7 @@ export default function ProcessFlowForm() {
     if (title.trim().length < 2) return setError('Please name the process flow.')
     if (!imageData) return setError('Please upload an image.')
     setBusy(true)
-    const res = await createProcessImageAction({ title, imageData })
+    const res = await createProcessImageAction(getTabToken(), { title, imageData })
     setBusy(false)
     if (!res.ok) return setError(res.error ?? 'Could not add the process flow.')
     setTitle('')

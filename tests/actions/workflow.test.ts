@@ -80,7 +80,7 @@ const {
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/db', () => ({ db: dbMock }))
-vi.mock('@/lib/dal', () => ({ verifySession: verifyMock }))
+vi.mock('@/lib/dal', () => ({ verifySession: verifyMock, verifySessionForAction: verifyMock }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 // Quick task 260716-h0i: partial mock — getLiveWorkflowSteps stays wired to
@@ -121,7 +121,7 @@ describe('advanceProjectStep', () => {
     selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 2, status: 'not_delivered' }])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
-    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 2 })
+    const ok = await advanceProjectStep(null, { projectId: 'p1', expectedStepN: 2 })
 
     expect(ok).toBe(true)
     expect(insertValuesMock).toHaveBeenCalledOnce()
@@ -135,7 +135,7 @@ describe('advanceProjectStep', () => {
     selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 5, status: 'not_delivered' }])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
-    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 2 })
+    const ok = await advanceProjectStep(null, { projectId: 'p1', expectedStepN: 2 })
 
     expect(ok).toBe(false)
     expect(insertValuesMock).not.toHaveBeenCalled()
@@ -148,7 +148,7 @@ describe('advanceProjectStep', () => {
     selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 2, status: 'not_delivered' }])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
-    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 2 })
+    const ok = await advanceProjectStep(null, { projectId: 'p1', expectedStepN: 2 })
 
     expect(ok).toBe(false)
     expect(insertValuesMock).not.toHaveBeenCalled()
@@ -164,7 +164,7 @@ describe('advanceProjectStep', () => {
     selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 20, status: 'not_delivered' }])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
-    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 20 })
+    const ok = await advanceProjectStep(null, { projectId: 'p1', expectedStepN: 20 })
 
     expect(ok).toBe(true)
     expect(setMock).toHaveBeenCalledWith(
@@ -178,7 +178,7 @@ describe('advanceProjectStep', () => {
     selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 21, status: 'not_delivered' }])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
-    const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 21 })
+    const ok = await advanceProjectStep(null, { projectId: 'p1', expectedStepN: 21 })
 
     expect(ok).toBe(true)
     expect(setMock).toHaveBeenCalledWith(
@@ -191,7 +191,7 @@ describe('advanceProjectStep', () => {
     selectLimitMock.mockResolvedValue([])
 
     const { advanceProjectStep } = await import('@/actions/workflow')
-    const ok = await advanceProjectStep({ projectId: 'missing', expectedStepN: 2 })
+    const ok = await advanceProjectStep(null, { projectId: 'missing', expectedStepN: 2 })
 
     expect(ok).toBe(false)
   })
@@ -206,7 +206,7 @@ describe('advanceProjectStep', () => {
       getStepAssigneeGateMock.mockResolvedValue('s1')
 
       const { advanceProjectStep } = await import('@/actions/workflow')
-      const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 20 })
+      const ok = await advanceProjectStep(null, { projectId: 'p1', expectedStepN: 20 })
 
       expect(ok).toBe(true)
       expect(insertValuesMock).toHaveBeenCalledOnce()
@@ -221,7 +221,7 @@ describe('advanceProjectStep', () => {
       getStepAssigneeGateMock.mockResolvedValue('s1')
 
       const { advanceProjectStep } = await import('@/actions/workflow')
-      const ok = await advanceProjectStep({ projectId: 'p1', expectedStepN: 20 })
+      const ok = await advanceProjectStep(null, { projectId: 'p1', expectedStepN: 20 })
 
       expect(ok).toBe(false)
       expect(insertValuesMock).not.toHaveBeenCalled()

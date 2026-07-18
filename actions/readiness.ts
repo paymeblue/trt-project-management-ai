@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
 import { readinessForms } from '@/db/schema'
-import { verifySession } from '@/lib/dal'
+import { verifySessionForAction } from '@/lib/dal'
 import { advanceOrConfirmDualRole } from '@/actions/workflow'
 import { getLiveWorkflowSteps, assigneeGatedRoles, getStepAssigneeGate } from '@/lib/workflow-graph'
 import { findStep, canActOnGraphStep, type UserRole, type WorkflowRole } from '@/lib/workflow'
@@ -37,10 +37,11 @@ export type ReadinessState = {
 const MAX_DATA_URL = 6_000_000
 
 export async function submitReadinessAction(
+  tabToken: string | null,
   _prev: ReadinessState,
   input: ReadinessInput,
 ): Promise<ReadinessState> {
-  const { userId, role } = await verifySession()
+  const { userId, role } = await verifySessionForAction(tabToken)
 
   const mode = input?.mode === 'upload' ? 'upload' : 'digital'
 
@@ -105,7 +106,7 @@ export async function submitReadinessAction(
 
   let advanced = false
   if (input?.projectId && input?.expectedStepN) {
-    advanced = await advanceOrConfirmDualRole({
+    advanced = await advanceOrConfirmDualRole(tabToken, {
       projectId: String(input.projectId),
       expectedStepN: Number(input.expectedStepN),
     })

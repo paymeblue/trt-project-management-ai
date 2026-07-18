@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 import { db } from '@/db'
 import { users } from '@/db/schema'
-import { requireAdmin, isAdminRole } from '@/lib/dal'
+import { requireAdminForAction, isAdminRole } from '@/lib/dal'
 import { Roles, userRoleLabel, type UserRole } from '@/lib/workflow'
 import { sendEmail } from '@/lib/email'
 import { credentialsEmail } from '@/lib/email-templates'
@@ -34,12 +34,12 @@ function generatePassword() {
 }
 
 /** Admin-only: create a PM account and email them their credentials. */
-export async function createUserAction(input: {
+export async function createUserAction(tabToken: string | null, input: {
   name: string
   email: string
   role: string
 }): Promise<CreateUserResult> {
-  await requireAdmin()
+  await requireAdminForAction(tabToken)
 
   const name = String(input?.name ?? '').trim()
   const email = String(input?.email ?? '').toLowerCase().trim()
@@ -88,8 +88,8 @@ export async function createUserAction(input: {
 }
 
 /** Client-callable role update with the admin guard. */
-export async function updateUserRoleAction(userId: string, newRole: string): Promise<ActionResult> {
-  const { userId: meId } = await requireAdmin()
+export async function updateUserRoleAction(tabToken: string | null, userId: string, newRole: string): Promise<ActionResult> {
+  const { userId: meId } = await requireAdminForAction(tabToken)
   if (!ASSIGNABLE_ROLES.includes(newRole as UserRole)) return { ok: false, error: 'Invalid role.' }
 
   const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
@@ -114,10 +114,11 @@ export async function updateUserRoleAction(userId: string, newRole: string): Pro
  * protection rules as updateUserRoleAction (cannot touch another admin).
  */
 export async function updateUserPositionAction(
+  tabToken: string | null,
   userId: string,
   newPosition: string | null,
 ): Promise<ActionResult> {
-  const { userId: meId } = await requireAdmin()
+  const { userId: meId } = await requireAdminForAction(tabToken)
   if (newPosition && !(await positionExists(newPosition))) {
     return { ok: false, error: 'Invalid position.' }
   }
@@ -147,8 +148,8 @@ type ResetPasswordResult = ActionResult & { tempPassword?: string; emailed?: boo
  * a fresh temp password instead, covering the actual need (a locked-out
  * user) without that risk.
  */
-export async function resetUserPasswordAction(userId: string): Promise<ResetPasswordResult> {
-  const { userId: meId } = await requireAdmin()
+export async function resetUserPasswordAction(tabToken: string | null, userId: string): Promise<ResetPasswordResult> {
+  const { userId: meId } = await requireAdminForAction(tabToken)
 
   const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
   if (!target) return { ok: false, error: 'User not found.' }
@@ -180,8 +181,8 @@ export async function resetUserPasswordAction(userId: string): Promise<ResetPass
 }
 
 /** Delete a user, with guards against removing administrators or yourself. */
-export async function deleteUserAction(userId: string): Promise<ActionResult> {
-  const { userId: meId } = await requireAdmin()
+export async function deleteUserAction(tabToken: string | null, userId: string): Promise<ActionResult> {
+  const { userId: meId } = await requireAdminForAction(tabToken)
   if (userId === meId) return { ok: false, error: 'You cannot delete your own account.' }
 
   const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1)

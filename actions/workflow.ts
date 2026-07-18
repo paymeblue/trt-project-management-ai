@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { projects, projectStepCompletions, workflowStepStates } from '@/db/schema'
-import { verifySession } from '@/lib/dal'
+import { verifySessionForAction } from '@/lib/dal'
 import { canRoleActOnStep, findStep, lastStepN, type UserRole, type WorkflowRole } from '@/lib/workflow'
 import { getLiveWorkflowSteps, assigneeGatedRoles, getStepAssigneeGate } from '@/lib/workflow-graph'
 
@@ -22,12 +22,12 @@ function revalidateBoards() {
  * `true` if it advanced. Callable directly (ack steps) or from other server
  * actions (checklist / readiness submission).
  */
-export async function advanceProjectStep(opts: {
+export async function advanceProjectStep(tabToken: string | null, opts: {
   projectId: string
   expectedStepN: number
   notes?: string | null
 }): Promise<boolean> {
-  const { userId, role } = await verifySession()
+  const { userId, role } = await verifySessionForAction(tabToken)
   const { projectId, expectedStepN } = opts
   if (!projectId) return false
 
@@ -86,12 +86,12 @@ export async function advanceProjectStep(opts: {
  * Returns `advanced: true` only on the call that completes the LAST
  * required role's confirmation.
  */
-export async function confirmDualRoleStep(opts: {
+export async function confirmDualRoleStep(tabToken: string | null, opts: {
   projectId: string
   expectedStepN: number
   notes?: string | null
 }): Promise<{ ok: boolean; advanced: boolean; message?: string }> {
-  const { userId, role } = await verifySession()
+  const { userId, role } = await verifySessionForAction(tabToken)
   return confirmDualRoleStepAs({ ...opts, userId, role })
 }
 
@@ -202,29 +202,30 @@ export async function confirmDualRoleStepAs(opts: {
  * independently confirm first (confirmDualRoleStep). Callers just want a
  * single boolean — this picks the right engine transparently.
  */
-export async function advanceOrConfirmDualRole(opts: {
+export async function advanceOrConfirmDualRole(tabToken: string | null, opts: {
   projectId: string
   expectedStepN: number
   notes?: string | null
 }): Promise<boolean> {
   const step = findStep(await getLiveWorkflowSteps(), opts.expectedStepN)
   if (step?.dualRoles?.length) {
-    const res = await confirmDualRoleStep(opts)
+    const res = await confirmDualRoleStep(tabToken, opts)
     return res.advanced
   }
-  return advanceProjectStep(opts)
+  return advanceProjectStep(tabToken, opts)
 }
 
 export type AckStepState = { ok: boolean; message?: string }
 
 /** Completes an inline `ack` step (e.g. Factory Floor Projects) from the modal. */
 export async function completeAckStepAction(
+  tabToken: string | null,
   _prev: AckStepState,
   input: { projectId: string; expectedStepN: number; notes?: string },
 ): Promise<AckStepState> {
   const step = findStep(await getLiveWorkflowSteps(), input?.expectedStepN)
   if (!step || step.kind !== 'ack') return { ok: false, message: 'Invalid step.' }
-  const advanced = await advanceProjectStep({
+  const advanced = await advanceProjectStep(tabToken, {
     projectId: input.projectId,
     expectedStepN: input.expectedStepN,
     notes: input.notes,

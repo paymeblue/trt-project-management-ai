@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { projects, projectStepCompletions, stepBypassRequests } from '@/db/schema'
-import { verifySession } from '@/lib/dal'
+import { verifySessionForAction } from '@/lib/dal'
 import {
   canRoleActOnStep,
   findStep,
@@ -29,10 +29,11 @@ export type BypassState = { ok: boolean; message?: string }
 // Actor requests approval to advance the current step WITHOUT completing its
 // checklist (REQ-G09). Notifies every super admin.
 export async function requestStepBypassAction(
+  tabToken: string | null,
   _prev: BypassState,
   input: { projectId: string; stepN: number; reason?: string },
 ): Promise<BypassState> {
-  const { userId, role } = await verifySession()
+  const { userId, role } = await verifySessionForAction(tabToken)
   const projectId = String(input?.projectId ?? '')
   const stepN = Number(input?.stepN)
   const reason = String(input?.reason ?? '').trim()
@@ -79,11 +80,11 @@ export async function requestStepBypassAction(
 
 // Super admin approves or denies. Approval advances the step with an audited
 // completion row (who approved + reason).
-export async function decideStepBypassAction(input: {
+export async function decideStepBypassAction(tabToken: string | null, input: {
   requestId: string
   approve: boolean
 }): Promise<BypassState> {
-  const { userId, role } = await verifySession()
+  const { userId, role } = await verifySessionForAction(tabToken)
   if (role !== Roles.SuperAdmin) return { ok: false, message: 'Only a super admin can decide.' }
   const requestId = String(input?.requestId ?? '')
 

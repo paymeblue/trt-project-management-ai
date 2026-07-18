@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import SignatureCanvas from 'react-signature-canvas'
 import { submitReadinessAction, type ReadinessState } from '@/actions/readiness'
 import { downscaleImage } from '@/lib/downscale-image'
+import { getTabToken } from '@/lib/use-tab-token'
 
 const INITIAL: ReadinessState = { status: 'idle' }
 
@@ -25,7 +26,7 @@ export default function ReadinessForm({
 }) {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('digital')
-  const [state, dispatch, pending] = useActionState(submitReadinessAction, INITIAL)
+  const [state, dispatch, pending] = useActionState(submitReadinessAction.bind(null, getTabToken()), INITIAL)
 
   // Shared fields
   const [project, setProject] = useState(initialProject)

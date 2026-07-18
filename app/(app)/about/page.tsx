@@ -5,6 +5,7 @@ import { verifySession, isAdminRole } from '@/lib/dal';
 import { updateAboutAction } from '@/actions/content';
 import TrtFlowDiagram from '@/app/_components/trt-flow-diagram';
 import { roleDashboard } from '@/lib/workflow';
+import TabTokenForm from '@/app/_components/tab-token-form'
 
 export const dynamic = 'force-dynamic';
 
@@ -93,7 +94,7 @@ export default async function AboutPage() {
       <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">About TRT</h1>
 
       {isAdmin ? (
-        <form
+        <TabTokenForm
           action={updateAboutAction}
           className="space-y-3 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
         >
@@ -113,7 +114,7 @@ export default async function AboutPage() {
           >
             Save
           </button>
-        </form>
+        </TabTokenForm>
       ) : (
         <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm leading-relaxed text-gray-700 shadow-sm">
           {body ? (

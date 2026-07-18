@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateProcessImageAction, deleteProcessAction } from '@/actions/processes'
 import { downscaleImage } from '@/lib/downscale-image'
+import { getTabToken } from '@/lib/use-tab-token'
 
 export default function ProcessAdminControls({
   slug,
@@ -22,7 +23,7 @@ export default function ProcessAdminControls({
     if (newTitle.trim().length < 2 || newTitle.trim() === title) return
     setBusy(true)
     setError('')
-    const res = await updateProcessImageAction({ slug, title: newTitle })
+    const res = await updateProcessImageAction(getTabToken(), { slug, title: newTitle })
     setBusy(false)
     if (!res.ok) return setError(res.error ?? 'Could not rename.')
     router.refresh()
@@ -35,7 +36,7 @@ export default function ProcessAdminControls({
     setError('')
     try {
       const imageData = await downscaleImage(file, 1600, 0.85)
-      const res = await updateProcessImageAction({ slug, imageData })
+      const res = await updateProcessImageAction(getTabToken(), { slug, imageData })
       if (!res.ok) setError(res.error ?? 'Could not replace image.')
       else router.refresh()
     } catch {
@@ -47,7 +48,7 @@ export default function ProcessAdminControls({
 
   async function remove() {
     setBusy(true)
-    const res = await deleteProcessAction(slug)
+    const res = await deleteProcessAction(getTabToken(), slug)
     setBusy(false)
     if (!res.ok) return setError(res.error ?? 'Could not delete.')
     router.push('/processes')

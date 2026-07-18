@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { renamePositionAction } from '@/actions/positions'
 import { slugifyPosition } from '@/lib/position-slug'
 import type { PositionWithCounts } from '@/lib/positions'
+import { getTabToken } from '@/lib/use-tab-token'
 
 // Admin Positions card (quick task 260714-bpq) — smallest viable surface on
 // /admin/users, below the users table. Super admins get an inline rename per
@@ -59,7 +60,7 @@ function PositionRow({ position, canRename }: { position: PositionWithCounts; ca
   function save() {
     setMessage(null)
     startTransition(async () => {
-      const res = await renamePositionAction({ slug: position.slug, newLabel: label })
+      const res = await renamePositionAction(getTabToken(), { slug: position.slug, newLabel: label })
       if (!res.ok) {
         setMessage({ kind: 'error', text: res.message })
         return

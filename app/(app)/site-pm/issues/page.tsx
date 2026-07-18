@@ -3,6 +3,7 @@ import { db } from '@/db'
 import { issues, projects } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { createIssueAction, toggleIssueAction, escalateIssueAction } from '@/actions/issues'
+import TabTokenForm from '@/app/_components/tab-token-form'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,7 +49,7 @@ export default async function IssueLogPage({
       </a>
       <h1 className="mb-6 mt-2 text-2xl font-bold text-gray-900">Issue Log</h1>
 
-      <form
+      <TabTokenForm
         action={createIssueAction}
         className="mb-8 space-y-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
       >
@@ -89,7 +90,7 @@ export default async function IssueLogPage({
         >
           Log issue
         </button>
-      </form>
+      </TabTokenForm>
 
       {/* Filter by project (server-side via GET query param) */}
       <form method="get" className="mb-3 flex flex-wrap items-center gap-2">
@@ -151,7 +152,7 @@ export default async function IssueLogPage({
                       {new Date(i.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-3 py-2 text-center">
-                      <form action={toggleIssueAction}>
+                      <TabTokenForm action={toggleIssueAction}>
                         <input type="hidden" name="id" value={i.id} />
                         <button
                           type="submit"
@@ -164,7 +165,7 @@ export default async function IssueLogPage({
                         >
                           {open ? 'Open' : 'Closed'}
                         </button>
-                      </form>
+                      </TabTokenForm>
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center justify-center gap-2">
@@ -173,7 +174,7 @@ export default async function IssueLogPage({
                             Escalated
                           </span>
                         ) : (
-                          <form action={escalateIssueAction}>
+                          <TabTokenForm action={escalateIssueAction}>
                             <input type="hidden" name="id" value={i.id} />
                             <button
                               type="submit"
@@ -182,7 +183,7 @@ export default async function IssueLogPage({
                             >
                               Escalate
                             </button>
-                          </form>
+                          </TabTokenForm>
                         )}
                         <a
                           href={`/disputes/${i.projectId}`}

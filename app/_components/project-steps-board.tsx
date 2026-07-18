@@ -17,6 +17,7 @@ import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
 import { completeAckStepAction, type AckStepState } from '@/actions/workflow'
 import { pauseProjectAction, resumeProjectAction, type FlagState } from '@/actions/projects'
 import { requestStepBypassAction, type BypassState } from '@/actions/bypass'
+import { getTabToken } from '@/lib/use-tab-token'
 
 export type BoardProject = {
   id: string
@@ -104,7 +105,7 @@ function Countdown({
 // ── Inline "ack" step completion (e.g. Factory Floor Projects) ─────────────
 function AckComplete({ projectId, stepN }: { projectId: string; stepN: number }) {
   const router = useRouter()
-  const [state, dispatch, pending] = useActionState(completeAckStepAction, INITIAL_ACK)
+  const [state, dispatch, pending] = useActionState(completeAckStepAction.bind(null, getTabToken()), INITIAL_ACK)
   const [notes, setNotes] = useState('')
 
   useEffect(() => {
@@ -138,7 +139,7 @@ const INITIAL_BYPASS: BypassState = { ok: false }
 // (REQ-G09). Rendered under the current step's action when it's your turn.
 function BypassRequest({ projectId, stepN }: { projectId: string; stepN: number }) {
   const router = useRouter()
-  const [state, dispatch, pending] = useActionState(requestStepBypassAction, INITIAL_BYPASS)
+  const [state, dispatch, pending] = useActionState(requestStepBypassAction.bind(null, getTabToken()), INITIAL_BYPASS)
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState('')
 
@@ -199,9 +200,9 @@ function FlagControls({ project, viewerRole }: { project: BoardProject; viewerRo
   const router = useRouter()
   const steps = useWorkflowSteps()
   const paused = project.status === 'paused'
-  const [pauseState, pauseDispatch, pausePending] = useActionState(pauseProjectAction, INITIAL_FLAG)
+  const [pauseState, pauseDispatch, pausePending] = useActionState(pauseProjectAction.bind(null, getTabToken()), INITIAL_FLAG)
   const [resumeState, resumeDispatch, resumePending] = useActionState(
-    resumeProjectAction,
+    resumeProjectAction.bind(null, getTabToken()),
     INITIAL_FLAG,
   )
   const [showReason, setShowReason] = useState(false)

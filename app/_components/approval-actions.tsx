@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { decideStepBypassAction } from '@/actions/bypass'
+import { getTabToken } from '@/lib/use-tab-token'
 
 // Approve / Deny buttons for a pending step-bypass request (super admin).
 export default function ApprovalActions({ requestId }: { requestId: string }) {
@@ -13,7 +14,7 @@ export default function ApprovalActions({ requestId }: { requestId: string }) {
   function decide(approve: boolean) {
     setError(null)
     startTransition(async () => {
-      const res = await decideStepBypassAction({ requestId, approve })
+      const res = await decideStepBypassAction(getTabToken(), { requestId, approve })
       if (res.ok) router.refresh()
       else setError(res.message ?? 'Could not complete that action.')
     })

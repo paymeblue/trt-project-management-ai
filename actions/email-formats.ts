@@ -4,10 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { staticContent } from '@/db/schema'
-import { verifySession, isAdminRole } from '@/lib/dal'
+import { verifySessionForAction, isAdminRole } from '@/lib/dal'
 
-export async function updateEmailFormatsAction(formData: FormData): Promise<void> {
-  const { userId, role } = await verifySession()
+export async function updateEmailFormatsAction(tabToken: string | null, formData: FormData): Promise<void> {
+  const { userId, role } = await verifySessionForAction(tabToken)
   if (!isAdminRole(role)) return // Admins (Super Admin / Operations) edit only; PMs view
   const body = String(formData.get('body') ?? '').trim()
 

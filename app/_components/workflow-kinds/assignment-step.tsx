@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { assignUserAction, completeStepAction } from '@/actions/workflow-graph'
 import type { WorkflowRole } from '@/lib/workflow'
+import { getTabToken } from '@/lib/use-tab-token'
 
 // Delay (ms) the success confirmation stays visible before redirecting, so
 // the user has time to read who/what was assigned before the page navigates.
@@ -60,9 +61,9 @@ export default function AssignmentStep({
     }
     setMessage(null)
     startTransition(async () => {
-      const res = await assignUserAction({ projectId, stepDefId, assignedUserId: selected })
+      const res = await assignUserAction(getTabToken(), { projectId, stepDefId, assignedUserId: selected })
       if (res.ok) {
-        const completeRes = await completeStepAction({ projectId, stepDefId })
+        const completeRes = await completeStepAction(getTabToken(), { projectId, stepDefId })
         const who = candidates.find((c) => c.id === selected)?.name ?? 'User'
         const where = `"${stepLabel ?? 'this step'}"${projectName ? ` on ${projectName}` : ''}`
         if (completeRes.ok) {
@@ -83,7 +84,7 @@ export default function AssignmentStep({
   function complete() {
     setMessage(null)
     startTransition(async () => {
-      const res = await completeStepAction({ projectId, stepDefId })
+      const res = await completeStepAction(getTabToken(), { projectId, stepDefId })
       if (res.ok) {
         setMessage(`✓ Step completed.${redirectTo ? ' Redirecting…' : ''}`)
         setOk(true)

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { addProductPdfAction } from '@/actions/product-readiness'
+import { getTabToken } from '@/lib/use-tab-token'
 
 export default function ProductPdfUpload() {
   const [filename, setFilename] = useState('')
@@ -37,7 +38,7 @@ export default function ProductPdfUpload() {
       return
     }
     setBusy(true)
-    const res = await addProductPdfAction({ filename: filename.trim() || 'document.pdf', dataUrl, sizeBytes })
+    const res = await addProductPdfAction(getTabToken(), { filename: filename.trim() || 'document.pdf', dataUrl, sizeBytes })
     setBusy(false)
     if (res.ok) {
       setFilename('')

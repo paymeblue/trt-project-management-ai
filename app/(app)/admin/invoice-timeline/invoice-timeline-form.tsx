@@ -4,11 +4,12 @@ import { useActionState, useEffect, useState } from 'react'
 import { setInvoiceTimelineAction, type SetInvoiceTimelineState } from '@/actions/projects'
 import { lastStepN, workflowRoleLabel } from '@/lib/workflow'
 import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
+import { getTabToken } from '@/lib/use-tab-token'
 
 const INITIAL: SetInvoiceTimelineState = { status: 'idle' }
 
 export default function InvoiceTimelineForm({ projectId }: { projectId: string }) {
-  const [state, action, pending] = useActionState(setInvoiceTimelineAction, INITIAL)
+  const [state, action, pending] = useActionState(setInvoiceTimelineAction.bind(null, getTabToken()), INITIAL)
   const steps = useWorkflowSteps()
   // v2.0 quick task 260713-rb2: re-keyed from the deleted 'invoice_timeline'
   // to the merged 'invoice_upload' step (part 2 of its 2-part wizard).

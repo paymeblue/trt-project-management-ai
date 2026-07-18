@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createUserAction } from '@/actions/admin-users';
 import { ALL_USER_ROLES } from '@/lib/workflow';
+import { getTabToken } from '@/lib/use-tab-token'
 
 export default function AdminCreateUser() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function AdminCreateUser() {
     setError('');
     setResult(null);
     setBusy(true);
-    const res = await createUserAction({ name, email, role });
+    const res = await createUserAction(getTabToken(), { name, email, role });
     setBusy(false);
     if (!res.ok) {
       setError(res.error ?? 'Could not create the user.');

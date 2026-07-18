@@ -16,7 +16,7 @@ const { verifyMock, getStepByIdMock, submitYesNoUploadMock, selectLimitMock } = 
 
 vi.mock('server-only', () => ({}))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
-vi.mock('@/lib/dal', () => ({ verifySession: verifyMock }))
+vi.mock('@/lib/dal', () => ({ verifySession: verifyMock, verifySessionForAction: verifyMock }))
 vi.mock('@/lib/notifications', () => ({ notifyUser: vi.fn() }))
 vi.mock('@/db', () => ({
   db: {
@@ -60,7 +60,7 @@ describe('submitYesNoUploadAction — mandatory upload on sign_off', () => {
       receiverRequiredPosition: null,
     })
 
-    const res = await submitYesNoUploadAction({
+    const res = await submitYesNoUploadAction(null, {
       projectId: 'proj-1',
       stepDefId: 'step-sign-off',
       answer: 'yes',
@@ -82,7 +82,7 @@ describe('submitYesNoUploadAction — mandatory upload on sign_off', () => {
       receiverRequiredPosition: null,
     })
 
-    const res = await submitYesNoUploadAction({
+    const res = await submitYesNoUploadAction(null, {
       projectId: 'proj-1',
       stepDefId: 'step-sign-off',
       answer: 'yes',
@@ -104,7 +104,7 @@ describe('submitYesNoUploadAction — mandatory upload on sign_off', () => {
     })
     verifyMock.mockResolvedValue({ userId: 'user-1', role: 'design' })
 
-    const res = await submitYesNoUploadAction({
+    const res = await submitYesNoUploadAction(null, {
       projectId: 'proj-1',
       stepDefId: 'step-brief',
       answer: 'no',
@@ -128,7 +128,7 @@ describe('submitYesNoUploadAction — upload size cap (item #2, 5MB)', () => {
     })
     verifyMock.mockResolvedValue({ userId: 'user-1', role: 'design' })
 
-    const res = await submitYesNoUploadAction({
+    const res = await submitYesNoUploadAction(null, {
       projectId: 'proj-1',
       stepDefId: 'step-brief',
       answer: 'yes',
@@ -151,7 +151,7 @@ describe('submitYesNoUploadAction — upload size cap (item #2, 5MB)', () => {
     })
     verifyMock.mockResolvedValue({ userId: 'user-1', role: 'design' })
 
-    const res = await submitYesNoUploadAction({
+    const res = await submitYesNoUploadAction(null, {
       projectId: 'proj-1',
       stepDefId: 'step-brief',
       answer: 'yes',

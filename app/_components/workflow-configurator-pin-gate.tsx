@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { verifyConfigPinAction, type ConfigActionState } from '@/actions/workflow-config'
+import { getTabToken } from '@/lib/use-tab-token'
 
 export default function ConfiguratorPinGate({ hint }: { hint: string }) {
   const router = useRouter()
@@ -17,7 +18,7 @@ export default function ConfiguratorPinGate({ hint }: { hint: string }) {
       return
     }
     startTransition(async () => {
-      const res = await verifyConfigPinAction(pin)
+      const res = await verifyConfigPinAction(getTabToken(), pin)
       setState(res)
       if (res.status === 'success') {
         setPin('')

@@ -28,6 +28,7 @@ import {
 } from '@/actions/workflow-config'
 import type { GraphStep, WorkflowRole } from '@/lib/workflow'
 import { ROLE_COLOR, KIND_OPTIONS, StepFieldsPanel } from '@/app/_components/workflow-configurator-shared'
+import { getTabToken } from '@/lib/use-tab-token'
 
 type StepNodeData = { step: GraphStep; stepNumber: number }
 type StepNode = Node<StepNodeData, 'stepNode'>
@@ -190,7 +191,7 @@ function GraphInner({
   function saveLayout() {
     setSavingLayout(true)
     setSaveMessage(null)
-    Promise.all(nodes.map((n) => updateConfigStepPositionAction(n.id, n.position.x, n.position.y)))
+    Promise.all(nodes.map((n) => updateConfigStepPositionAction(getTabToken(), n.id, n.position.x, n.position.y)))
       .then(() => {
         setLayoutDirty(false)
         setSaveMessage('Layout saved.')
@@ -205,7 +206,7 @@ function GraphInner({
         if (change.type === 'remove') {
           const removed = edges.find((e) => e.id === change.id)
           if (removed) {
-            removeConfigEdgeAction(graph, removed.source, removed.target).then((res) => {
+            removeConfigEdgeAction(getTabToken(), graph, removed.source, removed.target).then((res) => {
               if (res.status === 'error') {
                 setEdgeError(res.message ?? 'Could not remove that connection.')
                 onChanged()
@@ -225,7 +226,7 @@ function GraphInner({
       setEdges((eds) =>
         addEdge({ ...connection, type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } }, eds),
       )
-      addConfigEdgeAction(graph, connection.source, connection.target).then((res) => {
+      addConfigEdgeAction(getTabToken(), graph, connection.source, connection.target).then((res) => {
         if (res.status === 'error') {
           setEdgeError(res.message ?? 'Could not create that connection.')
           onChanged()

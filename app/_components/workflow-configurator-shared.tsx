@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { updateConfigStepAction, deleteConfigStepAction, type ConfigActionState } from '@/actions/workflow-config'
 import type { WorkflowRole, StepKind, GraphStep } from '@/lib/workflow'
+import { getTabToken } from '@/lib/use-tab-token'
 
 // Shared between the list view (workflow-configurator-editor.tsx) and the
 // graph view's side panel (workflow-configurator-graph.tsx) — one form,
@@ -133,7 +134,7 @@ export function StepFieldsPanel({
       return
     }
     startTransition(async () => {
-      const res = await updateConfigStepAction({
+      const res = await updateConfigStepAction(getTabToken(), {
         stepId: step.id,
         label,
         role,
@@ -153,7 +154,7 @@ export function StepFieldsPanel({
 
   function remove() {
     startTransition(async () => {
-      const res = await deleteConfigStepAction(step.id)
+      const res = await deleteConfigStepAction(getTabToken(), step.id)
       setState(res)
       if (res.status === 'success') onSaved()
     })

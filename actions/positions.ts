@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
 import { positions, users, workflowStepDefinitions } from '@/db/schema'
-import { verifySession } from '@/lib/dal'
+import { verifySessionForAction } from '@/lib/dal'
 import { Roles } from '@/lib/workflow'
 import { slugifyPosition } from '@/lib/position-slug'
 
@@ -68,8 +68,8 @@ export async function renamePositionCore(input: { slug: string; newLabel: string
   return { ok: true, userCount, stepCount, newSlug, newLabel }
 }
 
-export async function renamePositionAction(input: { slug: string; newLabel: string }): Promise<RenamePositionResult> {
-  const { role } = await verifySession()
+export async function renamePositionAction(tabToken: string | null, input: { slug: string; newLabel: string }): Promise<RenamePositionResult> {
+  const { role } = await verifySessionForAction(tabToken)
   if (role !== Roles.SuperAdmin) {
     return { ok: false, message: 'Only a super admin can rename positions.' }
   }

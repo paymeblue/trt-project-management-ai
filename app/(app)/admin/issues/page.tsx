@@ -3,6 +3,7 @@ import { db } from '@/db'
 import { issues, projects, users } from '@/db/schema'
 import { requireAdmin } from '@/lib/dal'
 import { adminToggleIssueAction } from '@/actions/issues'
+import TabTokenForm from '@/app/_components/tab-token-form'
 
 export const dynamic = 'force-dynamic'
 
@@ -82,7 +83,7 @@ export default async function AdminIssuesPage() {
                       )}
                     </td>
                     <td className="px-3 py-2 text-center">
-                      <form action={adminToggleIssueAction}>
+                      <TabTokenForm action={adminToggleIssueAction}>
                         <input type="hidden" name="id" value={i.id} />
                         <button
                           type="submit"
@@ -95,7 +96,7 @@ export default async function AdminIssuesPage() {
                         >
                           {isOpen ? 'Open' : 'Closed'}
                         </button>
-                      </form>
+                      </TabTokenForm>
                     </td>
                     <td className="px-3 py-2 text-center">
                       <a

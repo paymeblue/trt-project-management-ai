@@ -3,7 +3,7 @@
 import { and, eq, ne } from 'drizzle-orm'
 import { db } from '@/db'
 import { users, projects } from '@/db/schema'
-import { verifySession } from '@/lib/dal'
+import { verifySessionForAction } from '@/lib/dal'
 import { escalationTargetPosition } from '@/lib/escalation'
 import { userRoleLabel, type UserRole } from '@/lib/workflow'
 import { notifyUser } from '@/lib/notifications'
@@ -16,12 +16,12 @@ export type EscalateResult = { ok: boolean; message: string }
  * a lightweight, single-recipient notification to the escalating user's
  * fixed superior position — the project is NOT paused, nothing blocks.
  */
-export async function escalateChecklistAction(input: {
+export async function escalateChecklistAction(tabToken: string | null, input: {
   projectId: string
   checklistLabel: string
   reason?: string | null
 }): Promise<EscalateResult> {
-  const { userId, role } = await verifySession()
+  const { userId, role } = await verifySessionForAction(tabToken)
   const projectId = String(input?.projectId ?? '')
   const checklistLabel = String(input?.checklistLabel ?? 'a checklist').trim()
   const reason = String(input?.reason ?? '').trim().slice(0, 500)

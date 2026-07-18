@@ -2,11 +2,12 @@
 
 import { useActionState } from 'react'
 import { createProjectIntentAction, type CreateProjectIntentState } from '@/actions/projects'
+import { getTabToken } from '@/lib/use-tab-token'
 
 const INITIAL: CreateProjectIntentState = { status: 'idle' }
 
 export default function ProjectIntakeForm() {
-  const [state, action, pending] = useActionState(createProjectIntentAction, INITIAL)
+  const [state, action, pending] = useActionState(createProjectIntentAction.bind(null, getTabToken()), INITIAL)
 
   const inputCls =
     'w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none'

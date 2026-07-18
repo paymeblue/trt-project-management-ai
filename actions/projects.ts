@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { projects, projectStepCompletions, projectStepDeadlines, workflowStepStates, users } from '@/db/schema'
-import { requireAdmin, verifySession } from '@/lib/dal'
+import { requireAdminForAction, verifySessionForAction } from '@/lib/dal'
 import { FIRST_ACTION_STEP, Roles, isAdminRole, lastStepN, projectComplete, type UserRole } from '@/lib/workflow'
 import { getLiveWorkflowSteps, getStepById, completeGraphStep, confirmPaymentReceived } from '@/lib/workflow-graph'
 import { notifyAllSuperAdmins } from '@/lib/notifications'
@@ -23,10 +23,11 @@ export type CreateProjectIntentState = { status: 'idle' | 'error'; message?: str
 // deadlines are collected here; Head of Operations sets the timeline once the
 // invoice is uploaded.
 export async function createProjectIntentAction(
+  tabToken: string | null,
   _prev: CreateProjectIntentState,
   formData: FormData,
 ): Promise<CreateProjectIntentState> {
-  const { userId, role } = await verifySession()
+  const { userId, role } = await verifySessionForAction(tabToken)
   if (role !== Roles.CustomerCare && !isAdminRole(role as UserRole)) {
     return { status: 'error', message: 'Only Customer Care can create a project intent.' }
   }
@@ -110,10 +111,11 @@ export type SetInvoiceTimelineState = { status: 'idle' | 'error'; message?: stri
 // (Head Designer assigns; the assigned designer takes the brief) before
 // this runs, so no deadline is set for them here.
 export async function setInvoiceTimelineAction(
+  tabToken: string | null,
   _prev: SetInvoiceTimelineState,
   formData: FormData,
 ): Promise<SetInvoiceTimelineState> {
-  const { userId, role } = await verifySession()
+  const { userId, role } = await verifySessionForAction(tabToken)
   if (!isAdminRole(role as UserRole)) {
     return { status: 'error', message: 'Only Operations or a Super Admin can set the timeline.' }
   }
@@ -201,11 +203,11 @@ export type ConfirmClientPaidState = { ok: boolean; message?: string }
 // such restriction and already proved itself on the old merged step. Sole
 // caller of completeGraphStep for this step (mirrors setInvoiceTimelineAction's
 // precedent for the old merged step / the new set_delivery_timeline step).
-export async function confirmClientPaidAction(input: {
+export async function confirmClientPaidAction(tabToken: string | null, input: {
   projectId: string
   stepDefId: string
 }): Promise<ConfirmClientPaidState> {
-  const { userId, role } = await verifySession()
+  const { userId, role } = await verifySessionForAction(tabToken)
   if (role !== Roles.CustomerCare && !isAdminRole(role as UserRole)) {
     return { ok: false, message: 'Only Customer Care can confirm payment.' }
   }
@@ -256,8 +258,8 @@ export async function confirmClientPaidAction(input: {
 
 // Admin-only manual override of delivered status (status is otherwise managed
 // automatically when the workflow reaches Close Out).
-export async function toggleProjectStatusAction(formData: FormData): Promise<void> {
-  await requireAdmin()
+export async function toggleProjectStatusAction(tabToken: string | null, formData: FormData): Promise<void> {
+  await requireAdminForAction(tabToken)
   const id = String(formData.get('id') ?? '')
   const [proj] = await db.select().from(projects).where(eq(projects.id, id)).limit(1)
   if (!proj) return
@@ -274,10 +276,11 @@ export type FlagState = { ok: boolean; message?: string }
 // the project and notifies every super admin; it stays paused until a super
 // admin resumes it.
 export async function pauseProjectAction(
+  tabToken: string | null,
   _prev: FlagState,
   input: { projectId: string; reason?: string },
 ): Promise<FlagState> {
-  const { userId } = await verifySession()
+  const { userId } = await verifySessionForAction(tabToken)
   const projectId = String(input?.projectId ?? '')
   const reason = String(input?.reason ?? '').trim()
   if (!projectId) return { ok: false, message: 'Missing project.' }
@@ -307,10 +310,11 @@ export async function pauseProjectAction(
 
 // Super-admin-only resume of a paused project (REQ-G08).
 export async function resumeProjectAction(
+  tabToken: string | null,
   _prev: FlagState,
   input: { projectId: string },
 ): Promise<FlagState> {
-  const { role } = await verifySession()
+  const { role } = await verifySessionForAction(tabToken)
   if (role !== Roles.SuperAdmin)
     return { ok: false, message: 'Only a super admin can resume a paused project.' }
   const projectId = String(input?.projectId ?? '')

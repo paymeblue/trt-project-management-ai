@@ -3,6 +3,7 @@ import { db } from '@/db'
 import { staticContent } from '@/db/schema'
 import { verifySession, isAdminRole } from '@/lib/dal'
 import { updateEmailFormatsAction } from '@/actions/email-formats'
+import TabTokenForm from '@/app/_components/tab-token-form'
 
 export const dynamic = 'force-dynamic'
 
@@ -103,7 +104,7 @@ export default async function EmailFormatsPage() {
       </div>
 
       {isAdmin ? (
-        <form
+        <TabTokenForm
           action={updateEmailFormatsAction}
           className="space-y-3 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
         >
@@ -123,7 +124,7 @@ export default async function EmailFormatsPage() {
           >
             Save
           </button>
-        </form>
+        </TabTokenForm>
       ) : (
         body && (
           <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm leading-relaxed text-gray-700 shadow-sm">

@@ -12,6 +12,7 @@ import {
   setChecklistDefinitionActive,
   type EditChecklistState,
 } from '@/actions/checklists'
+import { getTabToken } from '@/lib/use-tab-token'
 
 type ItemType = 'radio' | 'text' | 'file'
 type ResponseOptions = 'yes_no' | 'yes_no_na'
@@ -137,7 +138,7 @@ function DefinitionSettings({
       return
     }
     startTransition(async () => {
-      const result = await updateChecklistDefinition({ definitionId: definition.id, name, targetRole })
+      const result = await updateChecklistDefinition(getTabToken(), { definitionId: definition.id, name, targetRole })
       setState(result)
       if (result.status === 'success') {
         setSavedName(name.trim())
@@ -149,7 +150,7 @@ function DefinitionSettings({
 
   function toggleActive() {
     startTransition(async () => {
-      const result = await setChecklistDefinitionActive({
+      const result = await setChecklistDefinitionActive(getTabToken(), {
         definitionId: definition.id,
         isActive: !definition.isActive,
       })
@@ -251,14 +252,14 @@ function ItemRow({
     }
     startTransition(async () => {
       if (textDirty) {
-        const result = await updateChecklistItemText({ itemId: item.id, label, helpText })
+        const result = await updateChecklistItemText(getTabToken(), { itemId: item.id, label, helpText })
         if (result.status !== 'success') {
           setState(result)
           return
         }
       }
       if (fieldsDirty) {
-        const result = await updateChecklistItemFields({ itemId: item.id, itemType, responseOptions, isPhotoRequired })
+        const result = await updateChecklistItemFields(getTabToken(), { itemId: item.id, itemType, responseOptions, isPhotoRequired })
         if (result.status !== 'success') {
           setState(result)
           return
@@ -278,7 +279,7 @@ function ItemRow({
 
   function move(direction: 'up' | 'down') {
     startTransition(async () => {
-      const result = await moveChecklistItem({ itemId: item.id, direction })
+      const result = await moveChecklistItem(getTabToken(), { itemId: item.id, direction })
       setState(result)
       if (result.status === 'success') onSaved()
     })
@@ -286,7 +287,7 @@ function ItemRow({
 
   function remove() {
     startTransition(async () => {
-      const result = await deleteChecklistItem({ itemId: item.id })
+      const result = await deleteChecklistItem(getTabToken(), { itemId: item.id })
       setState(result)
       if (result.status === 'success') onSaved()
     })
@@ -375,7 +376,7 @@ function AddRow({ definitionId, onAdded }: { definitionId: string; onAdded: () =
       return
     }
     startTransition(async () => {
-      const result = await addChecklistItem({ definitionId, label, helpText })
+      const result = await addChecklistItem(getTabToken(), { definitionId, label, helpText })
       setState(result)
       if (result.status === 'success') {
         setLabel('')

@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
 import { users, projects } from '@/db/schema'
-import { verifySession } from '@/lib/dal'
+import { verifySessionForAction } from '@/lib/dal'
 import { canRoleActOnStep } from '@/lib/workflow'
 import { notifyUser } from '@/lib/notifications'
 import {
@@ -77,8 +77,8 @@ type StepAuth = { ok: true; userId: string } | { ok: false; message: string }
 // step in ASSIGNEE_GATED_STEPS (brief_taking/kickoff_meeting/design_stage)
 // is further narrowed to the ONE person assigned at its governing
 // assignment step — not any user whose role/position otherwise qualifies.
-async function authorizeStep(stepDefId: string, projectId: string, forReceive = false): Promise<StepAuth> {
-  const { userId, role } = await verifySession()
+async function authorizeStep(tabToken: string | null, stepDefId: string, projectId: string, forReceive = false): Promise<StepAuth> {
+  const { userId, role } = await verifySessionForAction(tabToken)
   const step = await getStepById(stepDefId)
   if (!step) return { ok: false, message: 'That step could not be found.' }
   const roleGate = forReceive && step.receiverRole ? step.receiverRole : step.role
@@ -97,12 +97,12 @@ async function authorizeStep(stepDefId: string, projectId: string, forReceive = 
   return { ok: true, userId }
 }
 
-export async function completeStepAction(input: {
+export async function completeStepAction(tabToken: string | null, input: {
   projectId: string
   stepDefId: string
   skip?: boolean
 }): Promise<WorkflowGraphActionState> {
-  const auth = await authorizeStep(input.stepDefId, input.projectId)
+  const auth = await authorizeStep(tabToken, input.stepDefId, input.projectId)
   if (!auth.ok) return auth
   try {
     await completeGraphStep({
@@ -128,14 +128,14 @@ const UPLOAD_REQUIRED_STEP_KEYS = ['sign_off'] as const
 // this ceiling exists specifically to bound PDFs, which are stored as-is.
 const MAX_UPLOAD_DATA_LENGTH = 7_000_000
 
-export async function submitYesNoUploadAction(input: {
+export async function submitYesNoUploadAction(tabToken: string | null, input: {
   projectId: string
   stepDefId: string
   answer: 'yes' | 'no'
   uploadData?: string | null
   uploadName?: string | null
 }): Promise<WorkflowGraphActionState> {
-  const auth = await authorizeStep(input.stepDefId, input.projectId)
+  const auth = await authorizeStep(tabToken, input.stepDefId, input.projectId)
   if (!auth.ok) return auth
   const step = await getStepById(input.stepDefId)
   if (step && UPLOAD_REQUIRED_STEP_KEYS.includes(step.key as (typeof UPLOAD_REQUIRED_STEP_KEYS)[number]) && !input.uploadData) {
@@ -160,11 +160,11 @@ export async function submitYesNoUploadAction(input: {
   return { ok: true }
 }
 
-export async function sendApprovalAction(input: {
+export async function sendApprovalAction(tabToken: string | null, input: {
   projectId: string
   stepDefId: string
 }): Promise<WorkflowGraphActionState> {
-  const auth = await authorizeStep(input.stepDefId, input.projectId)
+  const auth = await authorizeStep(tabToken, input.stepDefId, input.projectId)
   if (!auth.ok) return auth
   try {
     await sendApproval({ projectId: input.projectId, stepDefId: input.stepDefId, actorId: auth.userId })
@@ -196,11 +196,11 @@ export async function sendApprovalAction(input: {
   return { ok: true }
 }
 
-export async function receiveApprovalAction(input: {
+export async function receiveApprovalAction(tabToken: string | null, input: {
   projectId: string
   stepDefId: string
 }): Promise<WorkflowGraphActionState> {
-  const auth = await authorizeStep(input.stepDefId, input.projectId, true)
+  const auth = await authorizeStep(tabToken, input.stepDefId, input.projectId, true)
   if (!auth.ok) return auth
   try {
     await receiveApproval({ projectId: input.projectId, stepDefId: input.stepDefId, actorId: auth.userId })
@@ -217,11 +217,11 @@ export async function receiveApprovalAction(input: {
  * actorId) so completedBy is durably attributed to the receiver, not a
  * second, separate "Complete step" click by whoever happens to press it.
  */
-export async function approveAndCompleteApprovalAction(input: {
+export async function approveAndCompleteApprovalAction(tabToken: string | null, input: {
   projectId: string
   stepDefId: string
 }): Promise<WorkflowGraphActionState> {
-  const auth = await authorizeStep(input.stepDefId, input.projectId, true)
+  const auth = await authorizeStep(tabToken, input.stepDefId, input.projectId, true)
   if (!auth.ok) return auth
   try {
     await receiveApproval({ projectId: input.projectId, stepDefId: input.stepDefId, actorId: auth.userId })
@@ -239,11 +239,11 @@ export async function approveAndCompleteApprovalAction(input: {
  * resend. Authorized EXACTLY like receive — only a receiver-eligible user
  * may reject (forReceive=true).
  */
-export async function rejectApprovalAction(input: {
+export async function rejectApprovalAction(tabToken: string | null, input: {
   projectId: string
   stepDefId: string
 }): Promise<WorkflowGraphActionState> {
-  const auth = await authorizeStep(input.stepDefId, input.projectId, true)
+  const auth = await authorizeStep(tabToken, input.stepDefId, input.projectId, true)
   if (!auth.ok) return auth
   try {
     const result = await rejectApproval({ projectId: input.projectId, stepDefId: input.stepDefId, actorId: auth.userId })
@@ -264,12 +264,12 @@ export async function rejectApprovalAction(input: {
   return { ok: true }
 }
 
-export async function assignUserAction(input: {
+export async function assignUserAction(tabToken: string | null, input: {
   projectId: string
   stepDefId: string
   assignedUserId: string
 }): Promise<WorkflowGraphActionState> {
-  const auth = await authorizeStep(input.stepDefId, input.projectId)
+  const auth = await authorizeStep(tabToken, input.stepDefId, input.projectId)
   if (!auth.ok) return auth
   try {
     await assignUser({

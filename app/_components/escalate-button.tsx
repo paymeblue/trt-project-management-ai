@@ -5,6 +5,7 @@ import { useActionState } from 'react'
 import { escalateChecklistAction, type EscalateResult } from '@/actions/escalation'
 import { escalationTargetPosition } from '@/lib/escalation'
 import type { UserRole } from '@/lib/workflow'
+import { getTabToken } from '@/lib/use-tab-token'
 
 const INITIAL: EscalateResult = { ok: false, message: '' }
 
@@ -24,7 +25,7 @@ export default function EscalateButton({
 }) {
   const [state, dispatch, pending] = useActionState(
     async (_prev: EscalateResult, formData: FormData) =>
-      escalateChecklistAction({
+      escalateChecklistAction(getTabToken(), {
         projectId,
         checklistLabel,
         reason: String(formData.get('reason') ?? ''),

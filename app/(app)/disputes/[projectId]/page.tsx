@@ -4,6 +4,7 @@ import { db } from '@/db'
 import { projectDisputes, projects, users } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { postDisputeMessageAction } from '@/actions/disputes'
+import TabTokenForm from '@/app/_components/tab-token-form'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,7 +76,7 @@ export default async function DisputePage({
         )}
       </div>
 
-      <form
+      <TabTokenForm
         action={postDisputeMessageAction}
         className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
       >
@@ -93,7 +94,7 @@ export default async function DisputePage({
         >
           Post message
         </button>
-      </form>
+      </TabTokenForm>
     </div>
   )
 }

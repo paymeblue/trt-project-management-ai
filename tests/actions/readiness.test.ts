@@ -24,7 +24,7 @@ const {
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/db', () => ({ db: dbMock }))
-vi.mock('@/lib/dal', () => ({ verifySession: verifyMock }))
+vi.mock('@/lib/dal', () => ({ verifySession: verifyMock, verifySessionForAction: verifyMock }))
 vi.mock('@/actions/workflow', () => ({ advanceOrConfirmDualRole: advanceMock }))
 vi.mock('@/lib/workflow-graph', () => ({
   getLiveWorkflowSteps: getLiveStepsMock,
@@ -54,6 +54,7 @@ describe('submitReadinessAction — requires 2 photos', () => {
   it('rejects with fewer than 2 photos (upload mode)', async () => {
     const { submitReadinessAction } = await import('@/actions/readiness')
     const res = await submitReadinessAction(
+        null,
       { status: 'idle' },
       { mode: 'upload', project: 'P', photos: [PHOTO] },
     )
@@ -64,6 +65,7 @@ describe('submitReadinessAction — requires 2 photos', () => {
   it('rejects digital mode without a signature even with 2 photos', async () => {
     const { submitReadinessAction } = await import('@/actions/readiness')
     const res = await submitReadinessAction(
+        null,
       { status: 'idle' },
       { mode: 'digital', project: 'P', confirmedBy: 'Me', photos: [PHOTO, PHOTO] },
     )
@@ -74,6 +76,7 @@ describe('submitReadinessAction — requires 2 photos', () => {
   it('saves an upload-mode form with 2 photos', async () => {
     const { submitReadinessAction } = await import('@/actions/readiness')
     const res = await submitReadinessAction(
+        null,
       { status: 'idle' },
       { mode: 'upload', project: 'P', photos: [PHOTO, PHOTO] },
     )
@@ -87,17 +90,19 @@ describe('submitReadinessAction — requires 2 photos', () => {
     advanceMock.mockResolvedValue(true)
     const { submitReadinessAction } = await import('@/actions/readiness')
     const res = await submitReadinessAction(
+        null,
       { status: 'idle' },
       { mode: 'upload', project: 'P', photos: [PHOTO, PHOTO], projectId: 'p1', expectedStepN: 3 },
     )
     expect(res.status).toBe('success')
     expect(res.advanced).toBe(true)
-    expect(advanceMock).toHaveBeenCalledWith({ projectId: 'p1', expectedStepN: 3 })
+    expect(advanceMock).toHaveBeenCalledWith(null, { projectId: 'p1', expectedStepN: 3 })
   })
 
   it('ignores non-image strings when counting photos', async () => {
     const { submitReadinessAction } = await import('@/actions/readiness')
     const res = await submitReadinessAction(
+        null,
       { status: 'idle' },
       { mode: 'upload', project: 'P', photos: [PHOTO, 'not-an-image'] },
     )
@@ -111,6 +116,7 @@ describe('submitReadinessAction — requires 2 photos', () => {
     ])
     const { submitReadinessAction } = await import('@/actions/readiness')
     const res = await submitReadinessAction(
+        null,
       { status: 'idle' },
       { mode: 'upload', project: 'P', photos: [PHOTO, PHOTO], projectId: 'p1', expectedStepN: 3 },
     )
@@ -125,6 +131,7 @@ describe('submitReadinessAction — requires 2 photos', () => {
     ])
     const { submitReadinessAction } = await import('@/actions/readiness')
     const res = await submitReadinessAction(
+        null,
       { status: 'idle' },
       { mode: 'upload', project: 'P', photos: [PHOTO, PHOTO], projectId: 'p1', expectedStepN: 3 },
     )
@@ -134,6 +141,7 @@ describe('submitReadinessAction — requires 2 photos', () => {
   it('skips the authorization gate for non-step-linked submissions', async () => {
     const { submitReadinessAction } = await import('@/actions/readiness')
     const res = await submitReadinessAction(
+        null,
       { status: 'idle' },
       { mode: 'upload', project: 'P', photos: [PHOTO, PHOTO] },
     )
@@ -153,6 +161,7 @@ describe('submitReadinessAction — requires 2 photos', () => {
 
       const { submitReadinessAction } = await import('@/actions/readiness')
       const res = await submitReadinessAction(
+        null,
         { status: 'idle' },
         { mode: 'upload', project: 'P', photos: [PHOTO, PHOTO], projectId: 'p1', expectedStepN: 3 },
       )
@@ -172,6 +181,7 @@ describe('submitReadinessAction — requires 2 photos', () => {
 
       const { submitReadinessAction } = await import('@/actions/readiness')
       const res = await submitReadinessAction(
+        null,
         { status: 'idle' },
         { mode: 'upload', project: 'P', photos: [PHOTO, PHOTO], projectId: 'p1', expectedStepN: 3 },
       )
@@ -203,6 +213,7 @@ describe('submitReadinessAction — requires 2 photos', () => {
 
       const { submitReadinessAction } = await import('@/actions/readiness')
       const res = await submitReadinessAction(
+        null,
         { status: 'idle' },
         { mode: 'upload', project: 'P', photos: [PHOTO, PHOTO], projectId: 'p1', expectedStepN: 3 },
       )

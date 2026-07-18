@@ -7,6 +7,7 @@ import {
   approveAndCompleteApprovalAction,
   rejectApprovalAction,
 } from '@/actions/workflow-graph'
+import { getTabToken } from '@/lib/use-tab-token'
 
 // Delay (ms) the success confirmation stays visible before redirecting, so
 // the user has time to read it before the page navigates. Matches
@@ -71,7 +72,7 @@ export default function ApprovalStep({
   function send() {
     setMessage(null)
     startTransition(async () => {
-      const res = await sendApprovalAction({ projectId, stepDefId })
+      const res = await sendApprovalAction(getTabToken(), { projectId, stepDefId })
       if (res.ok) {
         setMessage(`✓ Approved and sent to ${receiverPositionLabel}.${redirectTo ? ' Redirecting…' : ''}`)
         setOk(true)
@@ -86,7 +87,7 @@ export default function ApprovalStep({
   function approveAndComplete() {
     setMessage(null)
     startTransition(async () => {
-      const res = await approveAndCompleteApprovalAction({ projectId, stepDefId })
+      const res = await approveAndCompleteApprovalAction(getTabToken(), { projectId, stepDefId })
       if (res.ok) {
         setMessage(`✓ Approved. Redirecting…`)
         setOk(true)
@@ -101,7 +102,7 @@ export default function ApprovalStep({
   function reject() {
     setMessage(null)
     startTransition(async () => {
-      const res = await rejectApprovalAction({ projectId, stepDefId })
+      const res = await rejectApprovalAction(getTabToken(), { projectId, stepDefId })
       if (res.ok) {
         setMessage('Design sent back for revision.')
         setOk(true)

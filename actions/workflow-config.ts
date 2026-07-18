@@ -3,7 +3,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
-import { requireAdmin } from '@/lib/dal'
+import { requireAdmin, requireAdminForAction } from '@/lib/dal'
 import type { WorkflowRole, StepKind } from '@/lib/workflow'
 import {
   verifyConfigPin,
@@ -45,9 +45,11 @@ async function setUnlockCookie(userId: string) {
   })
 }
 
-/** Server-side check the configurator page uses to decide PIN-gate vs. editor. */
-export async function isConfiguratorUnlocked(): Promise<boolean> {
-  const { userId } = await requireAdmin()
+// Cookie-validation core, parameterized by the already-resolved caller
+// identity: the unlock cookie is signed per-user, so a per-tab session tab
+// must validate against ITS OWN userId, not whichever identity the shared
+// cookie resolves to.
+async function isUnlockedFor(userId: string): Promise<boolean> {
   const store = await cookies()
   const raw = store.get(COOKIE_NAME)?.value
   if (!raw) return false
@@ -63,10 +65,16 @@ export async function isConfiguratorUnlocked(): Promise<boolean> {
   return timingSafeEqual(a, b)
 }
 
+/** Server-side check the configurator page uses to decide PIN-gate vs. editor. */
+export async function isConfiguratorUnlocked(): Promise<boolean> {
+  const { userId } = await requireAdmin()
+  return isUnlockedFor(userId)
+}
+
 export type ConfigActionState = { status: 'idle' | 'success' | 'error'; message?: string }
 
-export async function verifyConfigPinAction(pin: string): Promise<ConfigActionState> {
-  const { userId } = await requireAdmin()
+export async function verifyConfigPinAction(tabToken: string | null, pin: string): Promise<ConfigActionState> {
+  const { userId } = await requireAdminForAction(tabToken)
   const ok = await verifyConfigPin(pin)
   if (!ok) return { status: 'error', message: 'Incorrect PIN.' }
   await setUnlockCookie(userId)
@@ -74,9 +82,9 @@ export async function verifyConfigPinAction(pin: string): Promise<ConfigActionSt
   return { status: 'success', message: 'Unlocked.' }
 }
 
-export async function changeConfigPinAction(newPin: string, hint: string): Promise<ConfigActionState> {
-  const { userId } = await requireAdmin()
-  const unlocked = await isConfiguratorUnlocked()
+export async function changeConfigPinAction(tabToken: string | null, newPin: string, hint: string): Promise<ConfigActionState> {
+  const { userId } = await requireAdminForAction(tabToken)
+  const unlocked = await isUnlockedFor(userId)
   if (!unlocked) return { status: 'error', message: 'Unlock the configurator first.' }
   if (!/^\d{4,8}$/.test(newPin)) {
     return { status: 'error', message: 'PIN must be 4-8 digits.' }
@@ -86,9 +94,9 @@ export async function changeConfigPinAction(newPin: string, hint: string): Promi
   return { status: 'success', message: 'PIN updated.' }
 }
 
-async function requireUnlockedAdmin() {
-  await requireAdmin()
-  const unlocked = await isConfiguratorUnlocked()
+async function requireUnlockedAdmin(tabToken: string | null) {
+  const { userId } = await requireAdminForAction(tabToken)
+  const unlocked = await isUnlockedFor(userId)
   if (!unlocked) throw new Error('configurator-locked')
 }
 
@@ -112,8 +120,8 @@ export type AddStepInput = {
   isOptional?: boolean
 }
 
-export async function addConfigStepAction(input: AddStepInput): Promise<ConfigActionState> {
-  await requireUnlockedAdmin()
+export async function addConfigStepAction(tabToken: string | null, input: AddStepInput): Promise<ConfigActionState> {
+  await requireUnlockedAdmin(tabToken)
   if (!input.stepKey.trim() || !input.label.trim()) {
     return { status: 'error', message: 'Step key and label are required.' }
   }
@@ -151,8 +159,8 @@ export type UpdateStepInput = {
   isOptional?: boolean
 }
 
-export async function updateConfigStepAction(input: UpdateStepInput): Promise<ConfigActionState> {
-  await requireUnlockedAdmin()
+export async function updateConfigStepAction(tabToken: string | null, input: UpdateStepInput): Promise<ConfigActionState> {
+  await requireUnlockedAdmin(tabToken)
   if (input.label !== undefined && !input.label.trim()) {
     return { status: 'error', message: 'Label cannot be empty.' }
   }
@@ -167,8 +175,8 @@ export async function updateConfigStepAction(input: UpdateStepInput): Promise<Co
   return { status: res.ok ? 'success' : 'error', message: res.message }
 }
 
-export async function deleteConfigStepAction(stepId: string): Promise<ConfigActionState> {
-  await requireUnlockedAdmin()
+export async function deleteConfigStepAction(tabToken: string | null, stepId: string): Promise<ConfigActionState> {
+  await requireUnlockedAdmin(tabToken)
   const res = await deleteGraphStep({ stepId })
   revalidatePath('/admin/workflow-configurator')
   revalidatePath('/about')
@@ -176,11 +184,12 @@ export async function deleteConfigStepAction(stepId: string): Promise<ConfigActi
 }
 
 export async function moveConfigStepAction(
+  tabToken: string | null,
   graph: string,
   stepId: string,
   direction: 'up' | 'down',
 ): Promise<ConfigActionState> {
-  await requireUnlockedAdmin()
+  await requireUnlockedAdmin(tabToken)
   const res = await moveGraphStep({ graph, stepId, direction })
   revalidatePath('/admin/workflow-configurator')
   revalidatePath('/about')
@@ -189,11 +198,12 @@ export async function moveConfigStepAction(
 
 /** Drag-and-drop reorder: moves stepId to an arbitrary target index. */
 export async function moveConfigStepToIndexAction(
+  tabToken: string | null,
   graph: string,
   stepId: string,
   targetIndex: number,
 ): Promise<ConfigActionState> {
-  await requireUnlockedAdmin()
+  await requireUnlockedAdmin(tabToken)
   const res = await moveGraphStepToIndex({ graph, stepId, targetIndex })
   revalidatePath('/admin/workflow-configurator')
   revalidatePath('/about')
@@ -202,22 +212,24 @@ export async function moveConfigStepToIndexAction(
 
 /** Graph view: persists a node's canvas position (cosmetic, not execution order). */
 export async function updateConfigStepPositionAction(
+  tabToken: string | null,
   stepId: string,
   x: number,
   y: number,
 ): Promise<ConfigActionState> {
-  await requireUnlockedAdmin()
+  await requireUnlockedAdmin(tabToken)
   const res = await updateGraphStepPosition({ stepId, x, y })
   return { status: res.ok ? 'success' : 'error', message: res.message }
 }
 
 /** Graph view: creates a direct connection between two steps (drag between handles). */
 export async function addConfigEdgeAction(
+  tabToken: string | null,
   graph: string,
   fromStepId: string,
   toStepId: string,
 ): Promise<ConfigActionState> {
-  await requireUnlockedAdmin()
+  await requireUnlockedAdmin(tabToken)
   const res = await createGraphEdge({ graph, fromStepId, toStepId })
   revalidatePath('/admin/workflow-configurator')
   revalidatePath('/about')
@@ -226,11 +238,12 @@ export async function addConfigEdgeAction(
 
 /** Graph view: removes a direct connection between two steps. */
 export async function removeConfigEdgeAction(
+  tabToken: string | null,
   graph: string,
   fromStepId: string,
   toStepId: string,
 ): Promise<ConfigActionState> {
-  await requireUnlockedAdmin()
+  await requireUnlockedAdmin(tabToken)
   const res = await deleteGraphEdge({ graph, fromStepId, toStepId })
   revalidatePath('/admin/workflow-configurator')
   revalidatePath('/about')

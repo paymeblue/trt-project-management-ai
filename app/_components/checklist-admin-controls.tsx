@@ -7,6 +7,7 @@ import {
   setChecklistDefinitionActive,
   type EditChecklistState,
 } from '@/actions/checklists'
+import { getTabToken } from '@/lib/use-tab-token'
 
 type TargetRole = 'factory_pm' | 'site_pm' | 'both'
 
@@ -31,7 +32,7 @@ export function CreateChecklistForm() {
       return
     }
     startTransition(async () => {
-      const res = await createChecklistDefinition({ name, slug, targetRole })
+      const res = await createChecklistDefinition(getTabToken(), { name, slug, targetRole })
       setState(res)
       if (res.status === 'success' && res.slug) {
         setName('')
@@ -142,7 +143,7 @@ export function RestoreChecklistButton({ definitionId }: { definitionId: string 
 
   function restore() {
     startTransition(async () => {
-      const res = await setChecklistDefinitionActive({ definitionId, isActive: true })
+      const res = await setChecklistDefinitionActive(getTabToken(), { definitionId, isActive: true })
       if (res.status === 'success') router.refresh()
     })
   }

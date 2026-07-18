@@ -26,6 +26,7 @@ vi.mock('@/db', () => ({ db: dbMock }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/dal', () => ({
   verifySession: verifyMock,
+  verifySessionForAction: verifyMock,
   isAdminRole: (r: string) => r === 'super_admin' || r === 'operations',
 }))
 
@@ -44,7 +45,7 @@ describe('createProcessImageAction (admin upload)', () => {
   it('rejects non-admin users (Site PM)', async () => {
     verifyMock.mockResolvedValue({ userId: 's1', role: 'site_pm' })
     const { createProcessImageAction } = await import('@/actions/processes')
-    const res = await createProcessImageAction({ title: 'Flow', imageData: IMAGE })
+    const res = await createProcessImageAction(null, { title: 'Flow', imageData: IMAGE })
     expect(res.ok).toBe(false)
     expect(insertValuesMock).not.toHaveBeenCalled()
   })
@@ -52,7 +53,7 @@ describe('createProcessImageAction (admin upload)', () => {
   it('requires an image', async () => {
     verifyMock.mockResolvedValue({ userId: 'a1', role: 'super_admin' })
     const { createProcessImageAction } = await import('@/actions/processes')
-    const res = await createProcessImageAction({ title: 'Flow', imageData: '' })
+    const res = await createProcessImageAction(null, { title: 'Flow', imageData: '' })
     expect(res.ok).toBe(false)
     expect(insertValuesMock).not.toHaveBeenCalled()
   })
@@ -60,14 +61,14 @@ describe('createProcessImageAction (admin upload)', () => {
   it('requires a title', async () => {
     verifyMock.mockResolvedValue({ userId: 'a1', role: 'super_admin' })
     const { createProcessImageAction } = await import('@/actions/processes')
-    const res = await createProcessImageAction({ title: 'x', imageData: IMAGE })
+    const res = await createProcessImageAction(null, { title: 'x', imageData: IMAGE })
     expect(res.ok).toBe(false)
   })
 
   it('creates the process flow for a super_admin', async () => {
     verifyMock.mockResolvedValue({ userId: 'a1', role: 'super_admin' })
     const { createProcessImageAction } = await import('@/actions/processes')
-    const res = await createProcessImageAction({ title: 'Delivery Flow', imageData: IMAGE })
+    const res = await createProcessImageAction(null, { title: 'Delivery Flow', imageData: IMAGE })
     expect(res.ok).toBe(true)
     expect(res.slug).toBe('delivery-flow')
     expect(insertValuesMock).toHaveBeenCalledOnce()
@@ -76,7 +77,7 @@ describe('createProcessImageAction (admin upload)', () => {
   it('allows operations to upload too', async () => {
     verifyMock.mockResolvedValue({ userId: 'op1', role: 'operations' })
     const { createProcessImageAction } = await import('@/actions/processes')
-    const res = await createProcessImageAction({ title: 'Ops Flow', imageData: IMAGE })
+    const res = await createProcessImageAction(null, { title: 'Ops Flow', imageData: IMAGE })
     expect(res.ok).toBe(true)
     expect(insertValuesMock).toHaveBeenCalledOnce()
   })
@@ -86,7 +87,7 @@ describe('deleteProcessAction (admin only)', () => {
   it('rejects non-admin', async () => {
     verifyMock.mockResolvedValue({ userId: 'f1', role: 'factory_pm' })
     const { deleteProcessAction } = await import('@/actions/processes')
-    const res = await deleteProcessAction('some-flow')
+    const res = await deleteProcessAction(null, 'some-flow')
     expect(res.ok).toBe(false)
     expect(deleteWhereMock).not.toHaveBeenCalled()
   })
@@ -94,7 +95,7 @@ describe('deleteProcessAction (admin only)', () => {
   it('deletes for an admin', async () => {
     verifyMock.mockResolvedValue({ userId: 'a1', role: 'super_admin' })
     const { deleteProcessAction } = await import('@/actions/processes')
-    const res = await deleteProcessAction('some-flow')
+    const res = await deleteProcessAction(null, 'some-flow')
     expect(res.ok).toBe(true)
     expect(deleteWhereMock).toHaveBeenCalledOnce()
   })

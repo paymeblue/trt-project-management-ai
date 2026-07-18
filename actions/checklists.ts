@@ -9,7 +9,7 @@ import {
   checklists,
   checklistResponses,
 } from '@/db/schema'
-import { verifySession } from '@/lib/dal'
+import { verifySessionForAction } from '@/lib/dal'
 import { advanceOrConfirmDualRole } from '@/actions/workflow'
 import { getLiveWorkflowSteps, assigneeGatedRoles, getStepAssigneeGate } from '@/lib/workflow-graph'
 import {
@@ -58,10 +58,11 @@ export type SubmitChecklistState = {
 }
 
 export async function submitChecklistAction(
+  tabToken: string | null,
   _prev: SubmitChecklistState,
   input: SubmitChecklistInput,
 ): Promise<SubmitChecklistState> {
-  const { userId, role } = await verifySession()
+  const { userId, role } = await verifySessionForAction(tabToken)
   const definitionId = String(input?.definitionId ?? '')
   const slug = String(input?.slug ?? '')
   const answers = input?.answers ?? {}
@@ -193,7 +194,7 @@ export async function submitChecklistAction(
 
   let advanced = false
   if (projectId && input?.expectedStepN) {
-    advanced = await advanceOrConfirmDualRole({
+    advanced = await advanceOrConfirmDualRole(tabToken, {
       projectId,
       expectedStepN: Number(input.expectedStepN),
     })
@@ -214,8 +215,8 @@ export type EditChecklistState = { status: 'idle' | 'success' | 'error'; message
 
 // Loads a definition and asserts the caller may edit it. Returns the definition
 // (incl. slug for revalidation) or an error message.
-async function authorizeChecklistEdit(definitionId: string) {
-  const { role } = await verifySession()
+async function authorizeChecklistEdit(tabToken: string | null, definitionId: string) {
+  const { role } = await verifySessionForAction(tabToken)
   const [def] = await db
     .select()
     .from(checklistDefinitions)
@@ -235,6 +236,7 @@ export type UpdateChecklistItemTextInput = {
 }
 
 export async function updateChecklistItemText(
+  tabToken: string | null,
   input: UpdateChecklistItemTextInput,
 ): Promise<EditChecklistState> {
   const itemId = String(input?.itemId ?? '')
@@ -253,7 +255,7 @@ export async function updateChecklistItemText(
     .limit(1)
   if (!item) return { status: 'error', message: 'Question not found.' }
 
-  const auth = await authorizeChecklistEdit(item.definitionId)
+  const auth = await authorizeChecklistEdit(tabToken, item.definitionId)
   if ('error' in auth) return { status: 'error', message: auth.error }
 
   try {
@@ -276,6 +278,7 @@ export type AddChecklistItemInput = {
 }
 
 export async function addChecklistItem(
+  tabToken: string | null,
   input: AddChecklistItemInput,
 ): Promise<EditChecklistState> {
   const definitionId = String(input?.definitionId ?? '')
@@ -287,7 +290,7 @@ export async function addChecklistItem(
     return { status: 'error', message: 'That text is too long.' }
   }
 
-  const auth = await authorizeChecklistEdit(definitionId)
+  const auth = await authorizeChecklistEdit(tabToken, definitionId)
   if ('error' in auth) return { status: 'error', message: auth.error }
 
   // Append after the last existing item, keeping it in the last step/section.
@@ -340,14 +343,14 @@ const asTargetRole = (v: unknown): TargetRole | null =>
   TARGET_ROLES.includes(v as TargetRole) ? (v as TargetRole) : null
 
 // Loads a template item and asserts the caller may edit its definition.
-async function authorizeItemEdit(itemId: string) {
+async function authorizeItemEdit(tabToken: string | null, itemId: string) {
   const [item] = await db
     .select()
     .from(checklistTemplateItems)
     .where(eq(checklistTemplateItems.id, itemId))
     .limit(1)
   if (!item) return { error: 'Question not found.' as const }
-  const auth = await authorizeChecklistEdit(item.definitionId)
+  const auth = await authorizeChecklistEdit(tabToken, item.definitionId)
   if ('error' in auth) return { error: auth.error }
   return { item, def: auth.def }
 }
@@ -355,11 +358,12 @@ async function authorizeItemEdit(itemId: string) {
 export type DeleteChecklistItemInput = { itemId: string }
 
 export async function deleteChecklistItem(
+  tabToken: string | null,
   input: DeleteChecklistItemInput,
 ): Promise<EditChecklistState> {
   const itemId = String(input?.itemId ?? '')
   if (!itemId) return { status: 'error', message: 'Missing item.' }
-  const auth = await authorizeItemEdit(itemId)
+  const auth = await authorizeItemEdit(tabToken, itemId)
   if ('error' in auth) return { status: 'error', message: auth.error }
 
   try {
@@ -379,12 +383,13 @@ export async function deleteChecklistItem(
 export type MoveChecklistItemInput = { itemId: string; direction: 'up' | 'down' }
 
 export async function moveChecklistItem(
+  tabToken: string | null,
   input: MoveChecklistItemInput,
 ): Promise<EditChecklistState> {
   const itemId = String(input?.itemId ?? '')
   const direction = input?.direction === 'up' ? 'up' : 'down'
   if (!itemId) return { status: 'error', message: 'Missing item.' }
-  const auth = await authorizeItemEdit(itemId)
+  const auth = await authorizeItemEdit(tabToken, itemId)
   if ('error' in auth) return { status: 'error', message: auth.error }
 
   // Swap (step, sort_order) with the adjacent active item so the change is
@@ -434,11 +439,12 @@ export type UpdateChecklistItemFieldsInput = {
 }
 
 export async function updateChecklistItemFields(
+  tabToken: string | null,
   input: UpdateChecklistItemFieldsInput,
 ): Promise<EditChecklistState> {
   const itemId = String(input?.itemId ?? '')
   if (!itemId) return { status: 'error', message: 'Missing item.' }
-  const auth = await authorizeItemEdit(itemId)
+  const auth = await authorizeItemEdit(tabToken, itemId)
   if ('error' in auth) return { status: 'error', message: auth.error }
 
   const itemType = asItemType(input?.itemType) ?? auth.item.itemType
@@ -475,9 +481,10 @@ export type CreateChecklistDefinitionInput = {
 }
 
 export async function createChecklistDefinition(
+  tabToken: string | null,
   input: CreateChecklistDefinitionInput,
 ): Promise<EditChecklistState & { slug?: string }> {
-  const { role } = await verifySession()
+  const { role } = await verifySessionForAction(tabToken)
   if (!canEditChecklist(role)) {
     return { status: 'error', message: 'You do not have permission to create checklists.' }
   }
@@ -521,11 +528,12 @@ export type UpdateChecklistDefinitionInput = {
 }
 
 export async function updateChecklistDefinition(
+  tabToken: string | null,
   input: UpdateChecklistDefinitionInput,
 ): Promise<EditChecklistState> {
   const definitionId = String(input?.definitionId ?? '')
   if (!definitionId) return { status: 'error', message: 'Missing checklist.' }
-  const auth = await authorizeChecklistEdit(definitionId)
+  const auth = await authorizeChecklistEdit(tabToken, definitionId)
   if ('error' in auth) return { status: 'error', message: auth.error }
 
   const name = input?.name !== undefined ? String(input.name).trim() : auth.def.name
@@ -554,11 +562,12 @@ export type SetChecklistDefinitionActiveInput = {
 }
 
 export async function setChecklistDefinitionActive(
+  tabToken: string | null,
   input: SetChecklistDefinitionActiveInput,
 ): Promise<EditChecklistState> {
   const definitionId = String(input?.definitionId ?? '')
   if (!definitionId) return { status: 'error', message: 'Missing checklist.' }
-  const auth = await authorizeChecklistEdit(definitionId)
+  const auth = await authorizeChecklistEdit(tabToken, definitionId)
   if ('error' in auth) return { status: 'error', message: auth.error }
 
   const isActive = Boolean(input?.isActive)

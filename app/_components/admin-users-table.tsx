@@ -9,6 +9,7 @@ import {
   resetUserPasswordAction,
 } from '@/actions/admin-users'
 import { ALL_USER_ROLES } from '@/lib/workflow'
+import { getTabToken } from '@/lib/use-tab-token'
 
 type Row = { id: string; name: string; email: string; role: string; position: string | null }
 type PositionOption = { slug: string; label: string }
@@ -45,13 +46,13 @@ export default function AdminUsersTable({
       return
     }
     setBusy(u.id)
-    const roleRes = await updateUserRoleAction(u.id, roles[u.id])
+    const roleRes = await updateUserRoleAction(getTabToken(), u.id, roles[u.id])
     if (!roleRes.ok) {
       setBusy(null)
       setWarning(roleRes.error ?? 'Update failed.')
       return
     }
-    const posRes = await updateUserPositionAction(u.id, positions[u.id] || null)
+    const posRes = await updateUserPositionAction(getTabToken(), u.id, positions[u.id] || null)
     setBusy(null)
     if (!posRes.ok) setWarning(posRes.error ?? 'Position update failed.')
     else router.refresh()
@@ -59,7 +60,7 @@ export default function AdminUsersTable({
 
   async function doDelete(u: Row) {
     setBusy(u.id)
-    const res = await deleteUserAction(u.id)
+    const res = await deleteUserAction(getTabToken(), u.id)
     setBusy(null)
     setConfirmDelete(null)
     if (!res.ok) setWarning(res.error ?? 'Delete failed.')
@@ -88,7 +89,7 @@ export default function AdminUsersTable({
 
   async function doReset(u: Row) {
     setBusy(u.id)
-    const res = await resetUserPasswordAction(u.id)
+    const res = await resetUserPasswordAction(getTabToken(), u.id)
     setBusy(null)
     setConfirmReset(null)
     if (!res.ok) {
