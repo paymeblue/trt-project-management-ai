@@ -82,14 +82,15 @@ export function isAdminRole(role: UserRole): boolean {
 // `checklist_definitions`). A `both` checklist is editable by either PM role.
 export type ChecklistTargetRole = typeof Roles.FactoryPm | typeof Roles.SitePm | 'both'
 
-// Who may author (create/edit) a checklist's questions. Super Admin ONLY —
-// restricted from isAdminRole (which also allows Operations) per user
-// item #8: checklist question editing must be Super Admin-only and only
-// reachable from Checklist Configuration, never surfaced on the act-on-step
-// page for anyone. PM roles can still fill and submit checklists but not
-// change the questions themselves.
+// Who may author (create/edit) a checklist's questions. All admin roles
+// (super_admin AND operations) — widened 2026-07-19 per user report: an
+// operations_manager_admin user was locked out of /admin/checklists while
+// the page itself promised "a super admin or Operations can edit". This
+// supersedes the earlier item-#8 super-admin-only restriction; authoring
+// remains reachable only from Checklist Configuration, and PM roles still
+// only fill and submit.
 export function canEditChecklist(userRole: UserRole): boolean {
-  return userRole === Roles.SuperAdmin
+  return isAdminRole(userRole)
 }
 
 export type WorkflowStep = {

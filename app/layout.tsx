@@ -40,6 +40,21 @@ export default function RootLayout({
             __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}})()`,
           }}
         />
+        {/* Per-tab session pre-paint bounce (Phase 20.1). A native navigation
+            (hard refresh, typed URL) can never carry this tab's Authorization
+            header, so the server just rendered the SHARED cookie's user. If
+            this tab holds a per-tab token, bounce to the identity-agnostic
+            restore route BEFORE first paint — inline in the document so it is
+            always current and immune to hydration failures (e.g. from
+            DOM-mutating browser extensions), stale client bundles, and React
+            timing. TabSessionProvider keeps an effect-time fallback. */}
+        <Script
+          id="tab-session-prepaint-bounce"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{if(!sessionStorage.getItem('tabAccessToken'))return;if(location.pathname==='/tab-session/restore')return;location.replace('/tab-session/restore?to='+encodeURIComponent(location.pathname+location.search))}catch(e){}})()`,
+          }}
+        />
       </head>
       <body className="min-h-full">
         {/* React 19 hoists this stylesheet link into <head> */}
