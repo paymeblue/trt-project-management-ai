@@ -48,8 +48,11 @@ function ChecklistSubmissionDetails({ submission }: { submission: AuditChecklist
 function UploadCell({ upload }: { upload: AuditRow['upload'] }) {
   if (!upload) return <span className="text-gray-400">—</span>
   if (upload.isImage) {
+    // download attr: browsers block top-frame navigation to data: URLs, so a
+    // plain link would silently do nothing — the thumbnail previews inline
+    // and the click saves the full-size file.
     return (
-      <a href={upload.dataUrl} target="_blank" rel="noreferrer">
+      <a href={upload.dataUrl} download={upload.name ?? 'upload'} rel="noreferrer">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={upload.dataUrl}
@@ -59,9 +62,22 @@ function UploadCell({ upload }: { upload: AuditRow['upload'] }) {
       </a>
     )
   }
-  // Non-image uploads: filename text only — never a clickable data: link
-  // (T-bpp-03: a data:text/html upload opened in a new tab would execute as
-  // the app origin's document).
+  // PDFs (invoices, sign-off documents) are viewable via download. Strictly
+  // prefix-gated so this can never linkify an arbitrary data: payload
+  // (T-bpp-03: a data:text/html upload must never become clickable).
+  if (upload.dataUrl.startsWith('data:application/pdf')) {
+    return (
+      <a
+        href={upload.dataUrl}
+        download={upload.name ?? 'document.pdf'}
+        className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+      >
+        <span className="material-symbols-outlined text-[16px]">picture_as_pdf</span>
+        {upload.name ?? 'View PDF'}
+      </a>
+    )
+  }
+  // Anything else stays filename-only (T-bpp-03).
   return <span className="text-gray-600">{upload.name ?? 'File uploaded'}</span>
 }
 
