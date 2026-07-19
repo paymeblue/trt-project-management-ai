@@ -21,7 +21,7 @@ export default async function AdminUsersPage() {
   const isSuperAdmin = role === Roles.SuperAdmin
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+    <div className="w-full px-4 py-8 sm:px-6 lg:px-8">
       <a href="/admin/dashboard" className="text-sm text-primary hover:underline">
         ← Dashboard
       </a>

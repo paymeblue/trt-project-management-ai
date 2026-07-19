@@ -1,19 +1,18 @@
 import { describe, it, expect } from 'vitest'
-import { taskCompletedEmail, projectClosedOutEmail } from '@/lib/email-templates'
+import { stepTurnEmail, projectClosedOutEmail } from '@/lib/email-templates'
 
-describe('taskCompletedEmail (item #11)', () => {
-  it('includes project name, step label, and actor name', () => {
-    const { subject, html, text } = taskCompletedEmail({
+describe('stepTurnEmail (position-scoped step notification, 2026-07-19)', () => {
+  it('includes project name and the pending step label', () => {
+    const { subject, html, text } = stepTurnEmail({
       projectName: 'Acme Villa',
       stepLabel: 'Send for Production',
-      actorName: 'Jane Doe',
     })
     expect(subject).toContain('Send for Production')
     expect(subject).toContain('Acme Villa')
-    expect(html).toContain('Jane Doe')
+    expect(subject).toMatch(/your turn/i)
     expect(html).toContain('Send for Production')
     expect(html).toContain('Acme Villa')
-    expect(text).toContain('Jane Doe')
+    expect(text).toContain('Send for Production')
   })
 })
 

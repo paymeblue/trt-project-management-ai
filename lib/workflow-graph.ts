@@ -15,7 +15,7 @@ import {
 import type { GraphStep, StepKind, UserRole, WorkflowRole, WorkflowStep } from '@/lib/workflow'
 import { stepRequiredKinds, canRoleActOnStep } from '@/lib/workflow'
 import { notifyUser } from '@/lib/notifications'
-import { emailSuperAdminsTaskCompleted, emailSuperAdminsProjectClosedOut } from '@/lib/notify-super-admins-email'
+import { emailStepTurn, emailSuperAdminsProjectClosedOut } from '@/lib/notify-super-admins-email'
 
 // ── Read engine for the DB-driven workflow graph (Phase 16, WF-01/WF-02) ──
 // Every function reads live from the database on each call — no module-level
@@ -305,33 +305,95 @@ async function syncProjectCurrentStepAfterCompletion(
 }
 
 /**
- * Item #11: fires the two email digests off completeGraphStep — every real
- * completion (checklist/yes-no-upload/approval/assignment/skip) always sends
- * the task-completed email; a completion that just finished the LAST step
- * also sends the project-closed-out email with a deadline met/missed flag
- * (compared against that final step's own per-step deadline, falling back to
- * the project-wide deliveryDate — same resolution order as lib/my-work.ts's
- * currentDeadline). Both email sends are best-effort (see
- * lib/notify-super-admins-email.ts) and never block or fail the caller.
+ * Position/role-scoped step-turn notification (user decision 2026-07-19,
+ * replacing item #11's every-step all-super-admin broadcast): when a project
+ * advances, notify EXACTLY the officer(s) able to act on the newly-pending
+ * step — never every super admin. Resolution order mirrors the
+ * authorization gates: (1) a project-specific assignee gate wins outright;
+ * (2) an exact `requiredPosition` narrows to its holders (role-checked);
+ * (3) a dual-role step notifies both role groups; (4) otherwise everyone
+ * whose role passes canRoleActOnStep — the same audience the step's own
+ * gates would admit. In-app row (type 'step_turn') + best-effort email.
+ * Never throws: a notification failure must never fail the completion.
  */
-async function sendCompletionEmails(opts: {
+export async function notifyNextStepOfficers(projectId: string, actorId?: string | null): Promise<void> {
+  try {
+    const [proj] = await db
+      .select({ name: projects.name, currentStep: projects.currentStep, status: projects.status })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1)
+    if (!proj || proj.status === 'paused') return
+    const steps = await getLiveWorkflowSteps()
+    const next = steps.find((st) => st.n === proj.currentStep)
+    if (!next) return // project complete — the closeout digest covers it
+
+    let recipients: { id: string; email: string }[] = []
+    const gateUserId = await getStepAssigneeGate('live', projectId, next.key)
+    if (gateUserId) {
+      const [u] = await db
+        .select({ id: users.id, email: users.email })
+        .from(users)
+        .where(eq(users.id, gateUserId))
+        .limit(1)
+      recipients = u ? [u] : []
+    } else {
+      const all = await db
+        .select({ id: users.id, email: users.email, role: users.role, position: users.position })
+        .from(users)
+      if (next.requiredPosition) {
+        recipients = all.filter(
+          (u) => u.position === next.requiredPosition && canRoleActOnStep(next.role, u.role as UserRole),
+        )
+      } else if (next.dualRoles?.length) {
+        recipients = all.filter((u) => (next.dualRoles as string[]).includes(u.role))
+      } else {
+        recipients = all.filter((u) => canRoleActOnStep(next.role, u.role as UserRole))
+      }
+    }
+    recipients = recipients.filter((r) => r.id !== actorId)
+    if (recipients.length === 0) return
+
+    for (const r of recipients) {
+      await notifyUser({
+        recipientId: r.id,
+        actorId: actorId ?? null,
+        type: 'step_turn',
+        title: `Your turn: ${next.label} on ${proj.name}`,
+        projectId,
+      })
+    }
+    await emailStepTurn(
+      recipients.map((r) => r.email),
+      { projectName: proj.name, stepLabel: next.label },
+    )
+  } catch {
+    // Best-effort by contract.
+  }
+}
+
+/**
+ * Fires off completeGraphStep after every real completion: the scoped
+ * step-turn notification for the NEW pending step's officers, and — only
+ * when the completion just finished the LAST step — the project-closed-out
+ * digest to every super admin, with a met/missed flag judged against that
+ * final step's OWN deadline only (user decision 2026-07-19: the project-wide
+ * deliveryDate is never used as a deadline fallback anywhere).
+ */
+async function sendCompletionNotifications(opts: {
   projectId: string
   step: GraphStep
   actorId: string
   projectJustClosedOut: boolean
 }): Promise<void> {
-  const [proj] = await db
-    .select({ name: projects.name, deliveryDate: projects.deliveryDate })
-    .from(projects)
-    .where(eq(projects.id, opts.projectId))
-    .limit(1)
-  const [actor] = await db.select({ name: users.name }).from(users).where(eq(users.id, opts.actorId)).limit(1)
-  const projectName = proj?.name ?? 'a project'
-  const actorName = actor?.name ?? 'Someone'
-
-  await emailSuperAdminsTaskCompleted({ projectName, stepLabel: opts.step.label, actorName })
+  await notifyNextStepOfficers(opts.projectId, opts.actorId)
 
   if (opts.projectJustClosedOut) {
+    const [proj] = await db
+      .select({ name: projects.name })
+      .from(projects)
+      .where(eq(projects.id, opts.projectId))
+      .limit(1)
     const [stepDeadlineRow] = await db
       .select({ deadline: projectStepDeadlines.deadline })
       .from(projectStepDeadlines)
@@ -342,9 +404,9 @@ async function sendCompletionEmails(opts: {
         ),
       )
       .limit(1)
-    const effectiveDeadline = stepDeadlineRow?.deadline ?? proj?.deliveryDate ?? null
+    const effectiveDeadline = stepDeadlineRow?.deadline ?? null
     const metDeadline = effectiveDeadline ? new Date() <= effectiveDeadline : null
-    await emailSuperAdminsProjectClosedOut({ projectName, metDeadline })
+    await emailSuperAdminsProjectClosedOut({ projectName: proj?.name ?? 'a project', metDeadline })
   }
 }
 
@@ -392,7 +454,7 @@ export async function completeGraphStep(opts: {
       skipped: true,
     })
     const projectJustClosedOut = await syncProjectCurrentStepAfterCompletion(projectId, step.orderIndex, step.graph)
-    await sendCompletionEmails({ projectId, step, actorId, projectJustClosedOut })
+    await sendCompletionNotifications({ projectId, step, actorId, projectJustClosedOut })
     return { ok: true, actionable: await getActionableSteps(projectId, step.graph) }
   }
 
@@ -422,7 +484,7 @@ export async function completeGraphStep(opts: {
     skipped: false,
   })
   const projectJustClosedOut = await syncProjectCurrentStepAfterCompletion(projectId, step.orderIndex, step.graph)
-  await sendCompletionEmails({ projectId, step, actorId, projectJustClosedOut })
+  await sendCompletionNotifications({ projectId, step, actorId, projectJustClosedOut })
 
   return { ok: true, actionable: await getActionableSteps(projectId, step.graph) }
 }

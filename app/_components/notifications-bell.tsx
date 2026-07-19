@@ -25,7 +25,7 @@ const POLL_MS = 4000
 // (approval_request/approval_rejected) fired by the reworked approval-kind
 // step UI. Prefer this allowlist over stacking `type !== '...'` checks so a
 // future non-dispute notification type is an explicit, one-line addition.
-const NO_NAVIGATE_TYPES = new Set(['assignment', 'approval_request', 'approval_rejected'])
+const NO_NAVIGATE_TYPES = new Set(['assignment', 'approval_request', 'approval_rejected', 'step_turn'])
 
 function ago(iso: string): string {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)

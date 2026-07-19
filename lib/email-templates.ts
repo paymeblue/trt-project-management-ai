@@ -55,20 +55,18 @@ export function passwordResetEmail({ name, resetUrl }: { name: string; resetUrl:
 // met/missed flag). Both fire from a single choke point (completeGraphStep)
 // so every completion path — checklist, yes/no+upload, approval, assignment,
 // skip — is covered without touching each individual action.
-export function taskCompletedEmail({
+export function stepTurnEmail({
   projectName,
   stepLabel,
-  actorName,
 }: {
   projectName: string
   stepLabel: string
-  actorName: string
 }) {
-  const subject = `Task completed: ${stepLabel} — ${projectName}`
+  const subject = `Your turn: ${stepLabel} — ${projectName}`
   const html = `
-<p>${actorName} completed <strong>${stepLabel}</strong> on <strong>${projectName}</strong>.</p>
+<p>It is your turn to act: <strong>${stepLabel}</strong> is now pending on <strong>${projectName}</strong>.</p>
 `.trim()
-  const text = `${actorName} completed ${stepLabel} on ${projectName}.`
+  const text = `It is your turn to act: ${stepLabel} is now pending on ${projectName}.`
 
   return { subject, html, text }
 }

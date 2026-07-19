@@ -98,6 +98,7 @@ vi.mock('@/lib/workflow-graph', async (importOriginal) => {
     ...actual,
     assigneeGatedRoles: assigneeGatedRolesMock,
     getStepAssigneeGate: getStepAssigneeGateMock,
+    notifyNextStepOfficers: vi.fn(),
   }
 })
 

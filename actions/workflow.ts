@@ -6,7 +6,7 @@ import { db } from '@/db'
 import { projects, projectStepCompletions, workflowStepStates } from '@/db/schema'
 import { verifySessionForAction } from '@/lib/dal'
 import { canRoleActOnStep, findStep, lastStepN, type UserRole, type WorkflowRole } from '@/lib/workflow'
-import { getLiveWorkflowSteps, assigneeGatedRoles, getStepAssigneeGate } from '@/lib/workflow-graph'
+import { getLiveWorkflowSteps, assigneeGatedRoles, getStepAssigneeGate, notifyNextStepOfficers } from '@/lib/workflow-graph'
 
 function revalidateBoards() {
   revalidatePath('/site-pm/projects')
@@ -69,6 +69,7 @@ export async function advanceProjectStep(tabToken: string | null, opts: {
     })
     .where(eq(projects.id, projectId))
 
+  await notifyNextStepOfficers(projectId, userId)
   revalidateBoards()
   return true
 }
@@ -191,6 +192,7 @@ export async function confirmDualRoleStepAs(opts: {
     .set({ currentStep: nextStep, status: done ? 'delivered' : proj.status, updatedAt: new Date() })
     .where(eq(projects.id, projectId))
 
+  await notifyNextStepOfficers(projectId, userId)
   revalidateBoards()
   return { ok: true, advanced: true, message: 'Both roles confirmed — step completed.' }
 }

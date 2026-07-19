@@ -40,7 +40,6 @@ export async function getMyWork(role: UserRole, userId: string): Promise<MyWork>
       id: projects.id,
       name: projects.name,
       currentStep: projects.currentStep,
-      deliveryDate: projects.deliveryDate,
       status: projects.status,
     })
     .from(projects)
@@ -51,8 +50,10 @@ export async function getMyWork(role: UserRole, userId: string): Promise<MyWork>
     (p) => !projectComplete(p.currentStep, lastStepN(steps)) && p.status !== 'paused',
   )
 
-  // Per-step deadlines (REQ-G05): the deadline shown for a project is the one
-  // set for its CURRENT step, falling back to the project-wide delivery date.
+  // Per-step deadlines (REQ-G05, tightened 2026-07-19): the deadline shown is
+  // the one set for the project's CURRENT step, or none. The project-wide
+  // deliveryDate is NEVER used as a fallback — actors only ever see their own
+  // step's deadline (user decision).
   const activeIds = active.map((p) => p.id)
   const deadlineRows = activeIds.length
     ? await db
@@ -66,8 +67,8 @@ export async function getMyWork(role: UserRole, userId: string): Promise<MyWork>
     : []
   const stepDeadline = new Map<string, Date>()
   for (const d of deadlineRows) stepDeadline.set(`${d.projectId}:${d.stepN}`, d.deadline)
-  const currentDeadline = (p: { id: string; currentStep: number; deliveryDate: Date | null }) =>
-    stepDeadline.get(`${p.id}:${p.currentStep}`) ?? p.deliveryDate
+  const currentDeadline = (p: { id: string; currentStep: number }) =>
+    stepDeadline.get(`${p.id}:${p.currentStep}`) ?? null
 
   // Quick task 260713-ekr (security fix): resolve each active project's
   // assignee gate ONCE (reused for both activeProjects.gatedToUserId and the

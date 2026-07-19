@@ -102,14 +102,14 @@ export default function AdminUsersTable({
   return (
     <>
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full table-fixed text-sm max-md:min-w-[640px]">
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
             <tr>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Role</th>
-              <th className="px-4 py-3">Position</th>
-              <th className="px-4 py-3 text-right">Actions</th>
+              <th className="w-[18%] px-4 py-3">Name</th>
+              <th className="w-[26%] px-4 py-3">Email</th>
+              <th className="w-[19%] px-4 py-3">Role</th>
+              <th className="w-[22%] px-4 py-3">Position</th>
+              <th className="w-[15%] px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -121,13 +121,13 @@ export default function AdminUsersTable({
                     {u.name}
                     {u.id === meId && <span className="ml-2 text-xs text-gray-400">(you)</span>}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{u.email}</td>
+                  <td className="truncate px-4 py-3 text-gray-600" title={u.email}>{u.email}</td>
                   <td className="px-4 py-3">
                     <select
                       value={roles[u.id]}
                       disabled={locked}
                       onChange={(e) => setRoles((r) => ({ ...r, [u.id]: e.target.value }))}
-                      className="rounded-md border border-gray-300 px-2 py-1 text-sm disabled:opacity-50"
+                      className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm disabled:opacity-50"
                     >
                       {ALL_USER_ROLES.map((r) => (
                         <option key={r.value} value={r.value}>
@@ -141,7 +141,7 @@ export default function AdminUsersTable({
                       value={positions[u.id]}
                       disabled={locked}
                       onChange={(e) => setPositions((p) => ({ ...p, [u.id]: e.target.value }))}
-                      className="rounded-md border border-gray-300 px-2 py-1 text-sm disabled:opacity-50"
+                      className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm disabled:opacity-50"
                     >
                       <option value="">— None —</option>
                       {positionOptions.map((p) => (
