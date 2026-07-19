@@ -2,27 +2,24 @@
 
 ## What This Is
 
-A digital platform that replaces the paper checklists TRT Arredo currently uses on the factory floor and on installation sites. Three roles (Factory PM, Site PM, Super Admin) share one app shell, each seeing only their own flows, plus an AI assistant ("Dave Aredo") that answers project-management questions grounded in the company's internal process docs. It is the single system of record for delivery checklists, site assessments, verifications, and uploaded photo/file evidence.
+A digital platform that replaces the paper checklists TRT Arredo uses on the factory floor and on installation sites — now built around a DB-driven, super-admin-configurable 21-step production workflow (Customer Care intake through Sign Off). Eleven permission roles share one app shell, each seeing only their own flows; exact-position gates (Operations Admin, CPO, Head of Design, …) narrow sensitive steps; per-tab sessions let several users work in one browser; and an AI assistant ("Dave Aredo") answers process questions. It is the single system of record for the workflow, checklists, approvals, assignments, deadlines, and uploaded photo/PDF evidence.
 
 ## Core Value
 
 A PM on the floor or on-site can complete a structured checklist (with photo evidence) on their phone and have it permanently recorded — replacing paper, with each role seeing only what's theirs and the Super Admin seeing everything read-only.
 
-## Current Milestone: v2.0 Configurable Production Workflow Engine
+## Current State (post-v2.0, 2026-07-19)
 
-**Goal:** Replace the hardcoded 11-step `WORKFLOW_STEPS` array with a DB-driven, super-admin-editable workflow graph (n8n-style step builder), and extend the pipeline with the full front-of-funnel stages — Customer Care intake through production authorization — that don't exist today, while leaving every step from the existing "Confirmation" step onward untouched.
+**Shipped:** v2.0 Configurable Production Workflow Engine — the hardcoded step array is gone; the live 21-step graph (intake → design pipeline → production authorization → QC → delivery → sign-off) lives in Postgres and is self-service-editable via the PIN-gated Workflow Configurator. Per-tab multi-user auth, position-scoped notifications, strictly per-step deadlines, escalation flags, and a full-evidence audit view all shipped alongside. See `.planning/MILESTONES.md` and `milestones/v2.0-*` for the archive.
 
-**Target features:**
-- Workflow engine: steps live in the database, not in `lib/workflow.ts`; each step has an order, a responsible role, and a fulfillment kind (checklist, yes/no + optional upload, approval, assignment)
-- Steps can be marked optional (skippable) vs. required by the super admin
-- Super-admin workflow configurator screen: add/remove/reorder steps, edit label/text/upload requirement, assign role — gated behind a separate configuration PIN (default `0000`, changeable, with a hint shown so it isn't forgotten) so it isn't casually reachable by everyone with super_admin access
-- New seeded front-of-funnel stages, in order: Customer Care intake (unpaid by default) → Head of Operations paid toggle + timeline → Head of Design assigns one designer/architect → Kickoff Meeting → Design Meeting → Brief Taking → Invoicing (second, distinct payment checkpoint) → Design Stage (client approval) → Confirmation2 → Confirmation Correction → Internal Approval → Send for Production → CPO Project Review & Authorization → Production Process → Factory Manager QC — inserted ahead of and interleaved with the existing Confirmation → Sign Off tail, which ships unchanged
-- New roles: `customer_care`, `ops_factory`, `factory_manager` (existing `design`/`operations`/`super_admin` + `users.position` cover the rest — architect, head of design, head of operations, chief production officer, MD/ED/COO are titles, not new permission roles)
-- `projects` gains a `paid`/`unpaid` payment status separate from the existing `not_delivered`/`delivered`/`paused` status
+**Codebase:** Next.js 16 App Router + Drizzle/Neon; 248-test vitest suite (node + jsdom); parity/verification CLI harnesses (`verify:live-workflow`, `verify:workflow-engine`); tsc + lint clean.
 
-**Resolved this session (corrected an earlier misreading of the source notebook):** the designer/architect is assigned ONCE (before Kickoff) and carries the project through Kickoff → Design Meeting → Brief Taking → Design Stage — there is no second re-assignment step. Invoicing is a second, distinct payment checkpoint from the initial paid/unpaid toggle, sitting after Brief Taking and before the Design Stage.
+## Next Milestone Goals
 
-**Locked decisions:** existing Confirmation-onward steps (Confirmation, Materials/Accessories Readiness, Delivery Readiness, Delivery Project Checklist, Project Check Report, Approval to Commence Installation, Installation Readiness, Sorting, Close Out, Sign Off) are NOT redesigned — the new engine must reproduce this tail unchanged · configurator access requires a separate PIN, not just the super_admin role · new roles only where existing role+position can't cover the distinction.
+Not yet defined — run `/gsd-new-milestone`. Known candidates carried forward:
+- Phase 18.1 generic composed-block step renderer (data model already shipped)
+- Deferred items in STATE.md (COLLAB-01 super-admin DM, notification-position-scoping end-to-end app check)
+- S3 storage for uploads (currently data-URLs in Postgres), Dave Aredo quota finalization, production deployment hardening
 
 ## Requirements
 
@@ -42,65 +39,11 @@ A PM on the floor or on-site can complete a structured checklist (with photo evi
 
 ### Active
 
-**Milestone v1.1 requirements shipped & validated — see the Validated section above.**
+(None — v2.0 closed 2026-07-19. Fresh requirements will be defined by `/gsd-new-milestone`.)
 
-**Auth & Roles**
-- [ ] Users can self-serve sign up and select their role (Factory PM or Site PM) without waiting for admin approval
-- [ ] Users can log in / log out; sessions persist across reloads
-- [ ] Super Admin accounts are seeded/provisioned separately (not via public role picker)
-- [ ] Nav and routes are gated by role — a user never sees another role's tabs (CRM-style)
+**Validated in v1.0 (MVP):** auth + role-gated shells, template-driven checklist engine with photo evidence, processes diagram editor (React Flow + Mermaid), real-time chat, Dave Aredo AI assistant, Resend email flows.
 
-**Shared shell (all roles)**
-- [ ] Home/Dashboard whose content differs by role (includes embedded real-time chat)
-- [ ] Profile (Name, Position, ID Card image upload — date-stamped; ID card editable by Super Admin only)
-- [ ] Processes & Flow Charts — now a collaborative diagram editor (React Flow canvas + Mermaid flowchart rendering), DB-persisted with autosave; all users can edit shared diagrams
-- [ ] About TRT — company info/policy/management/links, editable by Super Admin only
-- [ ] Dave Aredo floating button on every screen → full-screen chat overlay
-
-**Email (Resend)**
-- [ ] Transactional email via Resend powering email verification and password reset, plus app notifications
-
-**Real-time chat (Supabase Realtime + Neon)**
-- [ ] Users can chat with each other in real time from the dashboard (simple chat interface)
-- [ ] Messages persist in Neon (source of truth) and load on reconnect; Supabase Realtime is the live transport
-
-**Processes diagram editor (React Flow + Mermaid)**
-- [ ] Node-based editable canvas (React Flow), Excalidraw-like; create flowcharts from Mermaid text too
-- [ ] DB-persisted with autosave (no loss on refresh); shared collaborative editing with live updates (last-write-wins per element for v1)
-
-**Factory PM home**
-- [ ] Factory Floor Projects — spreadsheet view: Project Name, Delivery Timeline (date), Status (Delivered/Not Delivered toggle)
-- [ ] Delivery Project Checklist — Create New (multistep wizard) + View List (table of entries)
-- [ ] Product Readiness Checklist — Upload File + View Files (list sortable by Name/Date)
-
-**Site PM home** (from wireframes — see Context)
-- [ ] Confirmation (Confirmation / Delivery Site Readiness & all checklists) — Create New + View File
-- [ ] Delivery Site Readiness Checklist ("Out of state processes / Planning checklist")
-- [ ] Issue Log — Excel-style/tabular interface or changeable links
-- [ ] Sorting Checklist
-- [ ] Email Formats — Super Admin edit only, PMs view only
-- [ ] Change Request Checklist
-- [ ] Close Out Process Checklist
-- [ ] New Project — Project Name, Location, Project Manager (auto-filled from logged-in user)
-- [ ] View Previous Projects
-
-**Super Admin home**
-- [ ] Read-only aggregated overview of all Factory PM + Site PM projects, checklists, verifications, and uploaded photos
-- [ ] User Management — create/invite accounts, assign role
-- [ ] Content Management — edit About TRT and Processes & Flow Charts (and Email Formats)
-
-**Forms / UX**
-- [ ] All checklists/assessments are multistep wizards (not single long forms)
-- [ ] Checklist items use radio buttons (binary vs. third "N/A" state TBD per PDF)
-- [ ] Photo upload attachable to checklist/verification entries
-- [ ] File lists sortable by Name and Date
-
-**Dave Aredo (AI)**
-- [ ] Server-side chat endpoint on the Claude Agent SDK, context scoped to caller's role/permissions
-- [ ] Grounded in Processes & Flow Charts content
-- [ ] Per-user persisted chat history
-- [ ] Rate-limited for PMs (directional: ~20 msg/day), unlimited for Super Admin
-- [ ] v1 text-only
+**Validated in v2.0 (see milestones/v2.0-REQUIREMENTS.md for the full WF/CFG/ROLE/PAY/STG traceability):** DB-driven workflow graph with 7 fulfillment kinds (WF-01..06), PIN-gated Workflow Configurator (CFG-01..03), 11-role + data-driven-positions system with exact-position and assignee gates (ROLE-01..07), two payment checkpoints (PAY-01..03), and the full 14-stage front-of-funnel/production-authorization pipeline (STG-01..14; STG-04 cut). Plus unplanned-but-shipped: per-tab independent auth sessions (Phase 20.1), position-scoped step notifications, strictly per-step deadlines, per-checklist escalation, super-admin audit view.
 
 ### Out of Scope
 
@@ -158,6 +101,12 @@ A PM on the floor or on-site can complete a structured checklist (with photo evi
 | v1.1: final Sign-Off step (11) performed by super_admin | User: higher authority closes the project after Close Out | ✓ Decided 2026-07-02 |
 | v1.1: per-step deadlines set by Operations at creation | Accountability per step, not just one project deadline | ✓ Decided 2026-07-02 |
 | v1.1: multi-department extensibility (Design/Production) deferred | User explicitly skipped #7 for now | ✓ Deferred 2026-07-02 |
+| v2.0: workflow steps become data (graph tables), not code | Self-service process changes without deploys | ✓ Shipped 2026-07-09..19; parity-verified |
+| v2.0: super-admin titles are `users.position` values, never new role enum values | Keeps role gate small; exact-position step gates narrow sensitive steps | ✓ Good — powered STG-10..12 scoping |
+| v2.0: positions become a rename-safe data table (not a Postgres enum) | Boss renamed titles mid-milestone; enum churn was untenable | ✓ Good (260714-bpq) |
+| v2.0: per-tab auth via sessionStorage tokens + pre-paint restore bounce, cookie as fallback | "Two tabs, two users" is a hard requirement; cookies are browser-wide | ✓ Shipped, user-confirmed 2026-07-19 — pre-paint inline script was the key (survives hydration-breaking browser extensions) |
+| v2.0: step notifications scoped to the responsible position; all-super-admin step broadcast removed | User: spam made oversight useless | ✓ Shipped 2026-07-19 |
+| v2.0: deadlines are strictly per-step (no project-wide fallback) | Actors should only ever see their own step's deadline | ✓ Shipped 2026-07-19 |
 
 ## Evolution
 
@@ -177,4 +126,6 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-09 — milestone v2.0 (Configurable Production Workflow Engine) started*
+
+---
+*Last updated: 2026-07-19 after v2.0 milestone*

@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: — Configurable Production Workflow Engine
-status: completed
+status: Awaiting next milestone
 stopped_at: context exhaustion at 75% (2026-07-18)
-last_updated: "2026-07-18T13:52:22.830Z"
-last_activity: 2026-07-17
+last_updated: "2026-07-19T16:26:20.882Z"
+last_activity: 2026-07-19 — Milestone v2.0 completed and archived
 progress:
   total_phases: 23
   completed_phases: 5
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 
 ## Current Position
 
-Phase: 20.1 (Per-Tab Independent Auth Sessions) — COMPLETE (4/4 plans)
-Plan: 4 of 4
-Status: ✓ RESOLVED — USER-CONFIRMED 2026-07-19 ("retested with fresh tabs, refresh works now") after the full fix stack: restore-route bounce (88eb1a3) → universal per-tab sign-in + refresh-timer fixes (aa3de81) → pre-paint inline bounce + idle-tab token recovery (9e72759). Originally RE-CLOSED 2026-07-18 (quick task 260718-q20) — the reopened hard-refresh identity loss is FIXED and live-proven. Root cause of the three failed in-document attempts (59ef455 refresh(), fd3ed2c push+replace, c7cd590 push-only): refresh()/same-path replace() bypass the window.fetch override, and push() between routes sharing the (app) layout reuses the client-cached wrong-identity layout segment. Fix (commit 88eb1a3): TabSessionProvider natively redirects a hard-refreshed per-tab tab to a new identity-agnostic /tab-session/restore route OUTSIDE the (app) group; the fresh document (empty Router Cache) soft-navigates back through the installed fetch override, mounting the entire (app) tree as the per-tab user. Verified in a real browser: navigation-timing entry proves the bounce; shared-cookie tabs are a strict no-op. Also closed in the same task (commit 2199713): markNotificationsReadAction migrated to the bound-token pattern — per-tab mark-read no longer mutates the shared-cookie user's rows (live cross-identity DB proof). Phase 21 (Front-of-Funnel Stages) is next.
-Last activity: 2026-07-18
+Phase: Milestone v2.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-19 — Milestone v2.0 completed and archived
 
 ## Performance Metrics
 
@@ -183,9 +183,14 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 
 ## Deferred Items
 
-| Category | Item | Status | Deferred At |
-|----------|------|--------|-------------|
-| Collaboration | Super Admin direct-message to a user (COLLAB-01) | v2 | Init |
+Items acknowledged and deferred at v2.0 milestone close on 2026-07-19:
+
+| Category | Item | Status |
+|----------|------|--------|
+| Collaboration | Super Admin direct-message to a user (COLLAB-01) | deferred to a future milestone |
+| debug | notification-position-scoping | awaiting_human_verify — data fix applied + re-verified 2026-07-18/19; pending only an end-to-end app check with a project sitting on steps 5/12/13/19 |
+| quick_tasks (34) | historical quick-task dirs lack status frontmatter in their SUMMARY.md (pre-convention) | all 34 recorded complete in the Quick Tasks Completed table above; bookkeeping-format gap only |
+| phase | Phase 18.1 Composable Fulfillment Kinds | partial — additionalKinds model/engine/Configurator shipped; generic composed-block renderer not built |
 
 ## Session Continuity
 
@@ -193,3 +198,7 @@ Last session: 2026-07-18T13:52:22.819Z
 Stopped at: context exhaustion at 75% (2026-07-18)
 Resume file: 
 None
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone
