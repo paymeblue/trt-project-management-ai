@@ -1,5 +1,5 @@
 ---
-status: awaiting_human_verify
+status: resolved
 trigger: "Auth session is single-slot across browser tabs — users must open an incognito window to sign in as a second user, because signing in on a new tab overwrites/replaces the first user's session rather than each tab holding its own independent auth token. Expected: every tab should be able to hold and use its own auth token concurrently, so multiple different users can be logged in at the same time in different tabs of the same browser."
 created: 2026-07-17
 updated: 2026-07-17
