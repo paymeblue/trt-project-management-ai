@@ -258,7 +258,8 @@
 - [x] **PAY-01**: Projects have a `paid`/`unpaid` payment status, defaulting to `unpaid` when Customer Care creates the project.
   - *Success:* New projects created via the Customer Care intake step start `unpaid`.
   - *Delivered (ad hoc, commit f72573d, 2026-07-09):* `projects.paymentStatus` defaults `unpaid`; set at creation by the Project Intent step.
-- [~] **PAY-02**: Either Customer Care (who may already know payment was taken on the call) or Head of Operations (`super_admin` + `requiredPosition = head_of_operations`) can toggle a project from `unpaid` to `paid`, at Stage 2 (Payment Confirmation & Timeline), gating progress into the design phase (designer assignment / brief taking cannot start while `unpaid`).
+- [x] **PAY-02**: Either Customer Care (who may already know payment was taken on the call) or Head of Operations (`super_admin` + `requiredPosition = head_of_operations`) can toggle a project from `unpaid` to `paid`, at Stage 2 (Payment Confirmation & Timeline), gating progress into the design phase (designer assignment / brief taking cannot start while `unpaid`).
+  - *Completed 2026-07-18 (commit 26b4674): admin payment-confirmation path narrowed to Head of Operations specifically; Customer Care toggle via `confirmClientPaidAction` (2-phase Invoicing, 260714-qe4).*
   - *Success:* Attempting to act on the designer-assignment or brief-taking steps while `unpaid` is rejected server-side; either role toggling `paid` unblocks it. There is exactly one payment gate — no second/independent invoicing checkpoint (the earlier-drafted Invoicing stage was cut from the finalized 18-stage flow; the single toggle is sufficient).
   - *Partially delivered (ad hoc, commit f72573d, 2026-07-09):* The toggle itself exists at live step 2 (`payment_confirmation` kind) and works. Still open, deferred to Phase 19: it's currently gated via `requireAdmin()` — any `operations` OR `super_admin` user, not narrowed to a specific Head of Operations `position` — and `customer_care` cannot yet toggle it directly. Both follow-ups depend on Phase 19's position-enum/`requiredPosition` work (ROLE-04) landing first.
 - [x] **PAY-03**: Per-step deadlines (existing `project_step_deadlines` mechanism from v1.1) extend to cover every new step in the expanded workflow, not just the original 11.
@@ -269,19 +270,32 @@
 
 - [x] **STG-01**: Project Intent — Customer Care creates a project capturing customer name, email, phone, location, and scope.
   - *Delivered (ad hoc, commit f72573d, 2026-07-09):* Live step 1, role `customer_care`, kind `creation`; renamed from "New Project".
-- [ ] **STG-02**: Assign Designer/Architect for Brief — Head Designer (`design` role + `requiredPosition = head_designer`) assigns a user from the `design`-or-`architect` pool (see ROLE-06/ROLE-07) to take the client's brief. This is the first of **two distinct assignment moments** in the flow — the assignee here is not guaranteed to be the same one assigned at STG-06 (Design Initiation).
-- [ ] **STG-03**: Kickoff Meeting — the assigned designer marks kickoff held (yes/no) with an optional upload.
-- [ ] **STG-04**: Design Meeting — the assigned designer marks materials/colors/details gathered (yes/no) with an optional upload.
-- [ ] **STG-05**: Brief Taking — the assigned designer marks the brief taken (yes/no) with an optional file upload.
-- [ ] **STG-06**: Design Initiation — Head Designer (`design` role + `requiredPosition = head_designer`) assigns a user from the `design`-or-`architect` pool to begin actual design work. This is the **second, distinct** assignment moment — may reassign to a different person than STG-02's brief-taking assignee.
-- [ ] **STG-07**: Design Stage — the STG-06 assignee produces the drawing, presents to the client, and marks client design approval (yes/no) with an optional upload of the approved drawing.
-- [ ] **STG-08**: Site Personnel Confirmation Assignment — an operational Super Admin assigns a Site PM (by email) for confirmation, inserted immediately **before** the existing Confirmation step (not a duplicate "Confirmation 2" — the existing Confirmation step itself is unchanged and runs once, at its current position).
-- [ ] **STG-09**: Confirmation Correction — the assigned designer inputs site corrections into the design (yes/no) with an optional upload of the corrected drawing, immediately **after** the existing Confirmation step.
-- [ ] **STG-10**: Internal Approval — an operational Super Admin routes the drawing to Head Designer to check/approve and receives it back; upload of the approved drawing.
-- [ ] **STG-11**: Send for Production — an operational Super Admin (Operations Admin) sends, Chief Production Officer (`super_admin` + `requiredPosition = chief_production_officer`) receives (approval/two-sided-ack fulfillment kind).
-- [ ] **STG-12**: Project Review and Authorization — the CPO reviews and approves (yes/no) after internal team review (produces WBS, shares for BOQ).
-- [ ] **STG-13**: Production Process — `ops_factory` role completes a checklist: optimization document upload, then cutting/edging/edging-concluded/upholstery-concluded/glass/accessories-sorted, each yes/no.
-- [ ] **STG-14**: Quality Control — `factory_manager` role uploads 3 readiness forms (Material, Accessories, Upholstery) confirming everything matches the order/proforma invoice, inserted immediately before the existing Materials/Accessories Readiness step.
+- [x] **STG-02**: Assign Designer/Architect for Brief — Head Designer (`design` role + `requiredPosition = head_designer`) assigns a user from the `design`-or-`architect` pool (see ROLE-06/ROLE-07) to take the client's brief. This is the first of **two distinct assignment moments** in the flow — the assignee here is not guaranteed to be the same one assigned at STG-06 (Design Initiation).
+  - *Delivered (ad hoc, commit 0d8bacd): live step 2 `assign_designer_brief`, assignment kind, gate `head_of_design`, pool spans design+architect. Verified 2026-07-19 against the live graph (parity harness PASS 21/21).*
+- [x] **STG-03**: Kickoff Meeting — the assigned designer marks kickoff held (yes/no) with an optional upload.
+  - *Delivered: live step 7 `kickoff_meeting` (order corrected per the user's handwritten process notes — kickoff follows Design Initiation). Verified 2026-07-19 against the live graph (parity harness PASS 21/21).*
+- [~] **STG-04**: Design Meeting — the assigned designer marks materials/colors/details gathered (yes/no) with an optional upload.
+  - *CUT: the `design_meeting` step was removed from the live flow by user-driven restructuring (post-0d8bacd ad hoc work); superseded, not pending. `scripts/verify-design-pipeline.ts` staleness stems from this same removal.*
+- [x] **STG-05**: Brief Taking — the assigned designer marks the brief taken (yes/no) with an optional file upload.
+  - *Delivered: live step 3 `brief_taking` (immediately after the first assignment, per the corrected order). Role restored to canonical `design` 2026-07-19 after a live Configurator drift to `architect` would have locked out design-role assignees. Verified 2026-07-19 against the live graph (parity harness PASS 21/21).*
+- [x] **STG-06**: Design Initiation — Head Designer (`design` role + `requiredPosition = head_designer`) assigns a user from the `design`-or-`architect` pool to begin actual design work. This is the **second, distinct** assignment moment — may reassign to a different person than STG-02's brief-taking assignee.
+  - *Delivered: live step 6 `design_initiation`, second distinct assignment, gate `head_of_design`. Verified 2026-07-19 against the live graph (parity harness PASS 21/21).*
+- [x] **STG-07**: Design Stage — the STG-06 assignee produces the drawing, presents to the client, and marks client design approval (yes/no) with an optional upload of the approved drawing.
+  - *Delivered: live step 8 `design_stage`, yes/no + upload by the STG-06 assignee (assignee-gated server-side, 260713-ekr). Verified 2026-07-19 against the live graph (parity harness PASS 21/21).*
+- [x] **STG-08**: Site Personnel Confirmation Assignment — an operational Super Admin assigns a Site PM (by email) for confirmation, inserted immediately **before** the existing Confirmation step (not a duplicate "Confirmation 2" — the existing Confirmation step itself is unchanged and runs once, at its current position).
+  - *Delivered: live step 9 `ops_design_confirmation` — super_admin (`head_of_projects`) assigns the Site PM, sitting immediately before Confirmation (live step 10). Verified 2026-07-19 against the live graph (parity harness PASS 21/21).*
+- [x] **STG-09**: Confirmation Correction — the assigned designer inputs site corrections into the design (yes/no) with an optional upload of the corrected drawing, immediately **after** the existing Confirmation step.
+  - *Delivered: live step 11 `confirmation_correction` (design, yes/no + upload), immediately after Confirmation. Verified 2026-07-19 against the live graph (parity harness PASS 21/21).*
+- [x] **STG-10**: Internal Approval — an operational Super Admin routes the drawing to Head Designer to check/approve and receives it back; upload of the approved drawing.
+  - *Delivered: live step 12 `internal_approval` (operations, `operations_manager_admin`, yes/no + drawing upload — restructured 2026-07-14 from the original route-to-Head-Designer wording). Verified 2026-07-19 against the live graph (parity harness PASS 21/21).*
+- [x] **STG-11**: Send for Production — an operational Super Admin (Operations Admin) sends, Chief Production Officer (`super_admin` + `requiredPosition = chief_production_officer`) receives (approval/two-sided-ack fulfillment kind).
+  - *Delivered: live step 13 `send_for_production`, approval kind — sender `operations_manager_admin`, receiver `chief_production_officer` (two-party flow, 260714-iuj). Verified 2026-07-19 against the live graph (parity harness PASS 21/21).*
+- [x] **STG-12**: Project Review and Authorization — the CPO reviews and approves (yes/no) after internal team review (produces WBS, shares for BOQ).
+  - *Delivered: live step 14 `project_review_authorisation` (CPO yes/no + upload). Verified 2026-07-19 against the live graph (parity harness PASS 21/21).*
+- [x] **STG-13**: Production Process — `ops_factory` role completes a checklist: optimization document upload, then cutting/edging/edging-concluded/upholstery-concluded/glass/accessories-sorted, each yes/no.
+  - *Delivered: live step 15 `production_process` (`factory_operations` checklist). Verified 2026-07-19 against the live graph (parity harness PASS 21/21).*
+- [x] **STG-14**: Quality Control — `factory_manager` role uploads 3 readiness forms (Material, Accessories, Upholstery) confirming everything matches the order/proforma invoice, inserted immediately before the existing Materials/Accessories Readiness step.
+  - *Delivered: live step 16 `factory_manager_readiness` (`factory_manager` checklist; per-item conditional photo rules, 260717-cl0), immediately before Materials/Accessories Readiness (live step 17). Verified 2026-07-19 against the live graph (parity harness PASS 21/21).*
   - *Success (STG-01…14 as a set):* A new project walks through all 14 new stages in order — Intent(done) → [paid toggle, see PAY-02] → Assign designer for brief → Kickoff → Design Meeting → Brief Taking → Design Initiation (2nd assignment) → Design Stage → [existing Confirmation, unchanged] → Site PM Confirmation Assignment (before it) → Confirmation Correction (after it) → Internal Approval → Send for Production → Project Review & Authorization → Production Process → Quality Control — each gated on its predecessor, arriving at the existing Materials/Accessories Readiness step in exactly the state it already expects today (STG-08 sits before Confirmation; STG-09..14 sit after it). No Invoicing stage and no "Confirmation 2" duplicate exist in the finalized flow — both were considered and cut.
 
 ### v2.0 Out of Scope
@@ -301,11 +315,11 @@
 | CFG-01, CFG-02, CFG-03 | Phase 18 | Complete ✓ |
 | ROLE-01..07 | Phase 19 | Complete ✓ (ROLE-02's assignee-notification gap closed 2026-07-11, quick task 260711-assignee-notification) |
 | PAY-01 | Phase 20 (delivered ad hoc, commit f72573d) | Complete ✓ |
-| PAY-02 | Phase 20 (partially delivered ad hoc; role-gating narrowing depends on Phase 19) | Partial |
+| PAY-02 | Phase 20 | Complete (2026-07-18, 26b4674) |
 | PAY-03 | Phase 20 (delivered ad hoc, commit f72573d) | Complete ✓ |
 | STG-01 | Phase 21 (delivered ad hoc, commit f72573d) | Complete ✓ |
-| STG-02..07 | Phase 21 | Pending |
-| STG-08..14 | Phase 22 | Pending |
+| STG-02..07 | Phase 21 | Complete (ad hoc; STG-04 cut; verified 2026-07-19) |
+| STG-08..14 | Phase 22 | Complete (ad hoc; verified 2026-07-19) |
 
 **Coverage:**
 - v2.0 requirements: 33 total

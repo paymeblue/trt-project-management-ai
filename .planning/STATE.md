@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-09)
 
 **Core value:** A PM on the floor or on-site can complete a structured checklist (with photo evidence) on their phone and have it permanently recorded — replacing paper, with role-scoped visibility and read-only Super Admin oversight.
-**Current focus:** Phase 20.1 — Per-Tab Independent Auth Sessions
+**Current focus:** v2.0 reconciliation complete (2026-07-19) — Phases 16-22 all delivered and parity-verified; only inserted Phase 18.1 (composed-block renderer) remains optional/partial
 
 ## Current Position
 
