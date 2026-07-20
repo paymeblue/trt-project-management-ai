@@ -24,9 +24,9 @@ export default function TabSignOutButton() {
   if (!hasSession) return null
 
   const handleSignOut = () => {
-    sessionStorage.removeItem('tabAccessToken')
-    sessionStorage.removeItem('tabRefreshToken')
-    sessionStorage.removeItem('tabTokenExpiresAt')
+    // clear() (not 3 named removeItem calls) so nothing session-scoped
+    // survives — same reasoning as SignOutButton.
+    sessionStorage.clear()
     window.location.href = '/sign-in'
   }
 

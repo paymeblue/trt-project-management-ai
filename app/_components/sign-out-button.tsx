@@ -10,9 +10,11 @@ export default function SignOutButton() {
         // Every sign-in is per-tab (Phase 20.1 follow-up): a full sign-out
         // must drop THIS tab's token session too, or the tab would keep
         // acting as the token's user after the shared cookie is cleared.
-        sessionStorage.removeItem('tabAccessToken')
-        sessionStorage.removeItem('tabRefreshToken')
-        sessionStorage.removeItem('tabTokenExpiresAt')
+        // clear() (not 3 named removeItem calls) so nothing session-scoped
+        // ever survives a sign-out, even something added later. There is no
+        // auth data in localStorage (only the theme preference) — never
+        // wiped, since that's a UI setting, not a credential.
+        sessionStorage.clear()
       }}
     >
       <button
