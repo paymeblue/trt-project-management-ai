@@ -14,8 +14,13 @@ export default function InvoiceTimelineForm({ projectId }: { projectId: string }
   // v2.0 quick task 260713-rb2: re-keyed from the deleted 'invoice_timeline'
   // to the merged 'invoice_upload' step (part 2 of its 2-part wizard).
   const invoiceTimelineN = steps.find((s) => s.key === 'invoice_upload')?.n ?? 0
-  // Every step after the merged Invoice & Delivery Timeline step itself.
-  const remainingSteps = steps.filter((s) => s.n > invoiceTimelineN)
+  // This form IS step 5's (set_delivery_timeline) own action page — showing
+  // step 5 in its own "remaining steps" deadline list is redundant (the user
+  // is completing it right now, setting a deadline for it makes no sense).
+  // Anchor on THIS step, not the earlier invoice_upload step, so the list
+  // starts at step 6.
+  const thisStepN = steps.find((s) => s.key === 'set_delivery_timeline')?.n ?? invoiceTimelineN
+  const remainingSteps = steps.filter((s) => s.n > thisStepN)
   const lastN = lastStepN(steps)
   const [deadlines, setDeadlines] = useState<Record<number, string>>({})
   const [toast, setToast] = useState<string | null>(null)
@@ -85,7 +90,7 @@ export default function InvoiceTimelineForm({ projectId }: { projectId: string }
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
         <p className="text-xs font-semibold text-gray-700">Per-step deadlines</p>
         <p className="mb-3 text-[11px] text-gray-500">
-          Optional — set a target date for each remaining step ({invoiceTimelineN + 1}–{lastN}). A
+          Optional — set a target date for each remaining step ({thisStepN + 1}–{lastN}). A
           later step can&apos;t be due before an earlier one.
         </p>
         <div className="space-y-2">
