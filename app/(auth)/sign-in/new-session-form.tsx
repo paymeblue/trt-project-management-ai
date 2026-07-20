@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { tabSigninAction } from '@/actions/tab-auth';
 import type { TabSigninState } from '@/actions/tab-auth';
@@ -10,42 +10,52 @@ import { TAB_SESSION_ACTIVATE_EVENT } from '@/app/_components/tab-session-provid
 const initialState: TabSigninState = {};
 
 /**
- * Client form for the "sign in as a different user" per-tab flow.
- * Wired to tabSigninAction via useActionState. On success, the tokens are
- * written to sessionStorage BEFORE any client-side navigation occurs — the
- * action itself never redirects, since a server-side redirect would discard
- * the freshly-minted tokens before this component could capture them.
+ * Client form for the "sign in as a different user" per-tab flow, calling
+ * tabSigninAction directly inside a transition (NOT useActionState + a
+ * reactive useEffect on its returned state — see sign-in-form.tsx for why:
+ * that split raced against React StrictMode's dev-only double-mount cycle
+ * and could silently drop the token write). Awaiting the action inside the
+ * submit handler's own closure ties the sessionStorage write to the DOM
+ * event itself, immune to that race by construction.
+ *
+ * On success, the tokens are written to sessionStorage BEFORE any
+ * client-side navigation occurs — the action itself never redirects, since
+ * a server-side redirect would discard the freshly-minted tokens before
+ * this component could capture them.
  */
 export default function NewSessionForm() {
   const router = useRouter();
-  const [state, formAction, pending] = useActionState<TabSigninState, FormData>(
-    tabSigninAction,
-    initialState,
-  );
+  const [state, setState] = useState<TabSigninState>(initialState);
+  const [pending, startTransition] = useTransition();
 
-  useEffect(() => {
-    if (state.accessToken && state.refreshToken && state.expiresAt) {
-      sessionStorage.setItem('tabAccessToken', state.accessToken);
-      sessionStorage.setItem('tabRefreshToken', state.refreshToken);
-      sessionStorage.setItem('tabTokenExpiresAt', String(state.expiresAt));
-      // TabSessionProvider mounts once at the root layout and won't see this
-      // brand-new token on its own — tell it to activate the fetch override
-      // NOW, synchronously, before router.push() below fires the RSC fetch
-      // for /dashboard. Without this, that first navigation goes out
-      // unauthenticated-by-header and falls through to the shared cookie,
-      // rendering the ORIGINAL user's dashboard instead of this new one.
-      window.dispatchEvent(new Event(TAB_SESSION_ACTIVATE_EVENT));
-      router.push('/dashboard');
-      // The (app) layout (sidebar, name/role header) is a shared segment
-      // Next's client Router Cache can reuse across a soft navigation even
-      // though page.tsx re-executes verifySession() fresh — without this,
-      // the URL and page body correctly reflect the new per-tab user while
-      // the sidebar keeps showing the ORIGINAL user's nav shape. refresh()
-      // discards the cached segment tree so the layout re-renders from the
-      // new Authorization-header identity too.
-      router.refresh();
-    }
-  }, [state, router]);
+  function handleSubmit(formData: FormData) {
+    startTransition(async () => {
+      const result = await tabSigninAction(initialState, formData);
+      if (result.accessToken && result.refreshToken && result.expiresAt) {
+        sessionStorage.setItem('tabAccessToken', result.accessToken);
+        sessionStorage.setItem('tabRefreshToken', result.refreshToken);
+        sessionStorage.setItem('tabTokenExpiresAt', String(result.expiresAt));
+        // TabSessionProvider mounts once at the root layout and won't see this
+        // brand-new token on its own — tell it to activate the fetch override
+        // NOW, synchronously, before router.push() below fires the RSC fetch
+        // for /dashboard. Without this, that first navigation goes out
+        // unauthenticated-by-header and falls through to the shared cookie,
+        // rendering the ORIGINAL user's dashboard instead of this new one.
+        window.dispatchEvent(new Event(TAB_SESSION_ACTIVATE_EVENT));
+        router.push('/dashboard');
+        // The (app) layout (sidebar, name/role header) is a shared segment
+        // Next's client Router Cache can reuse across a soft navigation even
+        // though page.tsx re-executes verifySession() fresh — without this,
+        // the URL and page body correctly reflect the new per-tab user while
+        // the sidebar keeps showing the ORIGINAL user's nav shape. refresh()
+        // discards the cached segment tree so the layout re-renders from the
+        // new Authorization-header identity too.
+        router.refresh();
+      } else {
+        setState(result);
+      }
+    });
+  }
 
   return (
     <div>
@@ -66,7 +76,7 @@ export default function NewSessionForm() {
         </p>
       )}
 
-      <form action={formAction} className="space-y-4">
+      <form action={handleSubmit} className="space-y-4">
         <div>
           <label
             htmlFor="email"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { signinAction } from '@/actions/auth';
 import type { SigninState } from '@/actions/auth';
@@ -10,34 +10,48 @@ import { TAB_SESSION_ACTIVATE_EVENT } from '@/app/_components/tab-session-provid
 const initialState: SigninState = {};
 
 /**
- * Client sign-in form wired to signinAction via useActionState.
+ * Client sign-in form calling signinAction directly inside a transition
+ * (NOT useActionState + a reactive useEffect on its returned state).
+ *
+ * Found live 2026-07-20: the useActionState+effect split failed
+ * intermittently in `next dev` — if the click landed while React's
+ * StrictMode double-mount (dev-only) was mid-cycle for this component, the
+ * action's resolved state could land on an already-discarded fiber, so the
+ * effect that writes sessionStorage never ran (server-side sign-in still
+ * succeeded, cookie set, but this tab's own token never got stored).
+ * Awaiting the action directly inside the submit handler's own closure ties
+ * the sessionStorage write to the DOM event itself, not to a later,
+ * remount-sensitive effect — immune to this race by construction.
  *
  * Every sign-in is per-tab (Phase 20.1 follow-up): the action sets the
- * shared cookie AND returns freshly-minted per-tab tokens instead of
- * redirecting server-side. This effect stores them, activates the fetch
- * override, then navigates — the same contract as new-session-form.tsx —
- * so a later sign-in as someone else in another tab (which replaces the
- * browser-wide cookie) can never change who THIS tab is.
+ * shared cookie AND returns freshly-minted per-tab tokens. This handler
+ * stores them, activates the fetch override, then navigates — the same
+ * contract as new-session-form.tsx — so a later sign-in as someone else in
+ * another tab (which replaces the browser-wide cookie) can never change who
+ * THIS tab is.
  */
 export default function SignInForm() {
   const router = useRouter();
-  const [state, formAction, pending] = useActionState<SigninState, FormData>(
-    signinAction,
-    initialState,
-  );
+  const [state, setState] = useState<SigninState>(initialState);
+  const [pending, startTransition] = useTransition();
 
-  useEffect(() => {
-    if (state.accessToken && state.refreshToken && state.expiresAt) {
-      sessionStorage.setItem('tabAccessToken', state.accessToken);
-      sessionStorage.setItem('tabRefreshToken', state.refreshToken);
-      sessionStorage.setItem('tabTokenExpiresAt', String(state.expiresAt));
-      window.dispatchEvent(new Event(TAB_SESSION_ACTIVATE_EVENT));
-      router.push('/dashboard');
-      // Discard any Router-Cache segments rendered under a previous identity
-      // (same reasoning as new-session-form.tsx).
-      router.refresh();
-    }
-  }, [state, router]);
+  function handleSubmit(formData: FormData) {
+    startTransition(async () => {
+      const result = await signinAction(initialState, formData);
+      if (result.accessToken && result.refreshToken && result.expiresAt) {
+        sessionStorage.setItem('tabAccessToken', result.accessToken);
+        sessionStorage.setItem('tabRefreshToken', result.refreshToken);
+        sessionStorage.setItem('tabTokenExpiresAt', String(result.expiresAt));
+        window.dispatchEvent(new Event(TAB_SESSION_ACTIVATE_EVENT));
+        router.push('/dashboard');
+        // Discard any Router-Cache segments rendered under a previous identity
+        // (same reasoning as new-session-form.tsx).
+        router.refresh();
+      } else {
+        setState(result);
+      }
+    });
+  }
 
   return (
     <div>
@@ -57,7 +71,7 @@ export default function SignInForm() {
         </p>
       )}
 
-      <form action={formAction} className="space-y-4">
+      <form action={handleSubmit} className="space-y-4">
         <div>
           <label
             htmlFor="email"
