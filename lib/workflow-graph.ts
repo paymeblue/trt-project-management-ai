@@ -148,6 +148,10 @@ const ASSIGNEE_GATED_STEPS: Record<string, { governingKey: string; gatedRoles: W
   brief_taking: { governingKey: 'assign_designer_brief', gatedRoles: ['design', 'architect'] },
   kickoff_meeting: { governingKey: 'design_initiation', gatedRoles: ['design', 'architect'] },
   design_stage: { governingKey: 'design_initiation', gatedRoles: ['design', 'architect'] },
+  // Found missing 2026-07-19 audit: STG-09 specifies "the assigned designer"
+  // inputs site corrections — same design_initiation assignee as
+  // kickoff_meeting/design_stage, not any design/architect-role user.
+  confirmation_correction: { governingKey: 'design_initiation', gatedRoles: ['design', 'architect'] },
   confirmation: { governingKey: 'ops_design_confirmation', gatedRoles: ['site_pm'] },
   materials_readiness: { governingKey: 'ops_design_confirmation', gatedRoles: ['site_pm'] },
   installation_process: { governingKey: 'ops_design_confirmation', gatedRoles: ['site_pm'] },
