@@ -334,17 +334,27 @@ export async function notifyNextStepOfficers(projectId: string, actorId?: string
 
     let recipients: { id: string; email: string }[] = []
     const gateUserId = await getStepAssigneeGate('live', projectId, next.key)
+    const all = await db
+      .select({ id: users.id, email: users.email, role: users.role, position: users.position })
+      .from(users)
     if (gateUserId) {
-      const [u] = await db
-        .select({ id: users.id, email: users.email })
-        .from(users)
-        .where(eq(users.id, gateUserId))
-        .limit(1)
-      recipients = u ? [u] : []
+      const gatedUser = all.find((u) => u.id === gateUserId)
+      recipients = gatedUser ? [gatedUser] : []
+      // Found in a full-graph notification audit (2026-07-20): materials_readiness
+      // is BOTH dual-role (factory_pm + site_pm) AND assignee-gated for its
+      // site_pm half only (assigneeGatedRoles). Narrowing to just the gated
+      // user silently dropped the entire un-gated factory_pm half — they have
+      // their own independent confirmation to make and must still be
+      // notified. Add every dual-role member whose role isn't the one the
+      // gate applies to.
+      if (next.dualRoles?.length) {
+        const gatedRoles = assigneeGatedRoles(next.key)
+        const ungated = all.filter(
+          (u) => (next.dualRoles as string[]).includes(u.role) && !gatedRoles.includes(u.role as WorkflowRole),
+        )
+        recipients = [...recipients, ...ungated]
+      }
     } else {
-      const all = await db
-        .select({ id: users.id, email: users.email, role: users.role, position: users.position })
-        .from(users)
       if (next.requiredPosition) {
         recipients = all.filter(
           (u) => u.position === next.requiredPosition && canRoleActOnStep(next.role, u.role as UserRole),
