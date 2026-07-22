@@ -1,7 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { db } from '@/db'
-import { projects, users, workflowStepStates } from '@/db/schema'
+import { projects, users, workflowStepStates, checklistDefinitions } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import {
   getStepByKey,
@@ -26,6 +26,8 @@ import ApprovalStep from '@/app/_components/workflow-kinds/approval-step'
 import AssignmentStep from '@/app/_components/workflow-kinds/assignment-step'
 import InvoiceTimelineForm from '@/app/(app)/admin/invoice-timeline/invoice-timeline-form'
 import ConfirmPaymentStep from '@/app/_components/workflow-kinds/confirm-payment-step'
+import InlineRequirementStep from '@/app/_components/workflow-kinds/inline-requirement-step'
+import CompleteStepButton from '@/app/_components/workflow-kinds/complete-step-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -166,6 +168,19 @@ export default async function WorkflowStepPage({
 
   const multi = requiredKinds.length > 1
 
+  // quick task readiness-ack-sync: needed by the 'ack'/'readiness'/'checklist'
+  // branches below to know which requirements are already done (so a
+  // completed sub-section shows a checkmark instead of re-prompting), and by
+  // the page-level Complete step button's disabled/hint state isn't computed
+  // client-side — the server (completeGraphStep) is the actual gate; this is
+  // read-only display state.
+  const [genericState] = await db
+    .select({ fulfilledKinds: workflowStepStates.fulfilledKinds })
+    .from(workflowStepStates)
+    .where(and(eq(workflowStepStates.projectId, projectId!), eq(workflowStepStates.stepDefId, step.id)))
+    .limit(1)
+  const fulfilledKinds = genericState?.fulfilledKinds ?? []
+
   async function renderKind(kind: StepKind): Promise<React.ReactNode> {
     switch (kind) {
       case 'yes_no_upload':
@@ -176,6 +191,7 @@ export default async function WorkflowStepPage({
             redirectTo={dashboard}
             celebrateOnComplete={step!.key === 'sign_off'}
             requireUpload={step!.key === 'sign_off'}
+            completeOnSubmit={!multi}
           />
         )
       case 'approval': {
@@ -242,6 +258,69 @@ export default async function WorkflowStepPage({
           />
         )
       }
+      case 'ack':
+        return (
+          <InlineRequirementStep
+            projectId={projectId!}
+            stepDefId={step!.id}
+            kind="ack"
+            alreadyDone={fulfilledKinds.includes('ack')}
+          />
+        )
+      case 'readiness':
+      case 'checklist': {
+        // Stacked as an ADDITIONAL kind (a step whose sole kind is
+        // 'checklist'/'readiness' never reaches this generic renderer — see
+        // stepHref() in lib/workflow.ts, which routes it straight to
+        // /checklists/[slug] or /factory-pm/readiness instead). With a
+        // linked checklist slug attached via the Workflow Configurator,
+        // completing it there fulfills this requirement (actions/
+        // checklists.ts's partial-fulfillment branch). 'readiness' without a
+        // slug falls back to a plain one-click confirmation; 'checklist'
+        // without a slug has no content to show at all — surfaced as a
+        // config error rather than silently doing nothing.
+        if (step!.slug) {
+          const [def] = await db
+            .select({ name: checklistDefinitions.name })
+            .from(checklistDefinitions)
+            .where(eq(checklistDefinitions.slug, step!.slug))
+            .limit(1)
+          const label = def?.name ?? step!.slug
+          if (fulfilledKinds.includes(kind)) {
+            return (
+              <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+                <span className="material-symbols-outlined text-lg">check_circle</span>
+                {label} completed.
+              </div>
+            )
+          }
+          return (
+            <a
+              href={`/checklists/${step!.slug}?projectId=${projectId}&step=${step!.orderIndex}`}
+              className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm font-semibold text-primary shadow-sm hover:shadow-md"
+            >
+              Complete &ldquo;{label}&rdquo;
+              <span className="material-symbols-outlined text-base">arrow_forward</span>
+            </a>
+          )
+        }
+        if (kind === 'readiness') {
+          return (
+            <InlineRequirementStep
+              projectId={projectId!}
+              stepDefId={step!.id}
+              kind="readiness"
+              alreadyDone={fulfilledKinds.includes('readiness')}
+            />
+          )
+        }
+        return (
+          <p className="text-sm text-error">
+            This step&rsquo;s checklist requirement has no checklist selected — a super admin needs
+            to set one in the Workflow Configurator.
+          </p>
+        )
+      }
       default:
         return (
           <p className="text-sm text-gray-500">
@@ -279,6 +358,11 @@ export default async function WorkflowStepPage({
           </div>
         ))}
       </div>
+      {multi && (
+        <div className="mt-6">
+          <CompleteStepButton projectId={projectId!} stepDefId={step.id} redirectTo={dashboard} />
+        </div>
+      )}
     </div>
   )
 }

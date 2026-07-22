@@ -29,6 +29,8 @@
     "@auth/drizzle-adapter": "^1.11.2",
     "@excalidraw/excalidraw": "^0.18.1",
     "@neondatabase/serverless": "^1.1.0",
+    "@stream-io/node-sdk": "^0.7.62",
+    "@stream-io/video-react-sdk": "^1.39.3",
     "@xyflow/react": "^12.11.2",
     "bcryptjs": "^3.0.3",
     "dagre": "^0.8.5",

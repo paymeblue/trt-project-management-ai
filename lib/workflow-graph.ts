@@ -72,6 +72,12 @@ export type LiveWorkflowStep = WorkflowStep & {
   dualRoles?: WorkflowRole[] | null
   requiredPosition?: string | null
   receiverRequiredPosition?: string | null
+  // Carried forward so stepRequiredKinds() works against a LiveWorkflowStep
+  // (actions/checklists.ts's partial-fulfillment branch needs to know the
+  // step's FULL required-kinds set, not just its primary `kind`) — omitted
+  // until quick task readiness-ack-sync, which silently dropped this for
+  // every consumer of getLiveWorkflowSteps().
+  additionalKinds?: StepKind[] | null
 }
 
 export async function getLiveWorkflowSteps(): Promise<LiveWorkflowStep[]> {
@@ -87,6 +93,7 @@ export async function getLiveWorkflowSteps(): Promise<LiveWorkflowStep[]> {
     dualRoles: g.dualRoles,
     requiredPosition: g.requiredPosition,
     receiverRequiredPosition: g.receiverRequiredPosition,
+    additionalKinds: g.additionalKinds,
   }))
 }
 
@@ -270,10 +277,26 @@ export async function getLastStep(graph = 'live'): Promise<GraphStep | undefined
 // so state-fulfillment and advancement stay independently testable.
 
 // Kinds that require a fulfilled workflow_step_states row before
-// completeGraphStep will accept a non-skip completion. The legacy
-// checklist/readiness/ack/creation kinds are accepted as already validated
-// upstream by their own submission flow (mirrors actions/workflow.ts).
-const STATE_GATED_KINDS: StepKind[] = ['yes_no_upload', 'approval', 'assignment']
+// completeGraphStep will accept a non-skip completion. 'creation' is exempt
+// — it's the project-intake kind, always first, never combined with
+// anything. 'payment_confirmation'/'timeline_setting' are exempt because
+// their own dedicated actions (confirmClientPaidAction, etc.) already
+// hand-check their prerequisite kind's fulfillment before ever calling
+// completeGraphStep, mirroring this same gate at the call site.
+//
+// 'checklist'/'readiness'/'ack' as a step's SOLE kind never reach this check
+// at all — those go through the older, separate advanceProjectStep/
+// confirmDualRoleStep/completeAckStepAction engine (actions/workflow.ts),
+// which never calls completeGraphStep. They're listed here so that when one
+// of them is stacked as an ADDITIONAL kind alongside a state-gated primary
+// kind (e.g. confirmation_correction's yes_no_upload + ack + readiness),
+// completeGraphStep actually refuses to finish the step until each has its
+// own fulfilledKinds entry — recorded by submitAdditionalRequirementAction
+// (ack/readiness) or submitChecklistAction's partial-fulfillment branch
+// (checklist/readiness with a linked checklist slug). Before this, those
+// three were silently unenforced whenever combined this way — see quick
+// task readiness-ack-sync.
+const STATE_GATED_KINDS: StepKind[] = ['yes_no_upload', 'approval', 'assignment', 'ack', 'readiness', 'checklist']
 
 /**
  * Keeps `projects.currentStep` in sync when a graph step completes. The UI,
@@ -562,6 +585,40 @@ export async function confirmPaymentReceived(opts: {
 }): Promise<void> {
   const now = new Date()
   const fulfilledKinds = await appendFulfilledKind(opts.projectId, opts.stepDefId, 'payment_confirmation')
+  await db
+    .insert(workflowStepStates)
+    .values({
+      projectId: opts.projectId,
+      stepDefId: opts.stepDefId,
+      status: 'complete',
+      actedBy: opts.actorId,
+      fulfilledKinds,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: [workflowStepStates.projectId, workflowStepStates.stepDefId],
+      set: { actedBy: opts.actorId, fulfilledKinds, updatedAt: now },
+    })
+}
+
+/**
+ * Marks a single 'ack' or 'readiness' requirement fulfilled when it is
+ * stacked as an ADDITIONAL kind on top of another (state-gated) primary kind
+ * — e.g. confirmation_correction's yes_no_upload + ack + readiness. Mirrors
+ * confirmPaymentReceived's shape: records only the fulfilled-kind bookkeeping,
+ * no answer/upload of its own. The caller (submitAdditionalRequirementAction)
+ * attempts completeGraphStep right after; it only finishes the step once
+ * every required kind (now including 'ack'/'readiness' — see
+ * STATE_GATED_KINDS above) is present in fulfilledKinds.
+ */
+export async function recordAdditionalRequirement(opts: {
+  projectId: string
+  stepDefId: string
+  actorId: string
+  kind: 'ack' | 'readiness' | 'checklist'
+}): Promise<void> {
+  const now = new Date()
+  const fulfilledKinds = await appendFulfilledKind(opts.projectId, opts.stepDefId, opts.kind)
   await db
     .insert(workflowStepStates)
     .values({

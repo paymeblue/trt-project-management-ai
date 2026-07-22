@@ -11,7 +11,14 @@ import {
 } from '@/db/schema'
 import { verifySessionForAction } from '@/lib/dal'
 import { advanceOrConfirmDualRole } from '@/actions/workflow'
-import { getLiveWorkflowSteps, assigneeGatedRoles, getStepAssigneeGate } from '@/lib/workflow-graph'
+import {
+  getLiveWorkflowSteps,
+  assigneeGatedRoles,
+  getStepAssigneeGate,
+  completeGraphStep,
+  recordAdditionalRequirement,
+  type LiveWorkflowStep,
+} from '@/lib/workflow-graph'
 import {
   REQUIRED_PHOTOS,
   canEditChecklist,
@@ -19,6 +26,8 @@ import {
   canActOnGraphStep,
   missingConditionalPhotos,
   missingRequiredAnswers,
+  stepRequiredKinds,
+  additionalRequirementKindFor,
   FM_READINESS_SLUG,
   type UserRole,
   type WorkflowRole,
@@ -135,7 +144,10 @@ export async function submitChecklistAction(
   }
 
   // Step-linked submissions must be authorized against the live workflow graph
-  // server-side — the client's slug/step pairing is never trusted.
+  // server-side — the client's slug/step pairing is never trusted. Hoisted
+  // above the `if` so the partial-fulfillment branch below (checklist/
+  // readiness stacked as an ADDITIONAL kind on another step) can reuse it.
+  let linkedStep: LiveWorkflowStep | undefined
   if (projectId && input?.expectedStepN) {
     const steps = await getLiveWorkflowSteps()
     const step = findStep(steps, Number(input.expectedStepN))
@@ -158,6 +170,7 @@ export async function submitChecklistAction(
         }
       }
     }
+    linkedStep = step
   }
 
   try {
@@ -193,14 +206,39 @@ export async function submitChecklistAction(
   }
 
   let advanced = false
-  if (projectId && input?.expectedStepN) {
-    advanced = await advanceOrConfirmDualRole(tabToken, {
-      projectId,
-      expectedStepN: Number(input.expectedStepN),
-    })
+  if (projectId && input?.expectedStepN && linkedStep) {
+    const requiredKinds = stepRequiredKinds(linkedStep)
+    if (requiredKinds.length > 1) {
+      // quick task readiness-ack-sync: this checklist is only ONE of several
+      // requirements stacked on `linkedStep` (e.g. a yes_no_upload step with
+      // 'readiness' as an additional kind, linked via a checklist slug) —
+      // unlike a step whose SOLE kind is checklist/readiness, a single
+      // submission here must NOT unconditionally advance the project.
+      // Record this kind fulfilled and only actually complete the step (and
+      // thus advance) once every other required kind already has its own
+      // fulfilledKinds entry.
+      await recordAdditionalRequirement({
+        projectId,
+        stepDefId: linkedStep.stepDefId,
+        actorId: userId,
+        kind: additionalRequirementKindFor(linkedStep),
+      })
+      try {
+        await completeGraphStep({ projectId, stepDefId: linkedStep.stepDefId, actorId: userId })
+        advanced = true
+      } catch {
+        advanced = false // other required kinds still pending — this one was still recorded
+      }
+    } else {
+      advanced = await advanceOrConfirmDualRole(tabToken, {
+        projectId,
+        expectedStepN: Number(input.expectedStepN),
+      })
+    }
   }
 
   revalidatePath(`/checklists/${slug}`)
+  revalidatePath('/workflow/step')
   return { status: 'success', message: 'Checklist submitted.', advanced }
 }
 

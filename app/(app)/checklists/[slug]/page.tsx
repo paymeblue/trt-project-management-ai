@@ -13,6 +13,7 @@ import {
   REQUIRED_PHOTOS,
   findStep,
   canActOnGraphStep,
+  stepRequiredKinds,
   type UserRole,
 } from '@/lib/workflow'
 import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
@@ -52,6 +53,13 @@ export default async function ChecklistPage({
   let workflowProjectId: string | null = null
   let workflowStepN: number | null = null
   let workflowNotice: string | null = null
+  // quick task readiness-ack-sync: true when this checklist is only ONE of
+  // several requirements stacked on the step (e.g. 'readiness' as an
+  // additional kind alongside a yes_no_upload primary) — a single
+  // submission here fulfills its own requirement but does NOT necessarily
+  // advance the project on its own (see actions/checklists.ts's
+  // partial-fulfillment branch). Affects only the banner copy below.
+  let workflowStepMulti = false
 
   if (projectId && stepN) {
     const [proj] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
@@ -71,6 +79,7 @@ export default async function ChecklistPage({
     } else {
       workflowProjectId = projectId
       workflowStepN = stepN
+      workflowStepMulti = stepRequiredKinds(step).length > 1
     }
   } else if (projectId) {
     // Optional, non-blocking checklist tied to a project (e.g. Change Request):
@@ -133,7 +142,9 @@ export default async function ChecklistPage({
 
       {workflowProjectId && workflowStepN && (
         <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm text-primary">
-          Completing this checklist will advance the project to its next step.
+          {workflowStepMulti
+            ? 'Completing this checklist fulfills one requirement of this step — check the step page for anything else still needed.'
+            : 'Completing this checklist will advance the project to its next step.'}
         </div>
       )}
 

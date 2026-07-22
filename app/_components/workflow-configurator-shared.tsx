@@ -1,9 +1,16 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { updateConfigStepAction, deleteConfigStepAction, type ConfigActionState } from '@/actions/workflow-config'
-import type { WorkflowRole, StepKind, GraphStep } from '@/lib/workflow'
+import { createChecklistDefinition } from '@/actions/checklists'
+import type { WorkflowRole, StepKind, GraphStep, ChecklistTargetRole } from '@/lib/workflow'
 import { getTabToken } from '@/lib/use-tab-token'
+
+const TARGET_ROLE_OPTIONS: { value: ChecklistTargetRole; label: string }[] = [
+  { value: 'site_pm', label: 'Site PM' },
+  { value: 'factory_pm', label: 'Factory PM' },
+  { value: 'both', label: 'Both PMs' },
+]
 
 // Shared between the list view (workflow-configurator-editor.tsx) and the
 // graph view's side panel (workflow-configurator-graph.tsx) — one form,
@@ -70,10 +77,12 @@ export function StepFieldsPanel({
   step,
   onSaved,
   positions,
+  checklists,
 }: {
   step: GraphStep
   onSaved: () => void
   positions: { slug: string; label: string }[]
+  checklists: { slug: string; name: string }[]
 }) {
   const [label, setLabel] = useState(step.label)
   const [role, setRole] = useState<WorkflowRole>(step.role)
@@ -93,8 +102,55 @@ export function StepFieldsPanel({
   const [pending, startTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
 
+  // quick task readiness-ack-sync: the "Which checklist?" picker used to be
+  // a bare free-text slug input — confusing enough that someone typed a
+  // literal checklist QUESTION into it instead of an identifier. Replaced
+  // with a dropdown of real checklist names, an "Edit its questions" link
+  // straight to /admin/checklists, and an inline "create new" shortcut so a
+  // super admin never has to know what a slug is.
+  const [creatingChecklist, setCreatingChecklist] = useState(false)
+  const [newChecklistName, setNewChecklistName] = useState('')
+  const [newChecklistTarget, setNewChecklistTarget] = useState<ChecklistTargetRole>('site_pm')
+  const [createState, setCreateState] = useState<ConfigActionState>({ status: 'idle' })
+  const [createPending, startCreateTransition] = useTransition()
+  // Optimistic: shows the just-created checklist in the dropdown immediately,
+  // before onSaved()'s router.refresh() brings the real `checklists` prop
+  // up to date.
+  const [justCreated, setJustCreated] = useState<{ slug: string; name: string } | null>(null)
+  const displayChecklists = useMemo(() => {
+    if (!justCreated || checklists.some((c) => c.slug === justCreated.slug)) return checklists
+    return [...checklists, justCreated]
+  }, [checklists, justCreated])
+
+  function createChecklist() {
+    const name = newChecklistName.trim()
+    if (!name) return
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+    startCreateTransition(async () => {
+      const res = await createChecklistDefinition(getTabToken(), { name, slug, targetRole: newChecklistTarget })
+      setCreateState(res)
+      if (res.status === 'success' && res.slug) {
+        setJustCreated({ slug: res.slug, name })
+        setChecklistSlug(res.slug)
+        setNewChecklistName('')
+        setCreatingChecklist(false)
+        onSaved()
+      }
+    })
+  }
+
   const kindMeta = KIND_OPTIONS.find((k) => k.value === kind)
   const usesTargetRoles = kind === 'assignment' || additionalKinds.includes('assignment')
+  // quick task readiness-ack-sync: a linked checklist can now ALSO back a
+  // 'readiness'/'checklist' requirement stacked as an additional kind (not
+  // just the primary), so the runtime combined view
+  // (app/(app)/workflow/step/page.tsx) has real content to render instead of
+  // falling back to a plain "Also require" checkbox with nothing behind it.
+  const usesChecklistSlug =
+    kind === 'checklist' || additionalKinds.includes('checklist') || additionalKinds.includes('readiness')
 
   const sameArr = <T,>(a: T[], b: T[] | null | undefined) => {
     const bb = b ?? []
@@ -140,7 +196,7 @@ export function StepFieldsPanel({
         role,
         fulfillmentKind: kind,
         additionalKinds,
-        checklistSlug: kind === 'checklist' || additionalKinds.includes('checklist') ? checklistSlug || null : null,
+        checklistSlug: usesChecklistSlug ? checklistSlug || null : null,
         targetRoles: usesTargetRoles ? targetRoles : null,
         requiredPosition: positionChoice.trim() || null,
         isOptional,
@@ -244,17 +300,91 @@ export function StepFieldsPanel({
         Optional — can be skipped without blocking the project
       </label>
 
-      {(kind === 'checklist' || additionalKinds.includes('checklist')) && (
+      {usesChecklistSlug && (
         <div className="mt-3 rounded-lg bg-gray-50 p-2.5">
           <label className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
-            Which checklist? (slug)
+            Which checklist?
           </label>
-          <input
+          <select
             value={checklistSlug}
             onChange={(e) => setChecklistSlug(e.target.value)}
-            placeholder="e.g. delivery_project"
-            className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
-          />
+            className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs focus:border-primary focus:outline-none"
+          >
+            <option value="">— none selected —</option>
+            {displayChecklists.map((c) => (
+              <option key={c.slug} value={c.slug}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+          {checklistSlug && (
+            <a
+              href={`/admin/checklists?def=${checklistSlug}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+            >
+              Edit its questions (opens Checklists in a new tab)
+              <span className="material-symbols-outlined text-xs">open_in_new</span>
+            </a>
+          )}
+
+          {!creatingChecklist ? (
+            <button
+              type="button"
+              onClick={() => setCreatingChecklist(true)}
+              className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+            >
+              <span className="material-symbols-outlined text-xs">add</span>
+              Create a new checklist
+            </button>
+          ) : (
+            <div className="mt-2 space-y-2 rounded-md border border-primary/20 bg-white p-2">
+              <input
+                value={newChecklistName}
+                onChange={(e) => setNewChecklistName(e.target.value)}
+                placeholder="Checklist name, e.g. Drawing Correction Sign-off"
+                className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs focus:border-primary focus:outline-none"
+              />
+              <select
+                value={newChecklistTarget}
+                onChange={(e) => setNewChecklistTarget(e.target.value as ChecklistTargetRole)}
+                className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs focus:border-primary focus:outline-none"
+              >
+                {TARGET_ROLE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={createChecklist}
+                  disabled={createPending || !newChecklistName.trim()}
+                  className="rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {createPending ? 'Creating…' : 'Create'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreatingChecklist(false)}
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                >
+                  Cancel
+                </button>
+              </div>
+              <StatusNote state={createState} />
+            </div>
+          )}
+
+          {additionalKinds.includes('readiness') && kind !== 'readiness' && kind !== 'checklist' && (
+            <p className="mt-2 text-[11px] text-gray-400">
+              Optional for &ldquo;Readiness form&rdquo; when stacked as an extra requirement — leave
+              unselected for a plain one-click confirmation instead of a linked checklist.
+            </p>
+          )}
         </div>
       )}
 

@@ -158,6 +158,19 @@ export function stepRequiredKinds(step: Pick<GraphStep, 'kind' | 'additionalKind
   return [step.kind, ...(step.additionalKinds ?? [])]
 }
 
+// quick task readiness-ack-sync: when a step's linked checklist (step.slug)
+// is only ONE of several required kinds (stepRequiredKinds(step).length > 1
+// — e.g. a yes_no_upload step with 'readiness' stacked as an additional
+// kind), submitChecklistAction needs to know WHICH kind name to mark
+// fulfilled in workflow_step_states. Prefers 'readiness' whenever it's
+// present (primary or additional); falls back to 'checklist' otherwise —
+// mirrors the two kinds a linked-checklist slug can back.
+export function additionalRequirementKindFor(
+  step: Pick<GraphStep, 'kind' | 'additionalKinds'>,
+): 'readiness' | 'checklist' {
+  return step.kind === 'readiness' || step.additionalKinds?.includes('readiness') ? 'readiness' : 'checklist'
+}
+
 // New projects begin awaiting the first actionable step (v2.0 Phase 22c:
 // Assign Designer/Architect for Brief); step 1 (New Project) is completed by
 // Customer Care/Operations at creation time. The Head Designer then

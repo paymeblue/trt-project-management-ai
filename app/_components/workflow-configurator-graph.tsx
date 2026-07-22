@@ -114,12 +114,14 @@ function GraphInner({
   edges: initialEdgeList,
   onChanged,
   positions,
+  checklists,
 }: {
   graph: string
   steps: GraphStep[]
   edges: { fromStepId: string; toStepId: string }[]
   onChanged: () => void
   positions: { slug: string; label: string }[]
+  checklists: { slug: string; name: string }[]
 }) {
   const stepById = useMemo(() => new Map(steps.map((s) => [s.id, s])), [steps])
   const orderedIndex = useMemo(() => new Map(steps.map((s, i) => [s.id, i + 1])), [steps])
@@ -306,7 +308,7 @@ function GraphInner({
               <span className="material-symbols-outlined">close</span>
             </button>
           </div>
-          <StepFieldsPanel step={selectedStep} onSaved={onChanged} positions={positions} />
+          <StepFieldsPanel step={selectedStep} onSaved={onChanged} positions={positions} checklists={checklists} />
         </div>
       )}
 
@@ -330,6 +332,7 @@ export default function ConfiguratorGraph(props: {
   edges: { fromStepId: string; toStepId: string }[]
   onChanged: () => void
   positions: { slug: string; label: string }[]
+  checklists: { slug: string; name: string }[]
 }) {
   return (
     <ReactFlowProvider>

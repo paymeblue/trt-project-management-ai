@@ -1,3 +1,6 @@
+import { asc, eq } from 'drizzle-orm'
+import { db } from '@/db'
+import { checklistDefinitions } from '@/db/schema'
 import { verifySession, isAdminRole } from '@/lib/dal'
 import type { UserRole } from '@/lib/workflow'
 import { getGraphSteps, getGraphEdges, getConfigAccess } from '@/lib/workflow-graph'
@@ -48,7 +51,25 @@ async function ConfiguratorEditorSection() {
   const edges = await getGraphEdges(GRAPH)
   const access = await getConfigAccess()
   const positions = await getPositions()
+  // Quick task readiness-ack-sync (UX follow-up): fed to the "Which
+  // checklist?" picker (workflow-configurator-shared.tsx) so a super admin
+  // chooses an existing checklist by its real NAME instead of typing a raw
+  // slug from memory — the raw-text-field version led directly to someone
+  // typing a literal question ("has this been uploaded?") into the slug
+  // field, since nothing there hinted what a "slug" even was.
+  const checklists = await db
+    .select({ slug: checklistDefinitions.slug, name: checklistDefinitions.name })
+    .from(checklistDefinitions)
+    .where(eq(checklistDefinitions.isActive, true))
+    .orderBy(asc(checklistDefinitions.name))
   return (
-    <ConfiguratorEditor graph={GRAPH} steps={steps} edges={edges} currentHint={access.hint} positions={positions} />
+    <ConfiguratorEditor
+      graph={GRAPH}
+      steps={steps}
+      edges={edges}
+      currentHint={access.hint}
+      positions={positions}
+      checklists={checklists}
+    />
   )
 }

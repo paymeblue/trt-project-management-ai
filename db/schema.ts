@@ -526,7 +526,38 @@ export const notifications = pgTable('notifications', {
   title:       text('title').notNull(),
   body:        text('body'),
   projectId:   uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+  // Set only for type='video_call' — routes the notifications bell to
+  // /calls/{callId} instead of /disputes/{projectId} on click (see
+  // notifications-bell.tsx). Distinct column (not reusing projectId) since a
+  // call notification never carries a project.
+  callId:      uuid('call_id').references(() => videoCalls.id, { onDelete: 'cascade' }),
   actorId:     uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
   readAt:      timestamp('read_at'),                    // null = unread
   createdAt:   timestamp('created_at').defaultNow().notNull(),
 })
+
+// ── Video calls (GetStream-backed) ─────────────────────────────────────────
+// trt-pm's own record of who a call is FOR — GetStream owns the actual
+// media/signaling and its own call-membership list, but we need our own
+// participant rows to (a) fan out in-app notifications when a call starts or
+// gains a member, and (b) show "calls involving me" without a round trip to
+// GetStream. `id` doubles as the GetStream call id (call type is always
+// 'default', see lib/video-calls.ts).
+export const videoCalls = pgTable('video_calls', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  title:     text('title'),
+  createdBy: uuid('created_by').notNull().references(() => users.id),
+  status:    text('status').default('active').notNull(), // 'active' | 'ended'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  endedAt:   timestamp('ended_at'),
+})
+
+export const videoCallParticipants = pgTable('video_call_participants', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  callId:    uuid('call_id').notNull().references(() => videoCalls.id, { onDelete: 'cascade' }),
+  userId:    uuid('user_id').notNull().references(() => users.id),
+  invitedBy: uuid('invited_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  unique('video_call_participants_call_id_user_id_unique').on(t.callId, t.userId),
+])

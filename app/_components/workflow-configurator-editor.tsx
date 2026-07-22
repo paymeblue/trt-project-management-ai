@@ -19,12 +19,14 @@ export default function ConfiguratorEditor({
   edges,
   currentHint,
   positions,
+  checklists,
 }: {
   graph: string
   steps: GraphStep[]
   edges: { fromStepId: string; toStepId: string }[]
   currentHint: string
   positions: { slug: string; label: string }[]
+  checklists: { slug: string; name: string }[]
 }) {
   const router = useRouter()
   const refresh = () => router.refresh()
@@ -73,7 +75,14 @@ export default function ConfiguratorEditor({
       </div>
 
       {view === 'graph' ? (
-        <ConfiguratorGraph graph={graph} steps={steps} edges={edges} onChanged={refresh} positions={positions} />
+        <ConfiguratorGraph
+          graph={graph}
+          steps={steps}
+          edges={edges}
+          onChanged={refresh}
+          positions={positions}
+          checklists={checklists}
+        />
       ) : (
         <>
           <div className="mb-4 flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
@@ -99,6 +108,7 @@ export default function ConfiguratorEditor({
                 onMoveToIndex={(target) => moveToIndex(step.id, target)}
                 onSaved={refresh}
                 positions={positions}
+                checklists={checklists}
               />
             ))}
             {steps.length === 0 && (
@@ -200,6 +210,7 @@ function StepRow({
   onMoveToIndex,
   onSaved,
   positions,
+  checklists,
 }: {
   step: GraphStep
   stepNumber: number
@@ -209,6 +220,7 @@ function StepRow({
   onMoveToIndex: (targetIndex: number) => void
   onSaved: () => void
   positions: { slug: string; label: string }[]
+  checklists: { slug: string; name: string }[]
 }) {
   const [positionInput, setPositionInput] = useState(String(stepNumber))
 
@@ -277,7 +289,7 @@ function StepRow({
 
         <div className="flex-1">
           <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">{step.key}</div>
-          <StepFieldsPanel step={step} onSaved={onSaved} positions={positions} />
+          <StepFieldsPanel step={step} onSaved={onSaved} positions={positions} checklists={checklists} />
         </div>
       </div>
     </div>

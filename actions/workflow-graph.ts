@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
 import { users, projects } from '@/db/schema'
 import { verifySessionForAction } from '@/lib/dal'
-import { canRoleActOnStep } from '@/lib/workflow'
+import { canRoleActOnStep, stepRequiredKinds } from '@/lib/workflow'
 import { notifyUser } from '@/lib/notifications'
 import {
   getStepById,
@@ -17,6 +17,7 @@ import {
   getApprovalReceiverHolders,
   assignUser,
   getStepAssigneeGate,
+  recordAdditionalRequirement,
 } from '@/lib/workflow-graph'
 
 // ── Server actions for the DB-driven workflow graph (Phase 16, WF-02) ─────
@@ -116,6 +117,46 @@ export async function completeStepAction(tabToken: string | null, input: {
   }
   revalidateBoards()
   return { ok: true }
+}
+
+/**
+ * Fulfills a single 'ack' or 'readiness' requirement that's stacked as an
+ * ADDITIONAL kind on a step (e.g. confirmation_correction's yes_no_upload +
+ * ack + readiness) — distinct from completeAckStepAction (actions/
+ * workflow.ts), which only applies when 'ack' is the step's SOLE kind and
+ * completes it outright. This records the fulfillment then attempts
+ * completeGraphStep; the attempt is expected to fail with 'step-not-fulfilled'
+ * whenever another required kind is still outstanding — that's a normal,
+ * non-error outcome here (the requirement itself was still recorded), so it's
+ * swallowed rather than surfaced as a failure.
+ */
+export async function submitAdditionalRequirementAction(tabToken: string | null, input: {
+  projectId: string
+  stepDefId: string
+  kind: 'ack' | 'readiness'
+}): Promise<WorkflowGraphActionState> {
+  const auth = await authorizeStep(tabToken, input.stepDefId, input.projectId)
+  if (!auth.ok) return auth
+  const step = await getStepById(input.stepDefId)
+  if (!step) return { ok: false, message: 'That step could not be found.' }
+  if (!stepRequiredKinds(step).includes(input.kind) || step.kind === input.kind) {
+    return { ok: false, message: 'This step does not have that requirement.' }
+  }
+  await recordAdditionalRequirement({
+    projectId: input.projectId,
+    stepDefId: input.stepDefId,
+    actorId: auth.userId,
+    kind: input.kind,
+  })
+  let completed = false
+  try {
+    await completeGraphStep({ projectId: input.projectId, stepDefId: input.stepDefId, actorId: auth.userId })
+    completed = true
+  } catch {
+    // Other required kinds still pending — the requirement above was still recorded.
+  }
+  revalidateBoards()
+  return { ok: true, message: completed ? 'Step completed.' : 'Recorded — other requirements on this step are still pending.' }
 }
 
 // Steps whose upload is mandatory, not optional — checked here (not just
