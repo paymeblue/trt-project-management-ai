@@ -18,7 +18,13 @@ const CALL_TYPE = 'default'
 const TOKEN_TTL_SECONDS = 60 * 60
 
 function requiredEnv(name: string): string {
-  const value = process.env[name]
+  // .trim() defends against the single most common way this breaks in a
+  // hosting provider's env-var UI (Netlify, Vercel, etc.): a pasted value
+  // picking up a trailing newline or wrapping quotes. An untrimmed secret
+  // still "exists" (so this wouldn't throw below) but produces a JWT whose
+  // signature GetStream then rejects outright — surfacing downstream as a
+  // cryptic "Token signature is invalid" rather than a clear config error.
+  const value = process.env[name]?.trim()
   if (!value) throw new Error(`${name} is not configured — video calls are unavailable.`)
   return value
 }
