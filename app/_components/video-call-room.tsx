@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   StreamCall,
   StreamTheme,
@@ -58,10 +59,27 @@ export default function VideoCallRoom({
     microphone: false,
   })
 
+  // If the call was already ended (server-side call.end()) by the time this
+  // client tries to join, call.join() can hang forever instead of rejecting
+  // — the SDK's own "call ended" handling only kicks in once its websocket
+  // connection is up, which a join against a dead call may never reach. Bug
+  // found live: a participant who opened/refreshed a just-ended call's room
+  // got stuck on "Joining call…" indefinitely. This timeout is the fallback
+  // that actually resolves it either way.
+  const JOIN_TIMEOUT_MS = 10_000
+  const [joinTimedOut, setJoinTimedOut] = useState(false)
+
   useEffect(() => {
+    let settled = false
+    const timeout = setTimeout(() => {
+      if (!settled) setJoinTimedOut(true)
+    }, JOIN_TIMEOUT_MS)
+
     call
       .join()
       .then(() => {
+        settled = true
+        clearTimeout(timeout)
         // Camera/mic start OFF by default (SpeakerLayout/CallControls show
         // the crossed-out red icons until manually toggled) — "like Zoom"
         // means video is on the moment you join, not an extra click. Each
@@ -72,12 +90,16 @@ export default function VideoCallRoom({
         call.microphone.enable().catch(() => setMediaBlocked((s) => ({ ...s, microphone: true })))
       })
       .catch(() => {
-        // Surfaced inside CallRoomInner via the call's own connection state —
-        // no separate error UI needed here.
+        settled = true
+        clearTimeout(timeout)
+        setJoinTimedOut(true)
       })
     return () => {
+      settled = true
+      clearTimeout(timeout)
       call.leave().catch(() => {
-        // Already disconnected (e.g. tab closing) — nothing to clean up.
+        // Already disconnected (e.g. tab closing), or never actually
+        // joined (the timeout case above) — nothing to clean up either way.
       })
     }
   }, [call])
@@ -85,6 +107,26 @@ export default function VideoCallRoom({
   const [copied, setCopied] = useState(false)
   const [ending, startEndTransition] = useTransition()
   const [endError, setEndError] = useState<string | null>(null)
+
+  const roomRef = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(document.fullscreenElement === roomRef.current)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {
+        // Not fullscreen, or the browser refused — nothing to recover from.
+      })
+    } else {
+      roomRef.current?.requestFullscreen().catch(() => {
+        // Some browsers require a direct user gesture; this is already
+        // called from one (the button's own onClick).
+      })
+    }
+  }
 
   function copyLink() {
     const url = `${window.location.origin}/calls/${callId}`
@@ -113,6 +155,7 @@ export default function VideoCallRoom({
     <StreamVideo client={client}>
       <StreamCall call={call}>
         <StreamTheme>
+          <div ref={roomRef} className={isFullscreen ? 'bg-white p-4' : ''}>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <h1 className="text-xl font-bold text-gray-900">{title ?? 'Video call'}</h1>
@@ -121,6 +164,16 @@ export default function VideoCallRoom({
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                <span className="material-symbols-outlined text-base">
+                  {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+                </span>
+                {isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+              </button>
               <button
                 type="button"
                 onClick={copyLink}
@@ -159,7 +212,8 @@ export default function VideoCallRoom({
           <AddCallParticipants callId={callId} existing={participants} allUsers={allUsers} />
 
           <div className="mt-4 overflow-hidden rounded-xl border border-gray-200">
-            <CallRoomInner onLeft={() => router.push(dashboard)} />
+            <CallRoomInner joinTimedOut={joinTimedOut} onLeft={() => router.push(dashboard)} />
+          </div>
           </div>
         </StreamTheme>
       </StreamCall>
@@ -170,7 +224,7 @@ export default function VideoCallRoom({
 // Split out so useCallStateHooks (must run inside <StreamCall>) can watch the
 // connection state and redirect once the local user actually leaves —
 // clicking a CallControls leave button doesn't itself navigate anywhere.
-function CallRoomInner({ onLeft }: { onLeft: () => void }) {
+function CallRoomInner({ joinTimedOut, onLeft }: { joinTimedOut: boolean; onLeft: () => void }) {
   const { useCallCallingState } = useCallStateHooks()
   const callingState = useCallCallingState()
 
@@ -178,6 +232,22 @@ function CallRoomInner({ onLeft }: { onLeft: () => void }) {
     if (callingState === CallingState.LEFT) onLeft()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callingState])
+
+  // Checked before the JOINING branch below — a join stuck past the parent's
+  // timeout is exactly what JOINING would otherwise render as "Joining
+  // call…" forever (see the bug this fixes: an already-ended call's join
+  // never resolves or rejects).
+  if (joinTimedOut && callingState !== CallingState.JOINED) {
+    return (
+      <div className="flex h-96 flex-col items-center justify-center gap-2 text-center text-sm text-gray-500">
+        <span className="material-symbols-outlined text-3xl text-gray-300">videocam_off</span>
+        Could not join — this call may have ended.
+        <Link href="/calls" className="font-semibold text-primary hover:underline">
+          Back to Video Calls
+        </Link>
+      </div>
+    )
+  }
 
   if (callingState === CallingState.JOINING) {
     return <div className="flex h-96 items-center justify-center text-sm text-gray-400">Joining call…</div>
