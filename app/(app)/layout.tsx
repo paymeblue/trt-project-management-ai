@@ -13,6 +13,7 @@ import ChatDrawer from '@/app/_components/chat-drawer';
 import PendingStepGate from '@/app/_components/pending-step-gate';
 import HeaderProjectSwitcher from '@/app/_components/header-project-switcher';
 import NotificationsBell from '@/app/_components/notifications-bell';
+import { getDisputeUnreadCount } from '@/lib/notifications';
 import MyWorkProvider from '@/app/_components/my-work-provider';
 import WorkflowStepsProvider from '@/app/_components/workflow-steps-provider';
 import { TrtLogo, TrtWatermark } from '@/app/_components/trt-logo';
@@ -52,6 +53,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // Header switcher + forcing gate get a server-rendered snapshot; the provider
   // then polls /api/my-work to keep them near-real-time.
   const initialWork = await getMyWork(role as UserRole, userId);
+  const disputeUnread = await getDisputeUnreadCount(userId);
   // Live workflow steps (Phase 17, WF-06): seeded once per request from the DB
   // graph, exposed to client components via useWorkflowSteps().
   const liveSteps = await getLiveWorkflowSteps();
@@ -100,7 +102,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <SidebarNav role={role} />
+        <SidebarNav role={role} disputeUnread={disputeUnread} />
 
         <div className="border-t border-outline-variant p-4 flex flex-wrap gap-2">
           <SignOutButton />

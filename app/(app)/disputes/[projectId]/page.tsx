@@ -1,9 +1,10 @@
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import { db } from '@/db'
-import { projectDisputes, projects, users } from '@/db/schema'
+import { projectDisputes, projects, users, notifications } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { postDisputeMessageAction } from '@/actions/disputes'
+import { DISPUTE_NOTIFICATION_TYPES, markProjectDisputeNotificationsRead } from '@/lib/notifications'
 import TabTokenForm from '@/app/_components/tab-token-form'
 
 export const dynamic = 'force-dynamic'
@@ -24,6 +25,33 @@ export default async function DisputePage({
     .where(eq(projects.id, projectId))
     .limit(1)
   if (!project) notFound()
+
+  // The actual escalation/bypass/pause reason lives in `notifications`, not
+  // in the freeform discussion thread below — surface it so the supervisor
+  // never loses "what needs attention" just by navigating here. Scoped to
+  // THIS viewer's own notifications for this project (each recipient got
+  // their own fanned-out row). "Attending to it" (opening this page) is
+  // what clears the sidebar badge — this dispute never gates or appears in
+  // the escalating user's own step-completion flow; it's a separate,
+  // supervisor-facing signal only.
+  const alerts = await db
+    .select({
+      id: notifications.id,
+      type: notifications.type,
+      title: notifications.title,
+      body: notifications.body,
+      createdAt: notifications.createdAt,
+    })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.recipientId, userId),
+        eq(notifications.projectId, projectId),
+        inArray(notifications.type, [...DISPUTE_NOTIFICATION_TYPES]),
+      ),
+    )
+    .orderBy(desc(notifications.createdAt))
+  await markProjectDisputeNotificationsRead(userId, projectId)
 
   const messages = await db
     .select({
@@ -47,6 +75,25 @@ export default async function DisputePage({
       <p className="mb-6 text-sm text-gray-500">
         Discussion thread for this project. Visible to the team and all super admins.
       </p>
+
+      {alerts.length > 0 && (
+        <div className="mb-6 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Escalation / flag reason
+          </p>
+          {alerts.map((a) => (
+            <div key={a.id} className="rounded-xl border border-amber-300 bg-amber-50 p-3">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-amber-800">{a.title}</span>
+                <span className="text-[11px] text-amber-600">
+                  {new Date(a.createdAt).toLocaleString()}
+                </span>
+              </div>
+              {a.body && <p className="whitespace-pre-wrap text-sm text-amber-900">{a.body}</p>}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="mb-4 space-y-3">
         {messages.length === 0 ? (

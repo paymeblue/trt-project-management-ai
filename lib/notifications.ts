@@ -1,8 +1,18 @@
 import 'server-only'
-import { and, count, desc, eq, isNull } from 'drizzle-orm'
+import { and, count, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '@/db'
-import { notifications, users } from '@/db/schema'
+import { notifications, users, projects } from '@/db/schema'
 import { Roles } from '@/lib/workflow'
+
+// The three notification types that carry a projectId and route to
+// /disputes/{projectId} when clicked (see notifications-bell.tsx's
+// NO_NAVIGATE_TYPES for the inverse set: assignment/approval_request/
+// approval_rejected/step_turn all navigate elsewhere or nowhere).
+// Deliberately NOT role-gated: escalation targets span multiple roles
+// (super_admin, operations, and design for Head of Design), so "who can see
+// Disputes" is naturally answered by "who actually has one," not a
+// hardcoded role list.
+export const DISPUTE_NOTIFICATION_TYPES = ['escalation', 'bypass_request', 'pause_flag'] as const
 
 export type NotificationDTO = {
   id: string
@@ -103,6 +113,101 @@ export async function markNotificationsRead(userId: string, id?: string): Promis
         eq(notifications.recipientId, userId),
         isNull(notifications.readAt),
         ...(id ? [eq(notifications.id, id)] : []),
+      ),
+    )
+}
+
+export type DisputeListItem = {
+  projectId: string
+  projectName: string
+  unreadCount: number
+  latestTitle: string
+  latestBody: string | null
+  latestType: string
+  latestCreatedAt: string
+}
+
+// Sidebar badge count — total unread dispute-routing notifications for this
+// user, across all projects. Deliberately does NOT touch getMyWork/pending:
+// a dispute is never allowed to gate or appear in the escalating user's own
+// step-completion flow (their checklist submission must keep advancing the
+// workflow exactly as today) — this is a separate, supervisor-facing signal
+// only.
+export async function getDisputeUnreadCount(userId: string): Promise<number> {
+  const [{ n }] = await db
+    .select({ n: count() })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.recipientId, userId),
+        isNull(notifications.readAt),
+        inArray(notifications.type, [...DISPUTE_NOTIFICATION_TYPES]),
+      ),
+    )
+  return Number(n)
+}
+
+// One row per project this user has ever been notified about (dispute-routing
+// types), most recently active first, with a per-project unread count and the
+// latest notification's own title/body/type as a preview.
+export async function getDisputeList(userId: string): Promise<DisputeListItem[]> {
+  const rows = await db
+    .select({
+      projectId: notifications.projectId,
+      projectName: projects.name,
+      readAt: notifications.readAt,
+      title: notifications.title,
+      body: notifications.body,
+      type: notifications.type,
+      createdAt: notifications.createdAt,
+    })
+    .from(notifications)
+    .leftJoin(projects, eq(projects.id, notifications.projectId))
+    .where(
+      and(
+        eq(notifications.recipientId, userId),
+        inArray(notifications.type, [...DISPUTE_NOTIFICATION_TYPES]),
+      ),
+    )
+    .orderBy(desc(notifications.createdAt))
+
+  const byProject = new Map<string, DisputeListItem>()
+  for (const r of rows) {
+    if (!r.projectId) continue
+    const existing = byProject.get(r.projectId)
+    if (existing) {
+      if (r.readAt === null) existing.unreadCount += 1
+      continue
+    }
+    byProject.set(r.projectId, {
+      projectId: r.projectId,
+      projectName: r.projectName ?? 'Unknown project',
+      unreadCount: r.readAt === null ? 1 : 0,
+      latestTitle: r.title,
+      latestBody: r.body,
+      latestType: r.type,
+      latestCreatedAt: r.createdAt.toISOString(),
+    })
+  }
+  return [...byProject.values()]
+}
+
+// Marks every one of THIS user's unread dispute-routing notifications for
+// ONE project as read — called when they open that project's dispute
+// thread, which is what "attending to it" means for clearing the badge.
+export async function markProjectDisputeNotificationsRead(
+  userId: string,
+  projectId: string,
+): Promise<void> {
+  await db
+    .update(notifications)
+    .set({ readAt: new Date() })
+    .where(
+      and(
+        eq(notifications.recipientId, userId),
+        eq(notifications.projectId, projectId),
+        isNull(notifications.readAt),
+        inArray(notifications.type, [...DISPUTE_NOTIFICATION_TYPES]),
       ),
     )
 }

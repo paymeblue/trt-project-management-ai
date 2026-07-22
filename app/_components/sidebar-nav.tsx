@@ -31,6 +31,7 @@ const NAV: Record<string, Entry[]> = {
   // Admin nav grouped into collapsible sections to keep it short.
   super_admin: [
     { href: '/admin/dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { href: '/disputes', icon: 'flag', label: 'Disputes' },
     {
       group: 'Projects',
       icon: 'folder_open',
@@ -70,6 +71,7 @@ const NAV: Record<string, Entry[]> = {
   ],
   design: [
     { href: '/design/dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { href: '/disputes', icon: 'flag', label: 'Disputes' },
     { href: '/processes', icon: 'account_tree', label: 'Processes' },
     { href: '/profile', icon: 'person', label: 'Profile' },
     { href: '/about', icon: 'info', label: 'About TRT' },
@@ -107,7 +109,13 @@ const NAV: Record<string, Entry[]> = {
   ],
 }
 
-export default function SidebarNav({ role }: { role: string }) {
+export default function SidebarNav({
+  role,
+  disputeUnread = 0,
+}: {
+  role: string
+  disputeUnread?: number
+}) {
   const pathname = usePathname()
   // Operations shares the full admin navigation.
   const entries = NAV[role] ?? NAV[role === Roles.Operations ? Roles.SuperAdmin : role] ?? []
@@ -158,10 +166,16 @@ export default function SidebarNav({ role }: { role: string }) {
       {entries.map((e) => {
         if (!isGroup(e)) {
           const active = pathname === e.href
+          const badge = e.href === '/disputes' ? disputeUnread : 0
           return (
             <Link key={e.href} href={e.href} className={linkClass(active)}>
               <span className={`material-symbols-outlined ${active ? 'fill' : ''}`}>{e.icon}</span>
-              <span className="text-label-md font-label-md">{e.label}</span>
+              <span className="flex-1 text-label-md font-label-md">{e.label}</span>
+              {badge > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white">
+                  {badge > 9 ? '9+' : badge}
+                </span>
+              )}
             </Link>
           )
         }
