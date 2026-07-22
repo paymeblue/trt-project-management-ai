@@ -15,6 +15,7 @@ const NAV: Record<string, Entry[]> = {
     { href: '/factory-pm/dashboard', icon: 'dashboard', label: 'Dashboard' },
     { href: '/factory-pm/projects', icon: 'factory', label: 'Projects' },
     { href: '/factory-pm/product-readiness', icon: 'inventory_2', label: 'Product Readiness' },
+    { href: '/calls', icon: 'videocam', label: 'Video Calls' },
     { href: '/processes', icon: 'account_tree', label: 'Processes' },
     { href: '/profile', icon: 'person', label: 'Profile' },
     { href: '/about', icon: 'info', label: 'About TRT' },
@@ -24,6 +25,7 @@ const NAV: Record<string, Entry[]> = {
     { href: '/site-pm/projects', icon: 'factory', label: 'Projects' },
     { href: '/site-pm/issues', icon: 'assignment_late', label: 'Issue Log' },
     { href: '/email-formats', icon: 'mail', label: 'Email Formats' },
+    { href: '/calls', icon: 'videocam', label: 'Video Calls' },
     { href: '/processes', icon: 'account_tree', label: 'Processes' },
     { href: '/profile', icon: 'person', label: 'Profile' },
     { href: '/about', icon: 'info', label: 'About TRT' },
@@ -32,6 +34,7 @@ const NAV: Record<string, Entry[]> = {
   super_admin: [
     { href: '/admin/dashboard', icon: 'dashboard', label: 'Dashboard' },
     { href: '/disputes', icon: 'flag', label: 'Disputes' },
+    { href: '/calls', icon: 'videocam', label: 'Video Calls' },
     {
       group: 'Projects',
       icon: 'folder_open',
@@ -72,18 +75,21 @@ const NAV: Record<string, Entry[]> = {
   design: [
     { href: '/design/dashboard', icon: 'dashboard', label: 'Dashboard' },
     { href: '/disputes', icon: 'flag', label: 'Disputes' },
+    { href: '/calls', icon: 'videocam', label: 'Video Calls' },
     { href: '/processes', icon: 'account_tree', label: 'Processes' },
     { href: '/profile', icon: 'person', label: 'Profile' },
     { href: '/about', icon: 'info', label: 'About TRT' },
   ],
   production: [
     { href: '/production/dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { href: '/calls', icon: 'videocam', label: 'Video Calls' },
     { href: '/processes', icon: 'account_tree', label: 'Processes' },
     { href: '/profile', icon: 'person', label: 'Profile' },
     { href: '/about', icon: 'info', label: 'About TRT' },
   ],
   architect: [
     { href: '/architect/dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { href: '/calls', icon: 'videocam', label: 'Video Calls' },
     { href: '/processes', icon: 'account_tree', label: 'Processes' },
     { href: '/profile', icon: 'person', label: 'Profile' },
     { href: '/about', icon: 'info', label: 'About TRT' },
@@ -91,18 +97,21 @@ const NAV: Record<string, Entry[]> = {
   customer_care: [
     { href: '/customer-care/dashboard', icon: 'dashboard', label: 'Dashboard' },
     { href: '/customer-care/projects/new', icon: 'add_box', label: 'New Project' },
+    { href: '/calls', icon: 'videocam', label: 'Video Calls' },
     { href: '/processes', icon: 'account_tree', label: 'Processes' },
     { href: '/profile', icon: 'person', label: 'Profile' },
     { href: '/about', icon: 'info', label: 'About TRT' },
   ],
   factory_operations: [
     { href: '/factory-operations/dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { href: '/calls', icon: 'videocam', label: 'Video Calls' },
     { href: '/processes', icon: 'account_tree', label: 'Processes' },
     { href: '/profile', icon: 'person', label: 'Profile' },
     { href: '/about', icon: 'info', label: 'About TRT' },
   ],
   factory_manager: [
     { href: '/factory-manager/dashboard', icon: 'dashboard', label: 'Dashboard' },
+    { href: '/calls', icon: 'videocam', label: 'Video Calls' },
     { href: '/processes', icon: 'account_tree', label: 'Processes' },
     { href: '/profile', icon: 'person', label: 'Profile' },
     { href: '/about', icon: 'info', label: 'About TRT' },
@@ -112,9 +121,11 @@ const NAV: Record<string, Entry[]> = {
 export default function SidebarNav({
   role,
   disputeUnread = 0,
+  callUnread = 0,
 }: {
   role: string
   disputeUnread?: number
+  callUnread?: number
 }) {
   const pathname = usePathname()
   // Operations shares the full admin navigation.
@@ -166,7 +177,7 @@ export default function SidebarNav({
       {entries.map((e) => {
         if (!isGroup(e)) {
           const active = pathname === e.href
-          const badge = e.href === '/disputes' ? disputeUnread : 0
+          const badge = e.href === '/disputes' ? disputeUnread : e.href === '/calls' ? callUnread : 0
           return (
             <Link key={e.href} href={e.href} className={linkClass(active)}>
               <span className={`material-symbols-outlined ${active ? 'fill' : ''}`}>{e.icon}</span>

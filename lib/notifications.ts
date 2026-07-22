@@ -20,9 +20,14 @@ export type NotificationDTO = {
   title: string
   body: string | null
   projectId: string | null
+  callId: string | null
   read: boolean
   createdAt: string
 }
+
+// The one notification type that carries a callId and routes to
+// /calls/{callId} when clicked (see notifications-bell.tsx).
+export const VIDEO_CALL_NOTIFICATION_TYPE = 'video_call'
 
 export type NotificationFeed = { items: NotificationDTO[]; unread: number }
 
@@ -62,6 +67,7 @@ export async function notifyUser(input: {
   title: string
   body?: string | null
   projectId?: string | null
+  callId?: string | null
   actorId?: string | null
 }): Promise<void> {
   if (input.recipientId === input.actorId) return
@@ -71,6 +77,7 @@ export async function notifyUser(input: {
     title: input.title,
     body: input.body ?? null,
     projectId: input.projectId ?? null,
+    callId: input.callId ?? null,
     actorId: input.actorId ?? null,
   })
 }
@@ -96,11 +103,28 @@ export async function getNotifications(userId: string): Promise<NotificationFeed
       title: r.title,
       body: r.body,
       projectId: r.projectId,
+      callId: r.callId,
       read: r.readAt !== null,
       createdAt: r.createdAt.toISOString(),
     })),
     unread: Number(n),
   }
+}
+
+// Sidebar badge count — total unread video-call notifications for this user
+// (mirrors getDisputeUnreadCount's shape exactly, different type filter).
+export async function getVideoCallUnreadCount(userId: string): Promise<number> {
+  const [{ n }] = await db
+    .select({ n: count() })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.recipientId, userId),
+        isNull(notifications.readAt),
+        eq(notifications.type, VIDEO_CALL_NOTIFICATION_TYPE),
+      ),
+    )
+  return Number(n)
 }
 
 // Mark one (by id) or all of the caller's unread notifications as read.

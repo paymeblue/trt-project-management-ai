@@ -11,6 +11,7 @@ type Item = {
   title: string
   body: string | null
   projectId: string | null
+  callId: string | null
   read: boolean
   createdAt: string
 }
@@ -88,6 +89,14 @@ export default function NotificationsBell() {
       }
     })
     await markNotificationsReadAction(getTabToken(), item.id)
+    // A video_call notification always carries a callId — takes priority
+    // over the dispute-routing branch below (mutually exclusive in practice:
+    // a call notification never carries a projectId).
+    if (item.callId) {
+      setOpen(false)
+      router.push(`/calls/${item.callId}`)
+      return
+    }
     // Escalations/flags/bypasses carry a project — land the admin on its
     // discussion thread so they can act (REQ-G10). /disputes is a
     // super-admin-only destination, so NO_NAVIGATE_TYPES (any role) must
