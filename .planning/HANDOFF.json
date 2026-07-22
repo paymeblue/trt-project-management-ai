@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-07-22T07:30:01Z",
+  "phase": null,
+  "phase_name": "Post-v2.0 ad hoc bug fixes (no active GSD phase)",
+  "phase_dir": null,
+  "plan": null,
+  "task": null,
+  "total_tasks": null,
+  "status": "paused",
+  "completed_tasks": [
+    { "id": 1, "name": "Fix confirmation_correction missing assignee gate", "status": "done", "commit": "1174569" },
+    { "id": 2, "name": "Eliminate dev-mode StrictMode race in both sign-in forms", "status": "done", "commit": "3eb4db3" },
+    { "id": 3, "name": "Stop showing step 5 in its own per-step deadline list", "status": "done", "commit": "550c036" },
+    { "id": 4, "name": "Sign-out fully clears sessionStorage via clear()", "status": "done", "commit": "1053c46" },
+    { "id": 5, "name": "Fix dual-role (materials_readiness) notification under-delivery when assignee gate is set", "status": "done", "commit": "23f3f88" },
+    { "id": 6, "name": "Remove Lead Site Manager position (data fix, no commit needed)", "status": "done", "commit": null },
+    { "id": 7, "name": "Reassign Test 2 Project's Assign Designer/Architect for Brief to Tunde Bello (data fix)", "status": "done", "commit": null },
+    { "id": 8, "name": "Delete QA test accounts (ops.verify@, qa.ops@, verify.admin@trtarredo.demo)", "status": "done", "commit": null },
+    { "id": 9, "name": "checklists.createdBy nullable + ON DELETE SET NULL (survives submitter deletion)", "status": "done", "commit": "b74f2ba" }
+  ],
+  "remaining_tasks": [
+    { "id": 10, "name": "Add 'Disputes' link to sidebar with unread badge; badge clears when supervisor attends", "status": "not_started" },
+    { "id": 11, "name": "Disputes must be actionable for the supervisor — surface as 'action required' (forcing modal / pending-work style), not just a passive link/notification", "status": "not_started" },
+    { "id": 12, "name": "Larger escalation feature (waive+note by supervisor, Escalations tracking page under Approvals) — user has NOT yet confirmed the proposed design (reuse bypass-approval system vs. build parallel mechanism)", "status": "not_started" },
+    { "id": 13, "name": "Investigate readiness_forms.project_id schema drift before ever running drizzle-kit push again", "status": "not_started" }
+  ],
+  "blockers": [
+    {
+      "description": "drizzle-kit push surfaces an UNRELATED pending change that would DELETE readiness_forms.project_id (6 real rows) if confirmed. Origin of this drift is unknown — not introduced by this session's work.",
+      "type": "technical",
+      "workaround": "Never run `drizzle-kit push` (interactive or non-interactive/auto-confirm) in this repo until this drift is understood. Apply schema changes via precise, targeted raw SQL (see commits b74f2ba, 23f3f88 for the pattern) instead."
+    }
+  ],
+  "human_actions_pending": [
+    { "action": "Confirm design for the escalation waive/note/tracking feature (reuse actions/bypass.ts's approval mechanism, scoped to the escalation-target position, vs. a new parallel mechanism)", "context": "Determines the whole implementation shape; asked once, not yet answered", "blocking": true }
+  ],
+  "decisions": [
+    { "decision": "checklists.createdBy made nullable + ON DELETE SET NULL instead of removing the column or making it optional-at-insert", "rationale": "User wants checklist submission data (answers/photos) to survive a submitting user's deletion/resignation without being tied to that user forever; all consuming code already typed/rendered submittedBy as nullable", "phase": null },
+    { "decision": "checklistDefinitions (templates) needed no change — already has no created_by column at all", "rationale": "Verified via schema read; already fully user-independent", "phase": null }
+  ],
+  "uncommitted_files": [],
+  "next_action": "Design + implement the Disputes sidebar entry: unread badge sourced from notifications with type IN ('escalation','bypass_request','pause_flag') AND read_at IS NULL; badge clears when the supervisor opens that project's /disputes/[projectId] thread (mark those notifications read on load). Per the user's latest clarification (2026-07-22), a dispute must ALSO surface as genuine 'action required' for the supervisor — likely meaning it should appear in the same pending/forcing-work surface (lib/my-work.ts's getMyWork `pending` list, and the header 'your turn' pill / forcing modal), not just a bell notification + list page. Confirm this interpretation with the user before building, since it changes lib/my-work.ts's shape (currently only workflow steps populate `pending`, not disputes).",
+  "context_notes": "Long, very context-heavy session (mostly direct execution, not GSD subagents) doing live bug triage against a real running app + live Neon DB, driven entirely by the user's screenshots/reports rather than a formal roadmap phase. Every fix in this session was independently verified against real/live data (not just unit tests) before committing — that pattern should continue. The escalation/Disputes feature is the one substantial piece of NEW feature work still open; everything else handled this session was a bug fix or data fix. gsd-sdk / phases.clear was NOT used since there's no active phase — this is intentionally an ad hoc quick-task-style session."
+}
