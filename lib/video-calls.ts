@@ -35,7 +35,19 @@ function requiredEnv(name: string): string {
 let cachedClient: StreamClient | null = null
 function streamClient(): StreamClient {
   if (!cachedClient) {
-    cachedClient = new StreamClient(requiredEnv('GETSTREAM_APIKEY'), requiredEnv('GETSTREAM_SECRET'))
+    const apiKey = requiredEnv('GETSTREAM_APIKEY')
+    const secret = requiredEnv('GETSTREAM_SECRET')
+    // TEMPORARY diagnostic for the "Token signature is invalid" issue on
+    // Netlify — never logs the secret itself, only lengths + edge
+    // characters, enough to compare against the GetStream dashboard without
+    // exposing the credential in function logs. Remove once resolved.
+    console.log('[video-calls] GetStream credential check', {
+      apiKeyLength: apiKey.length,
+      apiKeyPreview: `${apiKey.slice(0, 3)}...${apiKey.slice(-3)}`,
+      secretLength: secret.length,
+      secretPreview: `${secret.slice(0, 3)}...${secret.slice(-3)}`,
+    })
+    cachedClient = new StreamClient(apiKey, secret)
   }
   return cachedClient
 }
