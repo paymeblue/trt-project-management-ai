@@ -261,7 +261,13 @@ export const checklists = pgTable('checklists', {
   id:           uuid('id').primaryKey().defaultRandom(),
   definitionId: uuid('definition_id').notNull().references(() => checklistDefinitions.id),
   projectId:    uuid('project_id').references(() => projects.id),
-  createdBy:    uuid('created_by').notNull().references(() => users.id),
+  // Nullable + SET NULL (not NOT NULL/no-action): a checklist SUBMISSION's
+  // evidence (answers, photos) is real historical record — deleting the
+  // submitting user (resignation, cleanup) must never be blocked by it or
+  // cascade-delete it. Losing the "who submitted this" attribution to null
+  // is an acceptable tradeoff; every consumer (lib/project-audit.ts,
+  // the audit page) already renders this as `?? 'Unknown'`.
+  createdBy:    uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   status:       checklistStatusEnum('status').default('draft').notNull(),
   submittedAt:  timestamp('submitted_at'),
   photoData:    text('photo_data').array(), // required-evidence photos (base64 data URLs)
