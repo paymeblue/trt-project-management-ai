@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { videoCalls, videoCallParticipants, users } from '@/db/schema';
 import { notifyUser } from '@/lib/notifications';
 import { toTitleCase } from '@/lib/text-case';
+import { getOrCreateChatChannel, addChatChannelMembers } from '@/lib/video-chat';
 
 // ── GetStream-backed video calls ────────────────────────────────────────────
 // trt-pm's own record of who a call is FOR — GetStream owns the actual
@@ -18,7 +19,7 @@ const CALL_TYPE = 'default';
 // (force-dynamic), so there is no stale-token/refresh problem to solve.
 const TOKEN_TTL_SECONDS = 60 * 60;
 
-function requiredEnv(name: string): string {
+export function requiredEnv(name: string): string {
   // .trim() defends against the single most common way this breaks in a
   // hosting provider's env-var UI (Netlify, Vercel, etc.): a pasted value
   // picking up a trailing newline or wrapping quotes. An untrimmed secret
@@ -158,6 +159,7 @@ export async function createVideoCall(opts: {
         custom: title ? { title } : undefined,
       },
     });
+    await getOrCreateChatChannel(row.id, memberIds);
   } catch (err) {
     await db.delete(videoCalls).where(eq(videoCalls.id, row.id));
     throw err;
@@ -215,6 +217,7 @@ export async function addVideoCallParticipants(opts: {
   await call.updateCallMembers({
     update_members: newIds.map((user_id) => ({ user_id })),
   });
+  await addChatChannelMembers(opts.callId, newIds);
 
   await Promise.all(
     newIds.map((recipientId) =>
@@ -263,6 +266,7 @@ export async function ensureCallParticipant(
 
   const call = streamClient().video.call(CALL_TYPE, callId);
   await call.updateCallMembers({ update_members: [{ user_id: userId }] });
+  await addChatChannelMembers(callId, [userId]);
 }
 
 /**

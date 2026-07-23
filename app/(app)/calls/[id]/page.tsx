@@ -5,6 +5,7 @@ import { users } from '@/db/schema'
 import { verifySession, isAdminRole } from '@/lib/dal'
 import { roleDashboard } from '@/lib/workflow'
 import { getCall, getCallParticipants, ensureCallParticipant, mintVideoToken } from '@/lib/video-calls'
+import { mintChatToken } from '@/lib/video-chat'
 import { toTitleCase } from '@/lib/text-case'
 import VideoCallRoom from '@/app/_components/video-call-room'
 
@@ -61,6 +62,7 @@ export default async function CallRoomPage({ params }: { params: Promise<{ id: s
   const allUsers = rawUsers.map((u) => ({ ...u, name: toTitleCase(u.name) }))
 
   const { apiKey, token } = mintVideoToken(userId, id)
+  const chatToken = mintChatToken(userId)
   const isAdmin = isAdminRole(role)
 
   return (
@@ -74,6 +76,7 @@ export default async function CallRoomPage({ params }: { params: Promise<{ id: s
           userId={userId}
           userName={participants.find((p) => p.userId === userId)?.name ?? 'You'}
           token={token}
+          chatToken={chatToken}
           callId={id}
           title={call.title}
           isCreator={call.createdBy === userId}

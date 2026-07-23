@@ -16,6 +16,19 @@ const { getInstanceMock, channelFactoryMock, createMock, addMembersMock, createT
 }))
 
 vi.mock('server-only', () => ({}))
+// lib/video-calls.ts's requiredEnv is reused as-is (per CONTEXT.md — no
+// separate credential handling), but importing the REAL lib/video-calls.ts
+// here would pull in its own heavy chain (@/db, @stream-io/node-sdk,
+// notifications) purely to reach one trivial env-var helper. Mock just that
+// export, with the same trim-and-throw behavior, to keep this file's
+// coverage scoped to lib/video-chat.ts's own logic.
+vi.mock('@/lib/video-calls', () => ({
+  requiredEnv: (name: string) => {
+    const value = process.env[name]?.trim()
+    if (!value) throw new Error(`${name} is not configured — video calls are unavailable.`)
+    return value
+  },
+}))
 vi.mock('stream-chat', () => ({
   StreamChat: {
     getInstance: (...args: unknown[]) => {

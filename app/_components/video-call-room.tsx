@@ -25,6 +25,7 @@ export default function VideoCallRoom({
   userId,
   userName,
   token,
+  chatToken,
   callId,
   title,
   isCreator,
@@ -38,6 +39,7 @@ export default function VideoCallRoom({
   userId: string
   userName: string
   token: string
+  chatToken: string
   callId: string
   title: string | null
   isCreator: boolean
