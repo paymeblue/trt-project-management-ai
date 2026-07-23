@@ -16,6 +16,7 @@ import {
 import '@stream-io/video-react-sdk/dist/css/styles.css'
 import { endVideoCallAction } from '@/actions/video-calls'
 import AddCallParticipants from '@/app/_components/add-call-participants'
+import CallChatPanel from '@/app/_components/call-chat-panel'
 import { getTabToken } from '@/lib/use-tab-token'
 
 export type CallParticipantInfo = { userId: string; name: string; role: string }
@@ -110,6 +111,8 @@ export default function VideoCallRoom({
     }
   }, [call])
 
+  const [chatOpen, setChatOpen] = useState(false)
+
   const [copied, setCopied] = useState(false)
   const [ending, startEndTransition] = useTransition()
   const [endError, setEndError] = useState<string | null>(null)
@@ -188,6 +191,14 @@ export default function VideoCallRoom({
                 <span className="material-symbols-outlined text-base">link</span>
                 {copied ? 'Link copied!' : 'Copy call link'}
               </button>
+              <button
+                type="button"
+                onClick={() => setChatOpen((o) => !o)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                <span className="material-symbols-outlined text-base">chat</span>
+                {chatOpen ? 'Hide chat' : 'Chat'}
+              </button>
               {(isCreator || isAdmin) && (
                 <button
                   type="button"
@@ -223,8 +234,15 @@ export default function VideoCallRoom({
             creatorId={creatorId}
           />
 
-          <div className="mt-4 overflow-hidden rounded-xl border border-gray-200">
-            <CallRoomInner joinTimedOut={joinTimedOut} onLeft={() => router.push(dashboard)} />
+          <div className="mt-4 flex flex-col gap-4 sm:flex-row">
+            <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-gray-200">
+              <CallRoomInner joinTimedOut={joinTimedOut} onLeft={() => router.push(dashboard)} />
+            </div>
+            {chatOpen && (
+              <div className="h-96 w-full shrink-0 overflow-hidden rounded-xl border border-gray-200 sm:h-auto sm:w-80">
+                <CallChatPanel apiKey={apiKey} userId={userId} userName={userName} token={chatToken} callId={callId} />
+              </div>
+            )}
           </div>
           </div>
         </StreamTheme>
