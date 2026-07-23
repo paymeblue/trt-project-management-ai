@@ -20,6 +20,7 @@ const {
   selectWhereMock,
   updateSetMock,
   updateWhereMock,
+  deleteWhereMock,
 } = vi.hoisted(() => ({
   notifyUserMock: vi.fn(),
   getOrCreateMock: vi.fn(),
@@ -33,6 +34,7 @@ const {
   selectWhereMock: vi.fn(),
   updateSetMock: vi.fn(),
   updateWhereMock: vi.fn(),
+  deleteWhereMock: vi.fn(),
 }))
 
 vi.mock('server-only', () => ({}))
@@ -90,13 +92,16 @@ vi.mock('@/db', () => ({
         return { where: updateWhereMock }
       },
     }),
+    delete: () => ({ where: deleteWhereMock }),
   },
 }))
 
 process.env.GETSTREAM_APIKEY = 'test-api-key'
 process.env.GETSTREAM_SECRET = 'test-secret'
 
-const { createVideoCall, addVideoCallParticipants, ensureCallParticipant } = await import('@/lib/video-calls')
+const { createVideoCall, addVideoCallParticipants, ensureCallParticipant, removeCallParticipant } = await import(
+  '@/lib/video-calls'
+)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -106,6 +111,7 @@ beforeEach(() => {
   returningMock.mockResolvedValue([{ id: 'call-1' }])
   onConflictDoNothingMock.mockResolvedValue(undefined)
   updateWhereMock.mockResolvedValue(undefined)
+  deleteWhereMock.mockResolvedValue(undefined)
   // Safe default for upsertVideoCallUsers' own select — individual tests
   // override this when they also need it for their own select-based checks
   // (existing participants / existence checks).
@@ -153,7 +159,12 @@ describe('createVideoCall', () => {
 
 describe('addVideoCallParticipants', () => {
   it('skips ids already on the call and only notifies genuinely new ones', async () => {
-    selectWhereMock.mockResolvedValue([{ userId: 'u1' }, { userId: 'u2' }])
+    // First select: existing-participants check. Second select: upsertVideoCallUsers'
+    // own {id, name} lookup for the newly-added user (name must be a real string —
+    // toTitleCase is called on it, and users.name is notNull in the real schema).
+    selectWhereMock
+      .mockResolvedValueOnce([{ userId: 'u1' }, { userId: 'u2' }])
+      .mockResolvedValueOnce([{ id: 'u3', name: 'U3' }])
 
     const result = await addVideoCallParticipants({
       callId: 'call-1',
@@ -205,5 +216,22 @@ describe('ensureCallParticipant', () => {
     expect(upsertUsersMock).toHaveBeenCalledOnce()
     // Joining via a link is never a notified event — the user is already on the page.
     expect(notifyUserMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('removeCallParticipant', () => {
+  it('deletes the participant row and removes the GetStream call member', async () => {
+    await removeCallParticipant('call-1', 'u2')
+
+    expect(deleteWhereMock).toHaveBeenCalledOnce()
+    expect(callFactoryMock).toHaveBeenCalledWith('default', 'call-1')
+    expect(updateCallMembersMock).toHaveBeenCalledWith({ remove_members: ['u2'] })
+  })
+
+  it('does not throw when GetStream removal fails — our own DB row is the source of truth', async () => {
+    updateCallMembersMock.mockRejectedValueOnce(new Error('GetStream unavailable'))
+
+    await expect(removeCallParticipant('call-1', 'u2')).resolves.toBeUndefined()
+    expect(deleteWhereMock).toHaveBeenCalledOnce()
   })
 })

@@ -16,6 +16,7 @@ const {
   endVideoCallMock,
   getCallMock,
   getCallParticipantsMock,
+  removeCallParticipantMock,
 } = vi.hoisted(() => ({
   verifyMock: vi.fn(),
   whereMock: vi.fn(),
@@ -24,6 +25,7 @@ const {
   endVideoCallMock: vi.fn(),
   getCallMock: vi.fn(),
   getCallParticipantsMock: vi.fn(),
+  removeCallParticipantMock: vi.fn(),
 }))
 
 // FIFO queue: each `db.select(...).where(...)` call in the action under test
@@ -58,11 +60,15 @@ vi.mock('@/lib/video-calls', () => ({
   endVideoCall: endVideoCallMock,
   getCall: getCallMock,
   getCallParticipants: getCallParticipantsMock,
+  removeCallParticipant: removeCallParticipantMock,
 }))
 
-const { createVideoCallAction, addVideoCallParticipantsAction, endVideoCallAction } = await import(
-  '@/actions/video-calls'
-)
+const {
+  createVideoCallAction,
+  addVideoCallParticipantsAction,
+  endVideoCallAction,
+  removeVideoCallParticipantAction,
+} = await import('@/actions/video-calls')
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -203,5 +209,60 @@ describe('endVideoCallAction', () => {
     const res = await endVideoCallAction(null, { callId: 'c1' })
     expect(res.status).toBe('success')
     expect(endVideoCallMock).toHaveBeenCalledWith('c1')
+  })
+})
+
+describe('removeVideoCallParticipantAction', () => {
+  it('rejects when the call does not exist', async () => {
+    getCallMock.mockResolvedValue(undefined)
+    const res = await removeVideoCallParticipantAction(null, { callId: 'nope', userId: 'u2' })
+    expect(res.status).toBe('error')
+    expect(res.message).toMatch(/not found/i)
+    expect(removeCallParticipantMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects when the call has already ended', async () => {
+    verifyMock.mockResolvedValue({ userId: 'u1', role: 'design' })
+    getCallMock.mockResolvedValue({ id: 'c1', status: 'ended', createdBy: 'u1' })
+    const res = await removeVideoCallParticipantAction(null, { callId: 'c1', userId: 'u2' })
+    expect(res.status).toBe('error')
+    expect(res.message).toMatch(/ended/i)
+    expect(removeCallParticipantMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects a non-creator, non-admin caller', async () => {
+    verifyMock.mockResolvedValue({ userId: 'u1', role: 'design' })
+    getCallMock.mockResolvedValue({ id: 'c1', status: 'active', createdBy: 'u9' })
+    const res = await removeVideoCallParticipantAction(null, { callId: 'c1', userId: 'u2' })
+    expect(res.status).toBe('error')
+    expect(res.message).toMatch(/only whoever started/i)
+    expect(removeCallParticipantMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects removing the call creator, even by an admin', async () => {
+    verifyMock.mockResolvedValue({ userId: 'admin-1', role: 'super_admin' })
+    getCallMock.mockResolvedValue({ id: 'c1', status: 'active', createdBy: 'u9' })
+    const res = await removeVideoCallParticipantAction(null, { callId: 'c1', userId: 'u9' })
+    expect(res.status).toBe('error')
+    expect(res.message).toMatch(/creator can't be removed/i)
+    expect(removeCallParticipantMock).not.toHaveBeenCalled()
+  })
+
+  it('allows the creator to remove a non-creator participant', async () => {
+    verifyMock.mockResolvedValue({ userId: 'u1', role: 'design' })
+    getCallMock.mockResolvedValue({ id: 'c1', status: 'active', createdBy: 'u1' })
+    removeCallParticipantMock.mockResolvedValue(undefined)
+    const res = await removeVideoCallParticipantAction(null, { callId: 'c1', userId: 'u2' })
+    expect(res.status).toBe('success')
+    expect(removeCallParticipantMock).toHaveBeenCalledWith('c1', 'u2')
+  })
+
+  it('allows an admin to remove a non-creator participant on a call they did not create', async () => {
+    verifyMock.mockResolvedValue({ userId: 'admin-1', role: 'super_admin' })
+    getCallMock.mockResolvedValue({ id: 'c1', status: 'active', createdBy: 'u9' })
+    removeCallParticipantMock.mockResolvedValue(undefined)
+    const res = await removeVideoCallParticipantAction(null, { callId: 'c1', userId: 'u2' })
+    expect(res.status).toBe('success')
+    expect(removeCallParticipantMock).toHaveBeenCalledWith('c1', 'u2')
   })
 })
