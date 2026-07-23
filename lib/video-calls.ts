@@ -36,19 +36,8 @@ function requiredEnv(name: string): string {
 let cachedClient: StreamClient | null = null;
 function streamClient(): StreamClient {
   if (!cachedClient) {
-    const apiKey = 'jvvprazt9h37';
-    const secret =
-      'avut4xk7geqyw7k7r5z3gxu3pmamzcgk6xhb2g6qhuwtpgg6pxdekvujehbqnes';
-    // TEMPORARY diagnostic for the "Token signature is invalid" issue on
-    // Netlify — never logs the secret itself, only lengths + edge
-    // characters, enough to compare against the GetStream dashboard without
-    // exposing the credential in function logs. Remove once resolved.
-    console.log('[video-calls] GetStream credential check', {
-      apiKeyLength: apiKey.length,
-      apiKeyPreview: `${apiKey.slice(0, 3)}...${apiKey.slice(-3)}`,
-      secretLength: secret.length,
-      secretPreview: `${secret.slice(0, 3)}...${secret.slice(-3)}`,
-    });
+    const apiKey = requiredEnv('GETSTREAM_APIKEY');
+    const secret = requiredEnv('GETSTREAM_SECRET');
     cachedClient = new StreamClient(apiKey, secret);
   }
   return cachedClient;
@@ -78,7 +67,7 @@ export function mintVideoToken(userId: string, callId: string): VideoCallToken {
     user_id: userId,
     validity_in_seconds: TOKEN_TTL_SECONDS,
   });
-  return { apiKey: 'jvvprazt9h37', token, callId };
+  return { apiKey: requiredEnv('GETSTREAM_APIKEY'), token, callId };
 }
 
 export type VideoCallRow = {
