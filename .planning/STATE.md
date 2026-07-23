@@ -5,7 +5,7 @@ milestone_name: milestone
 status: Awaiting next milestone
 stopped_at: context exhaustion at 75% (2026-07-22)
 last_updated: "2026-07-22T07:22:38.034Z"
-last_activity: 2026-07-19 — Milestone v2.0 completed and archived
+last_activity: 2026-07-23 - Completed quick task 260723-cme: fix GetStream token signature bug
 progress:
   total_phases: 1
   completed_phases: 0
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 Phase: Milestone v2.0 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-07-19 — Milestone v2.0 completed and archived
+Last activity: 2026-07-23 - Completed quick task 260723-cme: fix GetStream token signature bug
 
 ## Performance Metrics
 
@@ -180,6 +180,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 | 2026-07-19 | 260719-90m-jsdom-unit-tests-for-tabsessionprovider | Added jsdom (devDep, per-file pragma) + 8-case TabSessionProvider unit suite: no-op for token-less tabs, restore bounce + loop guard, call-time Authorization token read, both aa3de81 silent-refresh regressions (fire-time token read; timer re-arm on user switch), failed-refresh clearing, unmount fetch restore. Suite now 242 tests | complete ✓ |
 | 2026-07-18 | 260718-u7d-make-every-sign-in-per-tab-so-two-tabs-w | ROOT FIX for 'two tabs, two users': the NORMAL sign-in form now also mints per-tab tokens (cookie kept as fallback), sign-in-form activates them client-side, provider re-arms the silent-refresh timer on user switch + reads refresh token at fire time (was silently restoring the previous user ~18min after switching), SignOutButton clears the tab session. Live-proven: designer + qa.factory in two tabs via the normal form, both survive hard refreshes independently. 234 tests green | complete ✓ |
 | 2026-07-18 | 260718-qs5-migrate-all-remaining-server-actions-to- | Closed D-20.1-04-A completely: all 38 remaining bare verifySession/requireAdmin call sites across 16 action files migrated to required-first-param bound-token pattern (verifySessionForAction / new requireAdminForAction); new TabTokenForm wrapper for 7 server-component forms; workflow-config PIN unlock validated against per-tab identity; tests updated +5 new. tsc/lint/233 tests green; live cross-identity proof (About edit attributed to per-tab admin over non-admin shared cookie) + shared-cookie regression sweep clean | complete ✓ |
+| 2026-07-23 | 260723-cme-fix-getstream-token-signature | Fixed "Stream error code 5: Token signature is invalid" video-call bug: commit a7650ec had hardcoded GetStream apiKey/secret into lib/video-calls.ts with a truncated secret (missing trailing char vs .env.local's correct value), breaking every server-signed GetStream call; reverted streamClient()/mintVideoToken() to read GETSTREAM_APIKEY/GETSTREAM_SECRET via requiredEnv(), removed the temporary credential-logging diagnostic. tsc/lint/18 video-call tests green. User must still rotate the exposed secret on GetStream's dashboard and confirm Netlify's env var has the full untruncated value | complete ✓ |
 
 ## Deferred Items
 
