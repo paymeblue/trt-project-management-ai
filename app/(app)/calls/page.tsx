@@ -4,6 +4,7 @@ import { users } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { roleDashboard } from '@/lib/workflow'
 import { getMyCalls } from '@/lib/video-calls'
+import { toTitleCase } from '@/lib/text-case'
 import NewCallForm from '@/app/_components/new-call-form'
 
 export const dynamic = 'force-dynamic'
@@ -16,7 +17,7 @@ export default async function CallsPage() {
   const { userId, role } = await verifySession()
   const dashboard = roleDashboard(role)
 
-  const [calls, allUsers] = await Promise.all([
+  const [calls, rawUsers] = await Promise.all([
     getMyCalls(userId),
     db
       .select({ id: users.id, name: users.name, role: users.role })
@@ -24,6 +25,7 @@ export default async function CallsPage() {
       .where(ne(users.id, userId))
       .orderBy(users.name),
   ])
+  const allUsers = rawUsers.map((u) => ({ ...u, name: toTitleCase(u.name) }))
 
   const active = calls.filter((c) => c.status === 'active')
   const ended = calls.filter((c) => c.status !== 'active')

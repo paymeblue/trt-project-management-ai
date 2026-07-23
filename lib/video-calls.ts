@@ -4,6 +4,7 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { videoCalls, videoCallParticipants, users } from '@/db/schema';
 import { notifyUser } from '@/lib/notifications';
+import { toTitleCase } from '@/lib/text-case';
 
 // ── GetStream-backed video calls ────────────────────────────────────────────
 // trt-pm's own record of who a call is FOR — GetStream owns the actual
@@ -55,7 +56,7 @@ async function upsertVideoCallUsers(userIds: string[]): Promise<void> {
     .from(users)
     .where(inArray(users.id, userIds));
   await streamClient().upsertUsers(
-    rows.map((r) => ({ id: r.id, name: r.name ?? r.id })),
+    rows.map((r) => ({ id: r.id, name: toTitleCase(r.name ?? r.id) })),
   );
 }
 
@@ -95,7 +96,7 @@ export type CallParticipant = { userId: string; name: string; role: string };
 export async function getCallParticipants(
   callId: string,
 ): Promise<CallParticipant[]> {
-  return db
+  const rows = await db
     .select({
       userId: videoCallParticipants.userId,
       name: users.name,
@@ -105,6 +106,7 @@ export async function getCallParticipants(
     .innerJoin(users, eq(users.id, videoCallParticipants.userId))
     .where(eq(videoCallParticipants.callId, callId))
     .orderBy(users.name);
+  return rows.map((r) => ({ ...r, name: toTitleCase(r.name) }));
 }
 
 /**

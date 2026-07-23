@@ -5,6 +5,7 @@ import { users } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { roleDashboard } from '@/lib/workflow'
 import { getCall, getCallParticipants, ensureCallParticipant, mintVideoToken } from '@/lib/video-calls'
+import { toTitleCase } from '@/lib/text-case'
 import VideoCallRoom from '@/app/_components/video-call-room'
 
 export const dynamic = 'force-dynamic'
@@ -49,7 +50,7 @@ export default async function CallRoomPage({ params }: { params: Promise<{ id: s
   // ensureCallParticipant) — the user is already looking at the page.
   await ensureCallParticipant(id, userId)
 
-  const [participants, allUsers] = await Promise.all([
+  const [participants, rawUsers] = await Promise.all([
     getCallParticipants(id),
     db
       .select({ id: users.id, name: users.name, role: users.role })
@@ -57,6 +58,7 @@ export default async function CallRoomPage({ params }: { params: Promise<{ id: s
       .where(ne(users.id, userId))
       .orderBy(users.name),
   ])
+  const allUsers = rawUsers.map((u) => ({ ...u, name: toTitleCase(u.name) }))
 
   const { apiKey, token } = mintVideoToken(userId, id)
 
