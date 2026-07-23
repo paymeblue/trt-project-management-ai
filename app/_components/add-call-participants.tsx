@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { addVideoCallParticipantsAction } from '@/actions/video-calls'
+import { addVideoCallParticipantsAction, removeVideoCallParticipantAction } from '@/actions/video-calls'
 import { getTabToken } from '@/lib/use-tab-token'
 
 type PersonOption = { id: string; name: string; role: string }
@@ -11,10 +11,14 @@ export default function AddCallParticipants({
   callId,
   existing,
   allUsers,
+  canManage,
+  creatorId,
 }: {
   callId: string
   existing: { userId: string; name: string }[]
   allUsers: PersonOption[]
+  canManage: boolean
+  creatorId: string
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -23,6 +27,7 @@ export default function AddCallParticipants({
   const [pending, startTransition] = useTransition()
   const [message, setMessage] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
+  const [removingId, setRemovingId] = useState<string | null>(null)
 
   const existingIds = useMemo(() => new Set(existing.map((p) => p.userId)), [existing])
   const candidates = useMemo(
@@ -64,6 +69,20 @@ export default function AddCallParticipants({
     })
   }
 
+  function removeParticipant(targetUserId: string) {
+    setMessage(null)
+    setRemovingId(targetUserId)
+    startTransition(async () => {
+      const res = await removeVideoCallParticipantAction(getTabToken(), { callId, userId: targetUserId })
+      setOk(res.status === 'success')
+      if (res.status !== 'success') {
+        setMessage(res.message ?? 'Could not remove that person.')
+      }
+      setRemovingId(null)
+      if (res.status === 'success') router.refresh()
+    })
+  }
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -71,9 +90,20 @@ export default function AddCallParticipants({
           {existing.map((p) => (
             <span
               key={p.userId}
-              className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"
+              className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"
             >
               {p.name}
+              {canManage && p.userId !== creatorId && (
+                <button
+                  type="button"
+                  onClick={() => removeParticipant(p.userId)}
+                  disabled={pending && removingId === p.userId}
+                  aria-label={`Remove ${p.name} from this call`}
+                  className="material-symbols-outlined -mr-1 text-sm leading-none text-gray-400 hover:text-error disabled:opacity-50"
+                >
+                  close
+                </button>
+              )}
             </span>
           ))}
         </div>

@@ -265,6 +265,34 @@ export async function ensureCallParticipant(
   await call.updateCallMembers({ update_members: [{ user_id: userId }] });
 }
 
+/**
+ * Removes a single participant from an active call — deletes our own
+ * video_call_participants row (this app's source of truth) and asks
+ * GetStream to drop them from call membership too. Mirrors endVideoCall's
+ * try/catch: a GetStream-side failure here is non-fatal — the DB row
+ * deletion already reflects reality for every page in this app.
+ */
+export async function removeCallParticipant(
+  callId: string,
+  userId: string,
+): Promise<void> {
+  await db
+    .delete(videoCallParticipants)
+    .where(
+      and(
+        eq(videoCallParticipants.callId, callId),
+        eq(videoCallParticipants.userId, userId),
+      ),
+    );
+  try {
+    await streamClient()
+      .video.call(CALL_TYPE, callId)
+      .updateCallMembers({ remove_members: [userId] });
+  } catch {
+    // See comment above — our own row deletion is the source of truth.
+  }
+}
+
 export async function endVideoCall(callId: string): Promise<void> {
   await db
     .update(videoCalls)

@@ -12,6 +12,7 @@ import {
   endVideoCall,
   getCall,
   getCallParticipants,
+  removeCallParticipant,
 } from '@/lib/video-calls'
 
 export type VideoCallActionState = { status: 'idle' | 'success' | 'error'; message?: string; callId?: string }
@@ -125,5 +126,30 @@ export async function endVideoCallAction(
     return { status: 'success' }
   } catch {
     return { status: 'error', message: 'Could not end the call.' }
+  }
+}
+
+export async function removeVideoCallParticipantAction(
+  tabToken: string | null,
+  input: { callId: string; userId: string },
+): Promise<VideoCallActionState> {
+  const { userId, role } = await verifySessionForAction(tabToken)
+
+  const call = await getCall(input.callId)
+  if (!call) return { status: 'error', message: 'Call not found.' }
+  if (call.status !== 'active') return { status: 'error', message: 'This call has ended.' }
+  if (call.createdBy !== userId && !isAdminRole(role as UserRole)) {
+    return { status: 'error', message: 'Only whoever started this call, or an admin, can remove someone.' }
+  }
+  if (input.userId === call.createdBy) {
+    return { status: 'error', message: "The call creator can't be removed." }
+  }
+
+  try {
+    await removeCallParticipant(input.callId, input.userId)
+    revalidatePath(`/calls/${input.callId}`)
+    return { status: 'success' }
+  } catch (err) {
+    return { status: 'error', message: err instanceof Error ? err.message : 'Could not remove that person.' }
   }
 }

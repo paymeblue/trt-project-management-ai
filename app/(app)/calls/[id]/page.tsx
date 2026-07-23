@@ -2,7 +2,7 @@ import { ne } from 'drizzle-orm'
 import Link from 'next/link'
 import { db } from '@/db'
 import { users } from '@/db/schema'
-import { verifySession } from '@/lib/dal'
+import { verifySession, isAdminRole } from '@/lib/dal'
 import { roleDashboard } from '@/lib/workflow'
 import { getCall, getCallParticipants, ensureCallParticipant, mintVideoToken } from '@/lib/video-calls'
 import { toTitleCase } from '@/lib/text-case'
@@ -61,6 +61,7 @@ export default async function CallRoomPage({ params }: { params: Promise<{ id: s
   const allUsers = rawUsers.map((u) => ({ ...u, name: toTitleCase(u.name) }))
 
   const { apiKey, token } = mintVideoToken(userId, id)
+  const isAdmin = isAdminRole(role)
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6">
@@ -76,6 +77,8 @@ export default async function CallRoomPage({ params }: { params: Promise<{ id: s
           callId={id}
           title={call.title}
           isCreator={call.createdBy === userId}
+          isAdmin={isAdmin}
+          creatorId={call.createdBy}
           participants={participants}
           allUsers={allUsers}
           dashboard={dashboard}

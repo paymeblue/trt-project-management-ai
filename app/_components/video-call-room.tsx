@@ -28,6 +28,8 @@ export default function VideoCallRoom({
   callId,
   title,
   isCreator,
+  isAdmin,
+  creatorId,
   participants,
   allUsers,
   dashboard,
@@ -39,6 +41,8 @@ export default function VideoCallRoom({
   callId: string
   title: string | null
   isCreator: boolean
+  isAdmin: boolean
+  creatorId: string
   participants: CallParticipantInfo[]
   allUsers: { id: string; name: string; role: string }[]
   dashboard: string
@@ -182,7 +186,7 @@ export default function VideoCallRoom({
                 <span className="material-symbols-outlined text-base">link</span>
                 {copied ? 'Link copied!' : 'Copy call link'}
               </button>
-              {isCreator && (
+              {(isCreator || isAdmin) && (
                 <button
                   type="button"
                   onClick={endForEveryone}
@@ -209,7 +213,13 @@ export default function VideoCallRoom({
             </div>
           )}
 
-          <AddCallParticipants callId={callId} existing={participants} allUsers={allUsers} />
+          <AddCallParticipants
+            callId={callId}
+            existing={participants}
+            allUsers={allUsers}
+            canManage={isCreator || isAdmin}
+            creatorId={creatorId}
+          />
 
           <div className="mt-4 overflow-hidden rounded-xl border border-gray-200">
             <CallRoomInner joinTimedOut={joinTimedOut} onLeft={() => router.push(dashboard)} />
