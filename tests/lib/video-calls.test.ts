@@ -21,6 +21,8 @@ const {
   updateSetMock,
   updateWhereMock,
   deleteWhereMock,
+  getOrCreateChatChannelMock,
+  addChatChannelMembersMock,
 } = vi.hoisted(() => ({
   notifyUserMock: vi.fn(),
   getOrCreateMock: vi.fn(),
@@ -35,10 +37,20 @@ const {
   updateSetMock: vi.fn(),
   updateWhereMock: vi.fn(),
   deleteWhereMock: vi.fn(),
+  getOrCreateChatChannelMock: vi.fn(),
+  addChatChannelMembersMock: vi.fn(),
 }))
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/notifications', () => ({ notifyUser: notifyUserMock }))
+// Chat-channel lifecycle (lib/video-chat.ts) is mocked wholesale here — its
+// own behavior is covered by tests/lib/video-chat.test.ts; this file only
+// proves lib/video-calls.ts calls it at the right call sites with the right
+// args, mirroring how @stream-io/node-sdk itself is faked below.
+vi.mock('@/lib/video-chat', () => ({
+  getOrCreateChatChannel: getOrCreateChatChannelMock,
+  addChatChannelMembers: addChatChannelMembersMock,
+}))
 // A real function (not an arrow fn) so `new StreamClient(...)` works.
 function FakeStreamClient() {
   return {
@@ -112,6 +124,8 @@ beforeEach(() => {
   onConflictDoNothingMock.mockResolvedValue(undefined)
   updateWhereMock.mockResolvedValue(undefined)
   deleteWhereMock.mockResolvedValue(undefined)
+  getOrCreateChatChannelMock.mockResolvedValue(undefined)
+  addChatChannelMembersMock.mockResolvedValue(undefined)
   // Safe default for upsertVideoCallUsers' own select — individual tests
   // override this when they also need it for their own select-based checks
   // (existing participants / existence checks).
@@ -154,6 +168,11 @@ describe('createVideoCall', () => {
     // Every member must exist on GetStream's side before getOrCreate — this
     // is what fixed the live "GetOrCreateCall failed: ...don't exist" error.
     expect(upsertUsersMock).toHaveBeenCalledOnce()
+
+    // Chat channel lifecycle mirrors the video-call membership mutation —
+    // same deduplicated member set, called only after getOrCreate succeeds.
+    expect(getOrCreateChatChannelMock).toHaveBeenCalledWith('call-1', expect.arrayContaining(['u1', 'u2', 'u3']))
+    expect(getOrCreateChatChannelMock.mock.calls[0][1]).toHaveLength(3)
   })
 })
 
@@ -178,6 +197,7 @@ describe('addVideoCallParticipants', () => {
     expect(notifyUserMock).toHaveBeenCalledTimes(1)
     expect(notifyUserMock).toHaveBeenCalledWith(expect.objectContaining({ recipientId: 'u3', callId: 'call-1' }))
     expect(upsertUsersMock).toHaveBeenCalledOnce()
+    expect(addChatChannelMembersMock).toHaveBeenCalledWith('call-1', ['u3'])
   })
 
   it('is a no-op when every requested id is already a participant', async () => {
@@ -193,6 +213,7 @@ describe('addVideoCallParticipants', () => {
     expect(result.added).toEqual([])
     expect(updateCallMembersMock).not.toHaveBeenCalled()
     expect(notifyUserMock).not.toHaveBeenCalled()
+    expect(addChatChannelMembersMock).not.toHaveBeenCalled()
   })
 })
 
@@ -204,6 +225,7 @@ describe('ensureCallParticipant', () => {
 
     expect(insertValuesMock).not.toHaveBeenCalled()
     expect(updateCallMembersMock).not.toHaveBeenCalled()
+    expect(addChatChannelMembersMock).not.toHaveBeenCalled()
   })
 
   it('inserts a participant row and adds the GetStream member when not already present', async () => {
@@ -216,6 +238,8 @@ describe('ensureCallParticipant', () => {
     expect(upsertUsersMock).toHaveBeenCalledOnce()
     // Joining via a link is never a notified event — the user is already on the page.
     expect(notifyUserMock).not.toHaveBeenCalled()
+    // Covers users who join via a shared link rather than an explicit invite.
+    expect(addChatChannelMembersMock).toHaveBeenCalledWith('call-1', ['u1'])
   })
 })
 
