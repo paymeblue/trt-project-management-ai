@@ -49,6 +49,7 @@ const NAV: Record<string, Entry[]> = {
       items: [
         { href: '/admin/analytics', icon: 'analytics', label: 'Analytics' },
         { href: '/admin/overview', icon: 'monitoring', label: 'Overview' },
+        { href: '/admin/call-analytics', icon: 'videocam', label: 'Call Analytics' },
       ],
     },
     {
