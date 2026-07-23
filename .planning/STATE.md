@@ -5,7 +5,7 @@ milestone_name: milestone
 status: Awaiting next milestone
 stopped_at: context exhaustion at 75% (2026-07-22)
 last_updated: "2026-07-22T07:22:38.034Z"
-last_activity: 2026-07-23 - Completed quick task 260723-cme: fix GetStream token signature bug
+last_activity: 2026-07-23 - Completed quick task 260723-fgt: video call improvements bundle (removal, admin end-call, title-casing, GetStream chat, call analytics)
 progress:
   total_phases: 1
   completed_phases: 0
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-07-09)
 Phase: Milestone v2.0 complete
 Plan: —
 Status: Awaiting next milestone
-Last activity: 2026-07-23 - Completed quick task 260723-cme: fix GetStream token signature bug
+Last activity: 2026-07-23 - Completed quick task 260723-fgt: video call improvements bundle (removal, admin end-call, title-casing, GetStream chat, call analytics)
 
 ## Performance Metrics
 
@@ -181,6 +181,7 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 | 2026-07-18 | 260718-u7d-make-every-sign-in-per-tab-so-two-tabs-w | ROOT FIX for 'two tabs, two users': the NORMAL sign-in form now also mints per-tab tokens (cookie kept as fallback), sign-in-form activates them client-side, provider re-arms the silent-refresh timer on user switch + reads refresh token at fire time (was silently restoring the previous user ~18min after switching), SignOutButton clears the tab session. Live-proven: designer + qa.factory in two tabs via the normal form, both survive hard refreshes independently. 234 tests green | complete ✓ |
 | 2026-07-18 | 260718-qs5-migrate-all-remaining-server-actions-to- | Closed D-20.1-04-A completely: all 38 remaining bare verifySession/requireAdmin call sites across 16 action files migrated to required-first-param bound-token pattern (verifySessionForAction / new requireAdminForAction); new TabTokenForm wrapper for 7 server-component forms; workflow-config PIN unlock validated against per-tab identity; tests updated +5 new. tsc/lint/233 tests green; live cross-identity proof (About edit attributed to per-tab admin over non-admin shared cookie) + shared-cookie regression sweep clean | complete ✓ |
 | 2026-07-23 | 260723-cme-fix-getstream-token-signature | Fixed "Stream error code 5: Token signature is invalid" video-call bug: commit a7650ec had hardcoded GetStream apiKey/secret into lib/video-calls.ts with a truncated secret (missing trailing char vs .env.local's correct value), breaking every server-signed GetStream call; reverted streamClient()/mintVideoToken() to read GETSTREAM_APIKEY/GETSTREAM_SECRET via requiredEnv(), removed the temporary credential-logging diagnostic. tsc/lint/18 video-call tests green. User must still rotate the exposed secret on GetStream's dashboard and confirm Netlify's env var has the full untruncated value | complete ✓ |
+| 2026-07-23 | 260723-fgt-video-call-improvements-bundle | Video-call bundle: (1) remove-participant control (call creator/admin only, never the creator) with new removeCallParticipant lib fn + action; (2) superadmin/operations "End for everyone" button now shown client-side (server already permitted it); (3) shared toTitleCase() display formatter applied to names across the calls list, pickers, and GetStream upsertUsers; (4) new lib/video-chat.ts wraps stream-chat's StreamChat (separate GetStream product from video's StreamClient) — one 'messaging' channel per call id, docked toggleable chat panel in video-call-room.tsx via stream-chat-react (MessageComposer, not MessageInput — that export doesn't exist in the installed 14.10.0); (5) new admin-only /admin/call-analytics page — total calls/hours/avg duration/active-now, derived from video_calls timestamps only. tsc/lint clean, full suite 286 tests green. Manual two-browser live chat smoke test not yet run — flagged as a follow-up before calling this fully production-verified | complete ✓ |
 
 ## Deferred Items
 
