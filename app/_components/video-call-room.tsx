@@ -35,6 +35,7 @@ export default function VideoCallRoom({
   participants,
   allUsers,
   dashboard,
+  scheduledFor,
 }: {
   apiKey: string
   userId: string
@@ -49,6 +50,7 @@ export default function VideoCallRoom({
   participants: CallParticipantInfo[]
   allUsers: { id: string; name: string; role: string }[]
   dashboard: string
+  scheduledFor: string | null
 }) {
   const router = useRouter()
   const client = useMemo(
@@ -213,6 +215,14 @@ export default function VideoCallRoom({
           </div>
 
           {endError && <p className="mb-3 text-sm text-error">{endError}</p>}
+
+          {scheduledFor && (
+            <div className="mb-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-primary">
+              Scheduled for{' '}
+              {new Date(scheduledFor).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} —
+              you&rsquo;re early, feel free to join now.
+            </div>
+          )}
 
           {(mediaBlocked.camera || mediaBlocked.microphone) && (
             <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">

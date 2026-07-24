@@ -64,6 +64,8 @@ export default async function CallRoomPage({ params }: { params: Promise<{ id: s
   const { apiKey, token } = mintVideoToken(userId, id)
   const chatToken = mintChatToken(userId)
   const isAdmin = isAdminRole(role)
+  const scheduledForFuture =
+    call.scheduledFor && call.scheduledFor.getTime() > new Date().getTime() ? call.scheduledFor.toISOString() : null
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6">
@@ -85,6 +87,7 @@ export default async function CallRoomPage({ params }: { params: Promise<{ id: s
           participants={participants}
           allUsers={allUsers}
           dashboard={dashboard}
+          scheduledFor={scheduledForFuture}
         />
       </div>
     </div>
