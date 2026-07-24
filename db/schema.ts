@@ -550,6 +550,11 @@ export const videoCalls = pgTable('video_calls', {
   status:    text('status').default('active').notNull(), // 'active' | 'ended'
   createdAt: timestamp('created_at').defaultNow().notNull(),
   endedAt:   timestamp('ended_at'),
+  // v2.0 (quick task 260724-alz): nullable — null means "instant call, not
+  // scheduled". Purely informational/display; never gates joinability (the
+  // GetStream room + chat channel are still created immediately at creation
+  // time, regardless of whether this is set).
+  scheduledFor: timestamp('scheduled_for'),
 })
 
 export const videoCallParticipants = pgTable('video_call_participants', {
