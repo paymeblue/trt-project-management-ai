@@ -31,9 +31,9 @@ async function validateUserIds(ids: string[]): Promise<boolean> {
 
 export async function createVideoCallAction(
   tabToken: string | null,
-  input: { title?: string; participantUserIds: string[] },
+  input: { title?: string; participantUserIds: string[]; scheduledFor?: string },
 ): Promise<VideoCallActionState> {
-  const { userId } = await verifySessionForAction(tabToken)
+  const { userId, role } = await verifySessionForAction(tabToken)
 
   const participantUserIds = [
     ...new Set((input.participantUserIds ?? []).filter((id) => typeof id === 'string' && id !== userId)),
@@ -49,6 +49,20 @@ export async function createVideoCallAction(
     return { status: 'error', message: 'One of the selected people could not be found.' }
   }
 
+  // Never trust the client's isAdmin state — a tampered request could supply
+  // scheduledFor even from a caller whose UI never shows the control.
+  let scheduledFor: Date | undefined
+  if (input.scheduledFor) {
+    if (!isAdminRole(role as UserRole)) {
+      return { status: 'error', message: 'Only an admin can schedule a call for later.' }
+    }
+    const parsed = new Date(input.scheduledFor)
+    if (Number.isNaN(parsed.getTime()) || parsed.getTime() <= Date.now()) {
+      return { status: 'error', message: 'Pick a valid future date and time.' }
+    }
+    scheduledFor = parsed
+  }
+
   const title = (input.title ?? '').trim().slice(0, MAX_TITLE) || null
   const [me] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId)).limit(1)
 
@@ -58,6 +72,7 @@ export async function createVideoCallAction(
       creatorName: me?.name ?? 'Someone',
       title,
       participantUserIds,
+      scheduledFor,
     })
     revalidatePath('/calls')
     return { status: 'success', callId: id }

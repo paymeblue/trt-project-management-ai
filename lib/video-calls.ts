@@ -79,6 +79,7 @@ export type VideoCallRow = {
   status: string;
   createdAt: Date;
   endedAt: Date | null;
+  scheduledFor: Date | null;
 };
 
 export async function getCall(
@@ -121,15 +122,17 @@ export async function createVideoCall(opts: {
   creatorName: string;
   title?: string | null;
   participantUserIds: string[];
+  scheduledFor?: Date | null;
 }): Promise<{ id: string }> {
   const memberIds = Array.from(
     new Set([opts.creatorId, ...opts.participantUserIds]),
   );
   const title = opts.title?.trim() || null;
+  const scheduledFor = opts.scheduledFor ?? null;
 
   const [row] = await db
     .insert(videoCalls)
-    .values({ title, createdBy: opts.creatorId })
+    .values({ title, createdBy: opts.creatorId, scheduledFor })
     .returning({ id: videoCalls.id });
 
   await db.insert(videoCallParticipants).values(
@@ -165,6 +168,10 @@ export async function createVideoCall(opts: {
     throw err;
   }
 
+  const notificationTitle = scheduledFor
+    ? `${opts.creatorName} scheduled a video call for ${scheduledFor.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`
+    : `${opts.creatorName} started a video call`;
+
   const invitees = memberIds.filter((id) => id !== opts.creatorId);
   await Promise.all(
     invitees.map((recipientId) =>
@@ -172,7 +179,7 @@ export async function createVideoCall(opts: {
         recipientId,
         actorId: opts.creatorId,
         type: 'video_call',
-        title: `${opts.creatorName} started a video call`,
+        title: notificationTitle,
         body: title,
         callId: row.id,
       }),
