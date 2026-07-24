@@ -131,6 +131,65 @@ describe('createVideoCallAction', () => {
       participantUserIds: ['u2', 'u3'],
     })
   })
+
+  it('rejects a scheduledFor value from a non-admin caller before calling createVideoCall', async () => {
+    verifyMock.mockResolvedValue({ userId: 'u1', role: 'design' }) // not admin per the mocked isAdminRole
+    queueWhere([{ id: 'u2' }]) // validateUserIds
+
+    const res = await createVideoCallAction(null, {
+      participantUserIds: ['u2'],
+      scheduledFor: '2099-01-01T10:00:00.000Z',
+    })
+
+    expect(res.status).toBe('error')
+    expect(res.message).toMatch(/only an admin can schedule/i)
+    expect(createVideoCallMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects an invalid/past scheduledFor from an admin caller', async () => {
+    verifyMock.mockResolvedValue({ userId: 'u1', role: 'super_admin' })
+    queueWhere([{ id: 'u2' }]) // validateUserIds
+
+    const res = await createVideoCallAction(null, {
+      participantUserIds: ['u2'],
+      scheduledFor: 'not-a-date',
+    })
+
+    expect(res.status).toBe('error')
+    expect(res.message).toMatch(/valid future date/i)
+    expect(createVideoCallMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects a past scheduledFor from an admin caller', async () => {
+    verifyMock.mockResolvedValue({ userId: 'u1', role: 'operations' })
+    queueWhere([{ id: 'u2' }]) // validateUserIds
+
+    const res = await createVideoCallAction(null, {
+      participantUserIds: ['u2'],
+      scheduledFor: '2000-01-01T10:00:00.000Z',
+    })
+
+    expect(res.status).toBe('error')
+    expect(res.message).toMatch(/valid future date/i)
+    expect(createVideoCallMock).not.toHaveBeenCalled()
+  })
+
+  it('parses a valid future scheduledFor from an admin caller and passes it through as a Date', async () => {
+    verifyMock.mockResolvedValue({ userId: 'u1', role: 'super_admin' })
+    queueWhere([{ id: 'u2' }]) // validateUserIds
+    queueWhere([{ name: 'Alice' }]) // actor name lookup
+    createVideoCallMock.mockResolvedValue({ id: 'call-99' })
+
+    const res = await createVideoCallAction(null, {
+      participantUserIds: ['u2'],
+      scheduledFor: '2099-01-01T10:00:00.000Z',
+    })
+
+    expect(res).toEqual({ status: 'success', callId: 'call-99' })
+    expect(createVideoCallMock).toHaveBeenCalledWith(
+      expect.objectContaining({ scheduledFor: new Date('2099-01-01T10:00:00.000Z') }),
+    )
+  })
 })
 
 describe('addVideoCallParticipantsAction', () => {

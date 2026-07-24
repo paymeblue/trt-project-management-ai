@@ -174,6 +174,49 @@ describe('createVideoCall', () => {
     expect(getOrCreateChatChannelMock).toHaveBeenCalledWith('call-1', expect.arrayContaining(['u1', 'u2', 'u3']))
     expect(getOrCreateChatChannelMock.mock.calls[0][1]).toHaveLength(3)
   })
+
+  it('inserts scheduledFor and notifies invitees with a scheduled-call title when set', async () => {
+    const scheduledFor = new Date('2099-01-01T10:00:00.000Z')
+
+    await createVideoCall({
+      creatorId: 'u1',
+      creatorName: 'Alice',
+      title: 'Design review',
+      participantUserIds: ['u2'],
+      scheduledFor,
+    })
+
+    // The call-row insert (not the bulk participants insert) carries scheduledFor.
+    const callRowInsert = insertValuesMock.mock.calls.find((c) => !Array.isArray(c[0]))
+    const callRowValues = callRowInsert?.[0] as { scheduledFor: Date | null }
+    expect(callRowValues.scheduledFor).toBe(scheduledFor)
+
+    expect(notifyUserMock).toHaveBeenCalledTimes(1)
+    expect(notifyUserMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientId: 'u2',
+        title: `Alice scheduled a video call for ${scheduledFor.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`,
+      }),
+    )
+  })
+
+  it('inserts scheduledFor: null and keeps the unscheduled notification title when scheduledFor is omitted', async () => {
+    await createVideoCall({
+      creatorId: 'u1',
+      creatorName: 'Alice',
+      title: 'Sync',
+      participantUserIds: ['u2'],
+    })
+
+    const callRowInsert = insertValuesMock.mock.calls.find((c) => !Array.isArray(c[0]))
+    const callRowValues = callRowInsert?.[0] as { scheduledFor: Date | null }
+    expect(callRowValues.scheduledFor).toBeNull()
+
+    expect(notifyUserMock).toHaveBeenCalledTimes(1)
+    expect(notifyUserMock).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientId: 'u2', title: 'Alice started a video call' }),
+    )
+  })
 })
 
 describe('addVideoCallParticipants', () => {
