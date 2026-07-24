@@ -485,6 +485,7 @@ export const projectDisputes = pgTable('project_disputes', {
 export const readinessForms = pgTable('readiness_forms', {
   id:             uuid('id').primaryKey().defaultRandom(),
   createdBy:      uuid('created_by').notNull().references(() => users.id),
+  projectId:      uuid('project_id').references(() => projects.id), // nullable — added 260716-hys, historical rows stay null
   mode:           text('mode').notNull(),              // 'digital' | 'upload'
   project:        text('project'),
   unit:           text('unit'),
