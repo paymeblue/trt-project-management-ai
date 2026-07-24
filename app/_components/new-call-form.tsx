@@ -7,12 +7,14 @@ import { getTabToken } from '@/lib/use-tab-token'
 
 type PersonOption = { id: string; name: string; role: string }
 
-export default function NewCallForm({ allUsers }: { allUsers: PersonOption[] }) {
+export default function NewCallForm({ allUsers, isAdmin }: { allUsers: PersonOption[]; isAdmin: boolean }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [query, setQuery] = useState('')
   const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [schedule, setSchedule] = useState(false)
+  const [scheduledFor, setScheduledFor] = useState('')
   const [pending, startTransition] = useTransition()
   const [message, setMessage] = useState<string | null>(null)
 
@@ -35,11 +37,17 @@ export default function NewCallForm({ allUsers }: { allUsers: PersonOption[] }) 
       setMessage('Pick at least one other person to call.')
       return
     }
+    const willSchedule = isAdmin && schedule && !!scheduledFor
+    if (willSchedule && new Date(scheduledFor).getTime() <= Date.now()) {
+      setMessage('Pick a future date and time.')
+      return
+    }
     setMessage(null)
     startTransition(async () => {
       const res = await createVideoCallAction(getTabToken(), {
         title: title.trim() || undefined,
         participantUserIds: [...picked],
+        ...(willSchedule ? { scheduledFor: new Date(scheduledFor).toISOString() } : {}),
       })
       if (res.status === 'success' && res.callId) {
         router.push(`/calls/${res.callId}`)
@@ -111,6 +119,28 @@ export default function NewCallForm({ allUsers }: { allUsers: PersonOption[] }) 
         ))}
       </div>
 
+      {isAdmin && (
+        <div className="mb-3">
+          <label className="mb-1 flex cursor-pointer items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-gray-400">
+            <input
+              type="checkbox"
+              checked={schedule}
+              onChange={(e) => setSchedule(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            Schedule for later
+          </label>
+          {schedule && (
+            <input
+              type="datetime-local"
+              value={scheduledFor}
+              onChange={(e) => setScheduledFor(e.target.value)}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            />
+          )}
+        </div>
+      )}
+
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -118,7 +148,13 @@ export default function NewCallForm({ allUsers }: { allUsers: PersonOption[] }) 
           disabled={pending}
           className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
         >
-          {pending ? 'Starting…' : `Start call${picked.size ? ` (${picked.size + 1})` : ''}`}
+          {isAdmin && schedule
+            ? pending
+              ? 'Scheduling…'
+              : `Schedule call${picked.size ? ` (${picked.size + 1})` : ''}`
+            : pending
+              ? 'Starting…'
+              : `Start call${picked.size ? ` (${picked.size + 1})` : ''}`}
         </button>
         <button
           type="button"

@@ -1,7 +1,7 @@
 import { ne } from 'drizzle-orm'
 import { db } from '@/db'
 import { users } from '@/db/schema'
-import { verifySession } from '@/lib/dal'
+import { verifySession, isAdminRole } from '@/lib/dal'
 import { roleDashboard } from '@/lib/workflow'
 import { getMyCalls } from '@/lib/video-calls'
 import { toTitleCase } from '@/lib/text-case'
@@ -16,6 +16,7 @@ function formatWhen(d: Date): string {
 export default async function CallsPage() {
   const { userId, role } = await verifySession()
   const dashboard = roleDashboard(role)
+  const isAdmin = isAdminRole(role)
 
   const [calls, rawUsers] = await Promise.all([
     getMyCalls(userId),
@@ -27,7 +28,13 @@ export default async function CallsPage() {
   ])
   const allUsers = rawUsers.map((u) => ({ ...u, name: toTitleCase(u.name) }))
 
-  const active = calls.filter((c) => c.status === 'active')
+  const now = new Date().getTime()
+  const scheduled = calls.filter(
+    (c) => c.status === 'active' && c.scheduledFor && c.scheduledFor.getTime() > now,
+  )
+  const active = calls.filter(
+    (c) => c.status === 'active' && !(c.scheduledFor && c.scheduledFor.getTime() > now),
+  )
   const ended = calls.filter((c) => c.status !== 'active')
 
   return (
@@ -40,7 +47,33 @@ export default async function CallsPage() {
         Start a call, invite people, and share the link with anyone else who needs to join.
       </p>
 
-      <NewCallForm allUsers={allUsers} />
+      <NewCallForm allUsers={allUsers} isAdmin={isAdmin} />
+
+      {scheduled.length > 0 && (
+        <>
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Scheduled</h2>
+          <div className="mb-6 space-y-2">
+            {scheduled.map((c) => (
+              <a
+                key={c.id}
+                href={`/calls/${c.id}`}
+                className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm shadow-sm transition hover:shadow-md"
+              >
+                <span>
+                  <span className="font-semibold text-gray-900">{c.title ?? 'Video call'}</span>
+                  <span className="ml-2 text-xs text-gray-400">
+                    Scheduled for {formatWhen(c.scheduledFor as Date)}
+                  </span>
+                </span>
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
+                  <span className="material-symbols-outlined text-base">videocam</span>
+                  Join
+                </span>
+              </a>
+            ))}
+          </div>
+        </>
+      )}
 
       {active.length > 0 && (
         <>
