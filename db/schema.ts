@@ -556,6 +556,11 @@ export const videoCalls = pgTable('video_calls', {
   // GetStream room + chat channel are still created immediately at creation
   // time, regardless of whether this is set).
   scheduledFor: timestamp('scheduled_for'),
+  // Quick task 260726-dw4 (REM-01): idempotency gate for the 1-hour reminder
+  // job — null means "not yet reminded". Set once by sendDueCallReminders()
+  // (lib/video-calls.ts) so a call is never notified twice no matter how many
+  // times the 5-minute Netlify cron fires while it's inside the window.
+  reminderSentAt: timestamp('reminder_sent_at'),
 })
 
 export const videoCallParticipants = pgTable('video_call_participants', {
