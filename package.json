@@ -52,6 +52,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@netlify/functions": "^5.3.0",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/dagre": "^0.7.54",
@@ -65,6 +66,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "jsdom": "^29.1.1",
+    "netlify-cli": "^27.0.0",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
     "typescript": "^5",
