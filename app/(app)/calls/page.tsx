@@ -6,6 +6,7 @@ import { roleDashboard } from '@/lib/workflow'
 import { getMyCalls } from '@/lib/video-calls'
 import { toTitleCase } from '@/lib/text-case'
 import NewCallForm from '@/app/_components/new-call-form'
+import ScheduleCallForm from '@/app/_components/schedule-call-form'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,7 +48,10 @@ export default async function CallsPage() {
         Start a call, invite people, and share the link with anyone else who needs to join.
       </p>
 
-      <NewCallForm allUsers={allUsers} isAdmin={isAdmin} />
+      <div className="flex flex-wrap items-start gap-3">
+        <NewCallForm allUsers={allUsers} />
+        {isAdmin && <ScheduleCallForm allUsers={allUsers} />}
+      </div>
 
       {scheduled.length > 0 && (
         <>
