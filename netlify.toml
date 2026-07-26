@@ -1,0 +1,15 @@
+# Quick task 260726-dw4 (REM-04): net-new Netlify infra for the 1-hour
+# call-reminder Scheduled Function (netlify/functions/send-call-reminders.mts).
+#
+# Deliberately NO [build] section here. RESEARCH.md's Open Question 1 plus
+# this project's own STATE.md history (quick task 260723-cme references
+# "Netlify's env var" already existing for this app) implies a Netlify
+# site/deploy already exists today with no in-repo netlify.toml — meaning the
+# actual build command/publish directory are almost certainly already
+# configured via Netlify's dashboard UI. Adding an in-repo [build] block here
+# would take precedence over those dashboard settings and could silently
+# override a currently-working configuration this task has no visibility
+# into. Task 6's checkpoint must confirm the next deploy's build behavior is
+# unaffected by this file's addition.
+[functions]
+  directory = "netlify/functions"
