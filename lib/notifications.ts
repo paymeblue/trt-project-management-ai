@@ -29,6 +29,13 @@ export type NotificationDTO = {
 // /calls/{callId} when clicked (see notifications-bell.tsx).
 export const VIDEO_CALL_NOTIFICATION_TYPE = 'video_call'
 
+// A distinct type from VIDEO_CALL_NOTIFICATION_TYPE (quick task 260726-dw4,
+// REM-02) — a later, additional "starts in 1 hour" reminder, not a
+// replacement for the original invite notification. Deliberately NOT added
+// to pending-call-gate.tsx's hardcoded 'video_call'-only filter — a reminder
+// must never trigger that ringing "join now" forcing modal.
+export const VIDEO_CALL_REMINDER_NOTIFICATION_TYPE = 'video_call_reminder'
+
 export type NotificationFeed = { items: NotificationDTO[]; unread: number }
 
 // Fan a single alert out to every super admin (REQ-G06), one row per recipient
@@ -113,6 +120,9 @@ export async function getNotifications(userId: string): Promise<NotificationFeed
 
 // Sidebar badge count — total unread video-call notifications for this user
 // (mirrors getDisputeUnreadCount's shape exactly, different type filter).
+// Counts both the original invite (VIDEO_CALL_NOTIFICATION_TYPE) and the
+// 1-hour reminder (VIDEO_CALL_REMINDER_NOTIFICATION_TYPE, 260726-dw4) — a
+// reminder must be visible from the nav badge, not only inside the bell.
 export async function getVideoCallUnreadCount(userId: string): Promise<number> {
   const [{ n }] = await db
     .select({ n: count() })
@@ -121,7 +131,7 @@ export async function getVideoCallUnreadCount(userId: string): Promise<number> {
       and(
         eq(notifications.recipientId, userId),
         isNull(notifications.readAt),
-        eq(notifications.type, VIDEO_CALL_NOTIFICATION_TYPE),
+        inArray(notifications.type, [VIDEO_CALL_NOTIFICATION_TYPE, VIDEO_CALL_REMINDER_NOTIFICATION_TYPE]),
       ),
     )
   return Number(n)

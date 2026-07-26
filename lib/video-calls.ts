@@ -1,9 +1,9 @@
 import 'server-only';
 import { StreamClient } from '@stream-io/node-sdk';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { videoCalls, videoCallParticipants, users } from '@/db/schema';
-import { notifyUser } from '@/lib/notifications';
+import { notifyUser, VIDEO_CALL_REMINDER_NOTIFICATION_TYPE } from '@/lib/notifications';
 import { toTitleCase } from '@/lib/text-case';
 import { getOrCreateChatChannel, addChatChannelMembers } from '@/lib/video-chat';
 
@@ -340,4 +340,68 @@ export async function getMyCalls(userId: string): Promise<MyCallSummary[]> {
     calls.map((c) => getCallParticipants(c.id)),
   );
   return calls.map((c, i) => ({ ...c, participants: participantsByCall[i] }));
+}
+
+/**
+ * REM-01/REM-02 (quick task 260726-dw4): notifies invitees of every scheduled
+ * call starting within the next hour, exactly once each. Called by the
+ * CRON_SECRET-protected internal route (app/api/cron/call-reminders/route.ts)
+ * on a 5-minute Netlify Scheduled Function trigger — never invoked directly
+ * by any user-facing action.
+ *
+ * The due-call window comparison uses Postgres' own `now()` (via drizzle's
+ * `sql` template), not a JS `new Date()` bind parameter — this repo has a
+ * documented prior incident (quick task 260706-bpg) where a JS-side
+ * timestamp compared against a naive (no-timezone) `timestamp` column landed
+ * skewed by the app server's own UTC offset, silently breaking a freshness
+ * window. Both the read (gt/lte below) and the write (reminderSentAt) follow
+ * that same DB-clock convention.
+ */
+export async function sendDueCallReminders(): Promise<{ remindedCallIds: string[] }> {
+  const dueCalls = await db
+    .select()
+    .from(videoCalls)
+    .where(
+      and(
+        eq(videoCalls.status, 'active'),
+        isNotNull(videoCalls.scheduledFor),
+        gt(videoCalls.scheduledFor, sql`now()`),
+        lte(videoCalls.scheduledFor, sql`now() + interval '1 hour'`),
+        isNull(videoCalls.reminderSentAt),
+      ),
+    );
+
+  const remindedCallIds: string[] = [];
+
+  for (const call of dueCalls) {
+    const participants = await db
+      .select({ userId: videoCallParticipants.userId })
+      .from(videoCallParticipants)
+      .where(eq(videoCallParticipants.callId, call.id));
+    const invitees = participants
+      .map((p) => p.userId)
+      .filter((id) => id !== call.createdBy);
+
+    await Promise.all(
+      invitees.map((recipientId) =>
+        notifyUser({
+          recipientId,
+          actorId: call.createdBy,
+          type: VIDEO_CALL_REMINDER_NOTIFICATION_TYPE,
+          title: `${call.title ?? 'Video call'} starts in 1 hour`,
+          body: null,
+          callId: call.id,
+        }),
+      ),
+    );
+
+    await db
+      .update(videoCalls)
+      .set({ reminderSentAt: sql`now()` })
+      .where(eq(videoCalls.id, call.id));
+
+    remindedCallIds.push(call.id);
+  }
+
+  return { remindedCallIds };
 }

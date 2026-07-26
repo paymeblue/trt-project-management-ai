@@ -42,7 +42,10 @@ const {
 }))
 
 vi.mock('server-only', () => ({}))
-vi.mock('@/lib/notifications', () => ({ notifyUser: notifyUserMock }))
+vi.mock('@/lib/notifications', () => ({
+  notifyUser: notifyUserMock,
+  VIDEO_CALL_REMINDER_NOTIFICATION_TYPE: 'video_call_reminder',
+}))
 // Chat-channel lifecycle (lib/video-chat.ts) is mocked wholesale here — its
 // own behavior is covered by tests/lib/video-chat.test.ts; this file only
 // proves lib/video-calls.ts calls it at the right call sites with the right
@@ -111,9 +114,13 @@ vi.mock('@/db', () => ({
 process.env.GETSTREAM_APIKEY = 'test-api-key'
 process.env.GETSTREAM_SECRET = 'test-secret'
 
-const { createVideoCall, addVideoCallParticipants, ensureCallParticipant, removeCallParticipant } = await import(
-  '@/lib/video-calls'
-)
+const {
+  createVideoCall,
+  addVideoCallParticipants,
+  ensureCallParticipant,
+  removeCallParticipant,
+  sendDueCallReminders,
+} = await import('@/lib/video-calls')
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -283,6 +290,70 @@ describe('ensureCallParticipant', () => {
     expect(notifyUserMock).not.toHaveBeenCalled()
     // Covers users who join via a shared link rather than an explicit invite.
     expect(addChatChannelMembersMock).toHaveBeenCalledWith('call-1', ['u1'])
+  })
+})
+
+describe('sendDueCallReminders', () => {
+  it('notifies non-creator participants of a call inside the next-hour window, marks it reminded', async () => {
+    // First select: the due-calls query. Second select: that call's participants.
+    selectWhereMock
+      .mockResolvedValueOnce([{ id: 'call-1', title: 'Design Sync', createdBy: 'u1' }])
+      .mockResolvedValueOnce([{ userId: 'u1' }, { userId: 'u2' }, { userId: 'u3' }])
+
+    const result = await sendDueCallReminders()
+
+    expect(notifyUserMock).toHaveBeenCalledTimes(2)
+    const notifiedIds = notifyUserMock.mock.calls.map((c) => c[0].recipientId).sort()
+    expect(notifiedIds).toEqual(['u2', 'u3'])
+    expect(
+      notifyUserMock.mock.calls.every(
+        (c) =>
+          c[0].type === 'video_call_reminder' &&
+          c[0].title === 'Design Sync starts in 1 hour' &&
+          c[0].callId === 'call-1' &&
+          c[0].actorId === 'u1',
+      ),
+    ).toBe(true)
+
+    expect(updateSetMock).toHaveBeenCalledWith(expect.objectContaining({ reminderSentAt: expect.anything() }))
+    expect(updateWhereMock).toHaveBeenCalledOnce()
+    expect(result.remindedCallIds).toEqual(['call-1'])
+  })
+
+  it('notifies nobody for a call the WHERE clause excludes (e.g. reminderSentAt already set)', async () => {
+    selectWhereMock.mockResolvedValueOnce([]) // due-calls query returns nothing
+
+    const result = await sendDueCallReminders()
+
+    expect(notifyUserMock).not.toHaveBeenCalled()
+    expect(updateSetMock).not.toHaveBeenCalled()
+    expect(result.remindedCallIds).toEqual([])
+  })
+
+  it('never re-notifies on a second run once the first run has marked the call reminded', async () => {
+    selectWhereMock
+      .mockResolvedValueOnce([{ id: 'call-1', title: 'Design Sync', createdBy: 'u1' }])
+      .mockResolvedValueOnce([{ userId: 'u2' }])
+    // No further Once() queued — the second invocation's due-calls select falls
+    // back to the beforeEach default ([]), mirroring reality post-update.
+
+    await sendDueCallReminders()
+    expect(notifyUserMock).toHaveBeenCalledTimes(1)
+
+    await sendDueCallReminders()
+    expect(notifyUserMock).toHaveBeenCalledTimes(1) // unchanged — second run reminded nobody
+  })
+
+  it('never includes the creator in the invitee list even when present in the participants rows', async () => {
+    selectWhereMock
+      .mockResolvedValueOnce([{ id: 'call-1', title: 'Design Sync', createdBy: 'u1' }])
+      .mockResolvedValueOnce([{ userId: 'u1' }, { userId: 'u2' }])
+
+    await sendDueCallReminders()
+
+    expect(notifyUserMock).toHaveBeenCalledTimes(1)
+    expect(notifyUserMock).toHaveBeenCalledWith(expect.objectContaining({ recipientId: 'u2' }))
+    expect(notifyUserMock.mock.calls.some((c) => c[0].recipientId === 'u1')).toBe(false)
   })
 })
 
