@@ -16,6 +16,7 @@ import {
   canRoleActOnStep,
   roleDashboard,
   stepRequiredKinds,
+  outstandingRequiredKinds,
   userRoleLabel,
   type UserRole,
   type StepKind,
@@ -173,17 +174,43 @@ export default async function WorkflowStepPage({
   // completed sub-section shows a checkmark instead of re-prompting), and by
   // the page-level Complete step button's disabled/hint state isn't computed
   // client-side — the server (completeGraphStep) is the actual gate; this is
-  // read-only display state.
+  // read-only display state. Extended (quick task 260727-cp0) with answer/
+  // uploadName so a fulfilled yes_no_upload requirement can render as a
+  // recorded banner below instead of an empty form — same row, no second query.
   const [genericState] = await db
-    .select({ fulfilledKinds: workflowStepStates.fulfilledKinds })
+    .select({
+      fulfilledKinds: workflowStepStates.fulfilledKinds,
+      answer: workflowStepStates.answer,
+      uploadName: workflowStepStates.uploadName,
+    })
     .from(workflowStepStates)
     .where(and(eq(workflowStepStates.projectId, projectId!), eq(workflowStepStates.stepDefId, step.id)))
     .limit(1)
   const fulfilledKinds = genericState?.fulfilledKinds ?? []
+  // quick task 260727-cp0: DISPLAY mirror of completeGraphStep's server gate
+  // (lib/workflow-graph.ts) — drives CompleteStepButton's disabled state and
+  // "Still needed" hint below. The server stays the sole real gate.
+  const outstandingKinds = outstandingRequiredKinds(step, fulfilledKinds)
 
   async function renderKind(kind: StepKind): Promise<React.ReactNode> {
     switch (kind) {
       case 'yes_no_upload':
+        // quick task 260727-cp0: on a multi-kind step, once this requirement
+        // is already recorded, show what was recorded instead of an empty
+        // form — mirrors the checklist-completed banner below exactly.
+        // Single-kind steps are untouched (multi is false there).
+        if (multi && fulfilledKinds.includes('yes_no_upload')) {
+          const recordedAnswer = genericState?.answer
+            ? genericState.answer.charAt(0).toUpperCase() + genericState.answer.slice(1)
+            : 'recorded'
+          return (
+            <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+              <span className="material-symbols-outlined text-lg">check_circle</span>
+              Answer recorded: {recordedAnswer}
+              {genericState?.uploadName ? ` — attached: ${genericState.uploadName}` : ''}
+            </div>
+          )
+        }
         return (
           <YesNoUploadStep
             projectId={projectId!}
@@ -360,7 +387,12 @@ export default async function WorkflowStepPage({
       </div>
       {multi && (
         <div className="mt-6">
-          <CompleteStepButton projectId={projectId!} stepDefId={step.id} redirectTo={dashboard} />
+          <CompleteStepButton
+            projectId={projectId!}
+            stepDefId={step.id}
+            redirectTo={dashboard}
+            outstandingKinds={outstandingKinds}
+          />
         </div>
       )}
     </div>

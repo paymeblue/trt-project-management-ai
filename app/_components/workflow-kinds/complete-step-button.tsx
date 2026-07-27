@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { completeStepAction } from '@/actions/workflow-graph'
 import { getTabToken } from '@/lib/use-tab-token'
+import type { StepKind } from '@/lib/workflow'
 
 const REDIRECT_DELAY_MS = 1400
 
@@ -13,16 +14,27 @@ const REDIRECT_DELAY_MS = 1400
 // step is multi-kind); this is the one button that actually attempts
 // completeGraphStep, which the server rejects until every required kind
 // (including 'ack'/'readiness'/'checklist' — see STATE_GATED_KINDS in
-// lib/workflow-graph.ts) has its own fulfilledKinds entry.
+// lib/workflow.ts) has its own fulfilledKinds entry.
+//
+// quick task 260727-cp0: `outstandingKinds` disables the button and shows a
+// "Still needed" hint whenever any state-gated required kind is unfulfilled.
+// This is DISPLAY ONLY — completeGraphStep remains the sole authoritative
+// gate (a forged/direct call still gets rejected server-side); each
+// sub-form's own submit calls router.refresh(), which re-renders the parent
+// server component and recomputes outstandingKinds, so this re-enables once
+// every requirement is recorded.
 export default function CompleteStepButton({
   projectId,
   stepDefId,
   redirectTo,
+  outstandingKinds,
 }: {
   projectId: string
   stepDefId: string
   redirectTo?: string
+  outstandingKinds: StepKind[]
 }) {
+  const blocked = outstandingKinds.length > 0
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [message, setMessage] = useState<string | null>(null)
@@ -47,12 +59,17 @@ export default function CompleteStepButton({
     <div className="space-y-2">
       <button
         type="button"
-        disabled={pending}
+        disabled={pending || blocked}
         onClick={complete}
         className="w-full rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
       >
         {pending ? 'Working…' : 'Complete step'}
       </button>
+      {blocked && (
+        <p className="text-sm text-gray-500">
+          Still needed: {outstandingKinds.map((k) => k.replace(/_/g, ' ')).join(', ')}
+        </p>
+      )}
       {message && <p className={`text-sm ${ok ? 'text-green-700' : 'text-error'}`}>{message}</p>}
     </div>
   )
