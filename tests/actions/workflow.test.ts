@@ -23,6 +23,17 @@ const dualRoleStepDefRows = liveStepDefRows.map((r) =>
   r.stepKey === 'materials_readiness' ? { ...r, dualRoles: ['factory_pm', 'site_pm'] } : r,
 )
 
+// step 2 (assign_designer_brief, role design) patched with requiredPosition
+// for the requiredPosition-gate coverage below (quick task 260727-g7a) —
+// requiredPosition lives on the DB row, not the static LIVE_WORKFLOW_STEPS
+// seed, same reason dualRoleStepDefRows exists above. Step 19
+// approval_installation is merely today's live instance of a gate any admin
+// can set on any step via the Configurator — this fixture proves the gate is
+// generic, not step-19-specific.
+const positionStepDefRows = liveStepDefRows.map((r) =>
+  r.stepKey === 'assign_designer_brief' ? { ...r, requiredPosition: 'head_designer' } : r,
+)
+
 const {
   dbMock,
   verifyMock,
@@ -228,6 +239,50 @@ describe('advanceProjectStep', () => {
       expect(insertValuesMock).not.toHaveBeenCalled()
     })
   })
+
+  // Quick task 260727-g7a: the legacy engine never consulted requiredPosition
+  // before this fix — these tests fail (return true / write rows) if the
+  // Task 1 gate in advanceProjectStep is removed. stepPositionMismatch is
+  // kept REAL (not added to the '@/lib/workflow-graph' partial mock above),
+  // so this exercises the actual users.position fetch.
+  describe('requiredPosition gate (quick task 260727-g7a)', () => {
+    it('rejects a right-role caller holding the WRONG position, before any DB write', async () => {
+      // step 2 = assign_designer_brief (design), patched with
+      // requiredPosition='head_designer' via positionStepDefRows.
+      verifyMock.mockResolvedValue({ userId: 'u1', role: 'design' })
+      selectOrderByMock.mockResolvedValue(positionStepDefRows)
+      // advanceProjectStep's .limit() calls happen in this exact order:
+      // (1) the project row, (2) stepPositionMismatch's fresh users.position
+      // fetch. Sequencing with mockResolvedValueOnce depends on that order.
+      selectLimitMock
+        .mockResolvedValueOnce([{ id: 'p1', currentStep: 2, status: 'not_delivered' }])
+        .mockResolvedValueOnce([{ position: 'chief_production_officer' }])
+
+      const { advanceProjectStep } = await import('@/actions/workflow')
+      const ok = await advanceProjectStep(null, { projectId: 'p1', expectedStepN: 2 })
+
+      expect(ok).toBe(false)
+      expect(insertValuesMock).not.toHaveBeenCalled()
+      expect(setMock).not.toHaveBeenCalled()
+    })
+
+    it('allows a right-role caller holding the required position', async () => {
+      verifyMock.mockResolvedValue({ userId: 'u1', role: 'design' })
+      selectOrderByMock.mockResolvedValue(positionStepDefRows)
+      selectLimitMock
+        .mockResolvedValueOnce([{ id: 'p1', currentStep: 2, status: 'not_delivered' }])
+        .mockResolvedValueOnce([{ position: 'head_designer' }])
+
+      const { advanceProjectStep } = await import('@/actions/workflow')
+      const ok = await advanceProjectStep(null, { projectId: 'p1', expectedStepN: 2 })
+
+      expect(ok).toBe(true)
+      expect(insertValuesMock).toHaveBeenCalledOnce()
+      expect(setMock).toHaveBeenCalledWith(
+        expect.objectContaining({ currentStep: 3, status: 'not_delivered' }),
+      )
+    })
+  })
 })
 
 describe('confirmDualRoleStepAs', () => {
@@ -359,6 +414,41 @@ describe('confirmDualRoleStepAs', () => {
       expect(res.ok).toBe(true)
       expect(workflowStepStatesInsertMock).toHaveBeenCalledOnce()
       expect(getStepAssigneeGateMock).not.toHaveBeenCalled()
+    })
+  })
+
+  // Quick task 260727-g7a: applied symmetrically on the dual-role write
+  // path. No live dual-role step sets requiredPosition today — this locks
+  // in that a future Configurator change adding one cannot reopen the hole
+  // closed on the single-role path above.
+  describe('requiredPosition gate (quick task 260727-g7a)', () => {
+    it('rejects a wrong-position caller on a dual-role step that also sets requiredPosition', async () => {
+      const positionDualRoleStepDefRows = dualRoleStepDefRows.map((r) =>
+        r.stepKey === 'materials_readiness' ? { ...r, requiredPosition: 'head_designer' } : r,
+      )
+      selectOrderByMock.mockResolvedValue(positionDualRoleStepDefRows)
+      // confirmDualRoleStepAs's .limit() calls happen in this exact order:
+      // (1) the project row, (2) stepPositionMismatch's fresh users.position
+      // fetch (assigneeGatedRoles/getStepAssigneeGate are separately mocked
+      // and never touch selectLimitMock).
+      selectLimitMock
+        .mockResolvedValueOnce([{ id: 'p1', currentStep: 17, status: 'not_delivered' }])
+        .mockResolvedValueOnce([{ position: 'chief_production_officer' }])
+
+      const { confirmDualRoleStepAs } = await import('@/actions/workflow')
+      const res = await confirmDualRoleStepAs({
+        projectId: 'p1',
+        expectedStepN: 17,
+        userId: 's1',
+        role: 'site_pm',
+      })
+
+      expect(res).toEqual({
+        ok: false,
+        advanced: false,
+        message: 'This step is restricted to a specific title, and your account is not set to it.',
+      })
+      expect(workflowStepStatesInsertMock).not.toHaveBeenCalled()
     })
   })
 })

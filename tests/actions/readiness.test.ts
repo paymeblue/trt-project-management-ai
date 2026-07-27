@@ -8,6 +8,7 @@ const {
   getLiveStepsMock,
   assigneeGatedRolesMock,
   getStepAssigneeGateMock,
+  stepPositionMismatchMock,
 } = vi.hoisted(() => {
   const insertValuesMock = vi.fn()
   const dbMock = { insert: () => ({ values: insertValuesMock }) }
@@ -19,6 +20,7 @@ const {
     getLiveStepsMock: vi.fn(),
     assigneeGatedRolesMock: vi.fn(),
     getStepAssigneeGateMock: vi.fn(),
+    stepPositionMismatchMock: vi.fn(),
   }
 })
 
@@ -30,6 +32,11 @@ vi.mock('@/lib/workflow-graph', () => ({
   getLiveWorkflowSteps: getLiveStepsMock,
   assigneeGatedRoles: assigneeGatedRolesMock,
   getStepAssigneeGate: getStepAssigneeGateMock,
+  // Quick task 260727-g7a: this action now calls stepPositionMismatch above
+  // its insert; default it to "no mismatch" so the existing tests (none of
+  // which exercise requiredPosition) are unaffected.
+  stepPositionMismatch: stepPositionMismatchMock,
+  POSITION_MISMATCH_MESSAGE: 'This step is restricted to a specific title, and your account is not set to it.',
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
@@ -48,6 +55,7 @@ beforeEach(() => {
   // combos, none of which are gated).
   assigneeGatedRolesMock.mockReturnValue([])
   getStepAssigneeGateMock.mockResolvedValue(null)
+  stepPositionMismatchMock.mockResolvedValue(false)
 })
 
 describe('submitReadinessAction — requires 2 photos', () => {
