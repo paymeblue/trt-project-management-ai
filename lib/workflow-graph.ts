@@ -13,7 +13,7 @@ import {
   projects,
 } from '@/db/schema'
 import type { GraphStep, StepKind, UserRole, WorkflowRole, WorkflowStep } from '@/lib/workflow'
-import { stepRequiredKinds, canRoleActOnStep } from '@/lib/workflow'
+import { stepRequiredKinds, canRoleActOnStep, STATE_GATED_KINDS } from '@/lib/workflow'
 import { notifyUser } from '@/lib/notifications'
 import { emailStepTurn, emailSuperAdminsProjectClosedOut } from '@/lib/notify-super-admins-email'
 
@@ -276,27 +276,10 @@ export async function getLastStep(graph = 'live'): Promise<GraphStep | undefined
 // records a project_step_completions row and re-derives the actionable set,
 // so state-fulfillment and advancement stay independently testable.
 
-// Kinds that require a fulfilled workflow_step_states row before
-// completeGraphStep will accept a non-skip completion. 'creation' is exempt
-// — it's the project-intake kind, always first, never combined with
-// anything. 'payment_confirmation'/'timeline_setting' are exempt because
-// their own dedicated actions (confirmClientPaidAction, etc.) already
-// hand-check their prerequisite kind's fulfillment before ever calling
-// completeGraphStep, mirroring this same gate at the call site.
-//
-// 'checklist'/'readiness'/'ack' as a step's SOLE kind never reach this check
-// at all — those go through the older, separate advanceProjectStep/
-// confirmDualRoleStep/completeAckStepAction engine (actions/workflow.ts),
-// which never calls completeGraphStep. They're listed here so that when one
-// of them is stacked as an ADDITIONAL kind alongside a state-gated primary
-// kind (e.g. confirmation_correction's yes_no_upload + ack + readiness),
-// completeGraphStep actually refuses to finish the step until each has its
-// own fulfilledKinds entry — recorded by submitAdditionalRequirementAction
-// (ack/readiness) or submitChecklistAction's partial-fulfillment branch
-// (checklist/readiness with a linked checklist slug). Before this, those
-// three were silently unenforced whenever combined this way — see quick
-// task readiness-ack-sync.
-const STATE_GATED_KINDS: StepKind[] = ['yes_no_upload', 'approval', 'assignment', 'ack', 'readiness', 'checklist']
+// STATE_GATED_KINDS moved to lib/workflow.ts (quick task 260727-cp0) so the
+// client-safe /workflow/step/page.tsx display layer can mirror this same
+// gate via outstandingRequiredKinds() without importing server-only code.
+// The gate itself (gatedRequiredKinds.every(...) below) is unchanged.
 
 /**
  * Keeps `projects.currentStep` in sync when a graph step completes. The UI,
@@ -609,7 +592,7 @@ export async function confirmPaymentReceived(opts: {
  * no answer/upload of its own. The caller (submitAdditionalRequirementAction)
  * attempts completeGraphStep right after; it only finishes the step once
  * every required kind (now including 'ack'/'readiness' — see
- * STATE_GATED_KINDS above) is present in fulfilledKinds.
+ * STATE_GATED_KINDS in lib/workflow.ts) is present in fulfilledKinds.
  */
 export async function recordAdditionalRequirement(opts: {
   projectId: string

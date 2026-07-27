@@ -158,6 +158,55 @@ export function stepRequiredKinds(step: Pick<GraphStep, 'kind' | 'additionalKind
   return [step.kind, ...(step.additionalKinds ?? [])]
 }
 
+// Kinds that require a fulfilled workflow_step_states row before
+// completeGraphStep will accept a non-skip completion. 'creation' is exempt
+// — it's the project-intake kind, always first, never combined with
+// anything. 'payment_confirmation'/'timeline_setting' are exempt because
+// their own dedicated actions (confirmClientPaidAction, etc.) already
+// hand-check their prerequisite kind's fulfillment before ever calling
+// completeGraphStep, mirroring this same gate at the call site.
+//
+// 'checklist'/'readiness'/'ack' as a step's SOLE kind never reach this check
+// at all — those go through the older, separate advanceProjectStep/
+// confirmDualRoleStep/completeAckStepAction engine (actions/workflow.ts),
+// which never calls completeGraphStep. They're listed here so that when one
+// of them is stacked as an ADDITIONAL kind alongside a state-gated primary
+// kind (e.g. confirmation_correction's yes_no_upload + ack + readiness),
+// completeGraphStep actually refuses to finish the step until each has its
+// own fulfilledKinds entry — recorded by submitAdditionalRequirementAction
+// (ack/readiness) or submitChecklistAction's partial-fulfillment branch
+// (checklist/readiness with a linked checklist slug). Before this, those
+// three were silently unenforced whenever combined this way — see quick
+// task readiness-ack-sync.
+//
+// Moved here from lib/workflow-graph.ts (quick task 260727-cp0) so the
+// client-safe display layer (/workflow/step/page.tsx) can compute the same
+// outstanding-kinds set as the server's authoritative gate below, without
+// importing server-only code.
+export const STATE_GATED_KINDS: StepKind[] = [
+  'yes_no_upload',
+  'approval',
+  'assignment',
+  'ack',
+  'readiness',
+  'checklist',
+]
+
+// quick task 260727-cp0: DISPLAY mirror of completeGraphStep's gate
+// (lib/workflow-graph.ts) — the server stays authoritative there; this lives
+// here (not duplicated) so the two can never drift. Returns the state-gated
+// required kinds NOT yet present in fulfilledKinds, in stepRequiredKinds
+// order. Used by /workflow/step/page.tsx to disable the page-level Complete
+// step button and name what's still missing, purely for UX — it changes
+// nothing about what the server actually accepts.
+export function outstandingRequiredKinds(
+  step: Pick<GraphStep, 'kind' | 'additionalKinds'>,
+  fulfilledKinds: readonly string[] | null | undefined,
+): StepKind[] {
+  const fulfilled = fulfilledKinds ?? []
+  return stepRequiredKinds(step).filter((k) => STATE_GATED_KINDS.includes(k) && !fulfilled.includes(k))
+}
+
 // quick task readiness-ack-sync: when a step's linked checklist (step.slug)
 // is only ONE of several required kinds (stepRequiredKinds(step).length > 1
 // — e.g. a yes_no_upload step with 'readiness' stacked as an additional
