@@ -125,6 +125,7 @@ export default async function DisputePage({
               amendedByName={row.amendedByName}
               amendedAt={row.amendedAt ? row.amendedAt.toISOString() : null}
               hasSubmission={row.hasSubmission}
+              existingPhotos={row.photos}
             />
           ))}
         </div>

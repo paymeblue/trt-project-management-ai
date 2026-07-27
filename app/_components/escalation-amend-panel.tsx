@@ -9,6 +9,8 @@ import {
 import type { ChecklistAnswer } from '@/actions/checklists'
 import type { EscalateResult } from '@/actions/escalation'
 import { getTabToken } from '@/lib/use-tab-token'
+import { readUploadFile, UploadFileError } from '@/lib/read-upload-file'
+import { MAX_AMEND_PHOTOS } from '@/lib/photo-limits'
 
 const INITIAL: EscalateResult = { ok: false, message: '' }
 
@@ -31,6 +33,7 @@ export default function EscalationAmendPanel({
   amendedByName,
   amendedAt,
   hasSubmission,
+  existingPhotos,
 }: {
   escalationId: string
   checklistLabel: string
@@ -44,17 +47,47 @@ export default function EscalationAmendPanel({
   amendedByName: string | null
   amendedAt: string | null
   hasSubmission: boolean
+  existingPhotos: string[]
 }) {
   const [open, setOpen] = useState(false)
   const [answers, setAnswers] = useState<Record<string, ChecklistAnswer>>(initialAnswers)
+  // Quick task 260727-ibr: newly captured, not-yet-saved photos. Existing
+  // evidence (existingPhotos) is rendered read-only elsewhere and never
+  // enters this state — this action has no delete/replace path either.
+  const [newPhotos, setNewPhotos] = useState<string[]>([])
+  const [photoError, setPhotoError] = useState('')
   const [state, dispatch, pending] = useActionState(
-    async () =>
-      amendEscalatedChecklistAction(getTabToken(), {
+    async () => {
+      const result = await amendEscalatedChecklistAction(getTabToken(), {
         escalationId,
         answers,
-      }),
+        newPhotos,
+      })
+      // Clear locally-staged new photos only once the save actually succeeds
+      // — guards on the action result, not optimistically, so a failed save
+      // keeps the photos staged for retry.
+      if (result.ok) setNewPhotos([])
+      return result
+    },
     INITIAL,
   )
+
+  async function onAddPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    setPhotoError('')
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = '' // allow re-selecting the same file
+    for (const file of files) {
+      if (newPhotos.length >= MAX_AMEND_PHOTOS) break
+      try {
+        const data = await readUploadFile(file)
+        setNewPhotos((prev) => (prev.length >= MAX_AMEND_PHOTOS ? prev : [...prev, data]))
+      } catch (err) {
+        setPhotoError(
+          err instanceof UploadFileError ? err.message : 'Could not read one of the images. Please try another.',
+        )
+      }
+    }
+  }
 
   const groups = useMemo<Group[]>(() => {
     const byTitle = new Map<string, Group>()
@@ -183,6 +216,77 @@ export default function EscalationAmendPanel({
                   </div>
                 ))}
               </fieldset>
+
+              {/* Quick task 260727-ibr: photo evidence — existing photos are
+                  read-only (this panel/action has no delete path, by design:
+                  a supervisor correcting a record must never be able to
+                  destroy the subordinate's evidence); new photos are staged
+                  client-side only until Save. */}
+              <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-semibold text-gray-900">
+                  Photo evidence{existingPhotos.length > 0 && ` — Submitted evidence (${existingPhotos.length})`}
+                </p>
+                {existingPhotos.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {existingPhotos.map((p, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={i}
+                        src={p}
+                        alt={`Submitted evidence ${i + 1}`}
+                        className="h-16 w-16 rounded-md border border-gray-200 object-cover"
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {canAmend && (
+                  <>
+                    {newPhotos.length > 0 && (
+                      <div className="mt-3">
+                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                          New — not yet saved
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {newPhotos.map((p, i) => (
+                            <div key={i} className="relative">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={p}
+                                alt={`New evidence ${i + 1}`}
+                                className="h-16 w-16 rounded-md border border-gray-200 object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setNewPhotos((prev) => prev.filter((_, idx) => idx !== i))}
+                                className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-white"
+                                title="Remove"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">close</span>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {newPhotos.length < MAX_AMEND_PHOTOS && (
+                      <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-primary">
+                        <span className="material-symbols-outlined text-base">add_a_photo</span>
+                        Add photo
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={onAddPhoto}
+                        />
+                      </label>
+                    )}
+                    {photoError && <p className="mt-2 text-xs text-error">{photoError}</p>}
+                  </>
+                )}
+              </div>
 
               {amendedByName && (
                 <p className="mt-3 text-xs font-medium text-gray-500">
