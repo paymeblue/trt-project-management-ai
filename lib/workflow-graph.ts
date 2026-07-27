@@ -204,6 +204,43 @@ export async function getStepAssigneeGate(
   return state?.assignedUserId ?? null
 }
 
+// ── Position gate for the LEGACY engine (quick task 260727-g7a, security fix) ──
+// The graph engine (actions/workflow-graph.ts's authorizeStep) has always
+// enforced `requiredPosition` — an exact-title restriction any super admin
+// can set on ANY step via the Configurator. The LEGACY engine (checklist/
+// readiness/ack sole-kind steps, driven by actions/workflow.ts's
+// advanceProjectStep + confirmDualRoleStepAs) never consulted it: live step
+// 19 approval_installation (requiredPosition='operations_manager_admin') was
+// actionable by any operations/super_admin account regardless of title
+// (browser-confirmed: an operations user holding chief_production_officer
+// was let through). This gate is generic, not step-19-specific, because an
+// admin can set requiredPosition on ANY step via the Configurator — every
+// legacy write path must consult it, not just this one live step.
+export const POSITION_MISMATCH_MESSAGE =
+  'This step is restricted to a specific title, and your account is not set to it.'
+
+/**
+ * True iff `step.requiredPosition` is set AND the caller's fresh (from-DB,
+ * never session/JWT) `users.position` does not match it. Position is read
+ * fresh from the DB — mirroring authorizeStep's stated reason above — because
+ * it can change post-signup via the self-service profile flow, so a stale
+ * JWT/session claim would silently under- or over-authorize. Issues ZERO db
+ * queries when requiredPosition is unset, so unrestricted steps stay
+ * byte-identical to today.
+ */
+export async function stepPositionMismatch(
+  userId: string,
+  step: { requiredPosition?: string | null },
+): Promise<boolean> {
+  if (!step.requiredPosition) return false
+  const [actingUser] = await db
+    .select({ position: users.position })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+  return actingUser?.position !== step.requiredPosition
+}
+
 export async function getGraphEdges(
   graph = 'live',
 ): Promise<{ fromStepId: string; toStepId: string }[]> {

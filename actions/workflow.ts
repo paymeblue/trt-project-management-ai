@@ -6,7 +6,14 @@ import { db } from '@/db'
 import { projects, projectStepCompletions, workflowStepStates } from '@/db/schema'
 import { verifySessionForAction } from '@/lib/dal'
 import { canRoleActOnStep, findStep, lastStepN, type UserRole, type WorkflowRole } from '@/lib/workflow'
-import { getLiveWorkflowSteps, assigneeGatedRoles, getStepAssigneeGate, notifyNextStepOfficers } from '@/lib/workflow-graph'
+import {
+  getLiveWorkflowSteps,
+  assigneeGatedRoles,
+  getStepAssigneeGate,
+  notifyNextStepOfficers,
+  stepPositionMismatch,
+  POSITION_MISMATCH_MESSAGE,
+} from '@/lib/workflow-graph'
 
 function revalidateBoards() {
   revalidatePath('/site-pm/projects')
@@ -39,6 +46,16 @@ export async function advanceProjectStep(tabToken: string | null, opts: {
   const step = findStep(steps, expectedStepN)
   if (!step) return false
   if (!canRoleActOnStep(step.role, role as UserRole)) return false
+
+  // Quick task 260727-g7a (security fix): the legacy engine never consulted
+  // requiredPosition — only the graph engine's authorizeStep did (live step
+  // 19 approval_installation was actionable by any operations/super_admin
+  // account regardless of title). A bare `false` here is intentionally
+  // consistent with every other refusal in this function; stranding a caller
+  // who already filled out the form is prevented by the pre-submit gates in
+  // actions/checklists.ts and actions/readiness.ts (the caller never gets
+  // far enough to reach this line).
+  if (await stepPositionMismatch(userId, step)) return false
 
   // Quick task 260716-h0i: real server-side enforcement — only the site_pm
   // assigned via ops_design_confirmation may act on this project's gated
@@ -128,6 +145,14 @@ export async function confirmDualRoleStepAs(opts: {
   }
   if (!(step.dualRoles as string[]).includes(role)) {
     return { ok: false, advanced: false, message: 'Not your step.' }
+  }
+
+  // Quick task 260727-g7a: applied symmetrically on the dual-role write path.
+  // No live dual-role step sets requiredPosition today, so this is currently
+  // a no-op — but a Configurator change adding one later must not reopen the
+  // hole this quick task closes on the single-role path above.
+  if (await stepPositionMismatch(userId, step)) {
+    return { ok: false, advanced: false, message: POSITION_MISMATCH_MESSAGE }
   }
 
   // Quick task 260716-h0i: real server-side enforcement — the dual-role
