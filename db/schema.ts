@@ -273,6 +273,14 @@ export const checklists = pgTable('checklists', {
   photoData:    text('photo_data').array(), // required-evidence photos (base64 data URLs)
   createdAt:    timestamp('created_at').defaultNow().notNull(),
   updatedAt:    timestamp('updated_at').defaultNow().notNull(),
+  // Quick task 260727-gow: null (default) means "as originally submitted by
+  // the officer". Set when a superior rewrites this submission's recorded
+  // content in place via the escalation panel (amendEscalatedChecklistAction)
+  // — record correction only, D-02: amending NEVER re-runs step completion
+  // and never touches `projects.currentStep`/`projectStepCompletions`/
+  // `workflowStepStates`.
+  amendedBy:    uuid('amended_by').references(() => users.id, { onDelete: 'set null' }),
+  amendedAt:    timestamp('amended_at'),
 })
 
 // ── Checklist Responses ───────────────────────────────────────────────────
@@ -477,6 +485,35 @@ export const projectDisputes = pgTable('project_disputes', {
   authorId:  uuid('author_id').notNull().references(() => users.id),
   body:      text('body').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+// ── Step escalations (quick task 260727-gow — durable escalation identity) ─
+// Escalating a checklist previously persisted ONLY a `notifications` row per
+// recipient — there was no durable step identity for a supervisor to act on,
+// just a sentence to read. This table captures WHAT was escalated (project +
+// step + checklist) so the dispute page can render an inline, actionable
+// edit panel (see actions/escalation.ts's amendEscalatedChecklistAction).
+// `targetPosition` is captured HERE, at escalation-creation time, from the
+// escalator's role — deliberately NOT re-derived later from the escalator's
+// current role, because a role change after escalation must never silently
+// re-route who is authorized to amend the record (see lib/escalation.ts's
+// canAmendEscalation). `stepN`/`checklistSlug` are nullable: readiness-form
+// escalations have no checklist definition (`readinessForms` is a separate
+// table) and some call sites may lack step context — those rows render as a
+// "no inline checklist content" note rather than an editor. `createdBy` is
+// SET NULL (not cascade) — the escalation is historical record and must
+// survive the escalating user's deletion, matching `checklists.createdBy`'s
+// rationale above.
+export const stepEscalations = pgTable('step_escalations', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  projectId:      uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  stepN:          integer('step_n'),
+  checklistSlug:  text('checklist_slug'),
+  checklistLabel: text('checklist_label').notNull(),
+  reason:         text('reason'),
+  targetPosition: text('target_position').notNull(),
+  createdBy:      uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt:      timestamp('created_at').defaultNow().notNull(),
 })
 
 // ── Materials / Accessories Readiness Form (Factory PM) ───────────────────

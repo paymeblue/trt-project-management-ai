@@ -1,4 +1,4 @@
-import { Roles, type UserRole } from '@/lib/workflow'
+import { Roles, isAdminRole, type UserRole } from '@/lib/workflow'
 
 // Fixed escalation routing (items #9, #14): every checklist gets a flag
 // button that escalates to a specific superior position based on the
@@ -29,4 +29,20 @@ export const ESCALATION_TARGET_POSITION: Partial<Record<UserRole, string>> = {
 
 export function escalationTargetPosition(role: UserRole): string | null {
   return ESCALATION_TARGET_POSITION[role] ?? null
+}
+
+// Quick task 260727-gow (D-01): who may amend the checklist content behind
+// an escalation. Pure and trivially unit-testable — no db, no session — so
+// the server action (actions/escalation.ts) and the page's client-side
+// render gate can never drift apart by each re-implementing this logic.
+// `viewerPosition` must ALWAYS be a FRESH db read at the call site, never a
+// session/JWT claim: position is mutable and the session token is not
+// re-minted when it changes, so a stale claim could grant or deny stale
+// access.
+export function canAmendEscalation(
+  role: UserRole,
+  viewerPosition: string | null | undefined,
+  targetPosition: string,
+): boolean {
+  return isAdminRole(role) || (!!viewerPosition && viewerPosition === targetPosition)
 }

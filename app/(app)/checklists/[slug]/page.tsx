@@ -188,6 +188,8 @@ export default async function ChecklistPage({
           projectId={workflowProjectId}
           checklistLabel={def.name}
           viewerRole={role as UserRole}
+          checklistSlug={def.slug}
+          stepN={workflowStepN}
         />
       )}
 

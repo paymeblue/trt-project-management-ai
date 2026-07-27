@@ -105,6 +105,11 @@ export default async function ReadinessPage({
           projectId={workflowProjectId}
           checklistLabel="Materials / Accessories Readiness Form"
           viewerRole={role as UserRole}
+          // Readiness is not a checklist definition (readinessForms is a
+          // separate table with no template-item schema) — checklistSlug is
+          // deliberately left unset so this escalation renders as
+          // informational-only in the amend panel (no editable content).
+          stepN={workflowStepN}
         />
       )}
 

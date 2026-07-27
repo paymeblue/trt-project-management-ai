@@ -18,10 +18,17 @@ export default function EscalateButton({
   projectId,
   checklistLabel,
   viewerRole,
+  checklistSlug = null,
+  stepN = null,
 }: {
   projectId: string
   checklistLabel: string
   viewerRole: UserRole
+  // Quick task 260727-gow: threaded through so escalateChecklistAction can
+  // persist a durable step_escalations row. Optional — readiness-form call
+  // sites pass stepN only (no checklist definition to key off).
+  checklistSlug?: string | null
+  stepN?: number | null
 }) {
   const [state, dispatch, pending] = useActionState(
     async (_prev: EscalateResult, formData: FormData) =>
@@ -29,6 +36,8 @@ export default function EscalateButton({
         projectId,
         checklistLabel,
         reason: String(formData.get('reason') ?? ''),
+        checklistSlug,
+        stepN,
       }),
     INITIAL,
   )
