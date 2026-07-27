@@ -1,17 +1,26 @@
 /**
- * CLI verification harness (v2.0 Phase 21): proves the 6 new Design-team
+ * CLI verification harness (v2.0 Phase 21): proves the 5 new Design-team
  * steps (assign_designer_brief -> brief_taking -> design_initiation ->
- * kickoff_meeting -> design_meeting -> design_stage) work end-to-end against
- * the REAL 'live' graph on a throwaway project — no mocks. Specifically:
+ * kickoff_meeting -> design_stage) work end-to-end against the REAL 'live'
+ * graph on a throwaway project — no mocks. Specifically:
+ *
+ * quick task 260727-dps (2026-07-27): removed the design_meeting step from
+ * this harness — scripts/migrate-remove-design-meeting-merge-checks.ts
+ * (v2.0 Phase 22d, 2026-07-10) removed it from the live graph entirely
+ * (kickoff_meeting now edges directly to design_stage), but this harness
+ * was never updated and threw at startup looking up a step that no longer
+ * exists. The harness now verifies the pipeline as it exists today.
  *
  * - The two assignment steps accept a `design`-OR-`architect` pool assignee
  *   (targetRoles list, not a single role) and reject an out-of-pool user.
  * - assign_designer_brief and design_initiation are genuinely independent —
  *   assigning a different person the second time does not clobber the first.
  * - Each step gates correctly (STATE_GATED_KINDS: can't complete before its
- *   state is fulfilled) and the chain lands on the existing 'confirmation'
- *   step, completely unchanged, once design_stage is done.
- * - Both assignment steps carry requiredPosition='head_designer' in the DB
+ *   state is fulfilled) and the chain lands on the existing
+ *   'ops_design_confirmation' step, completely unchanged, once design_stage
+ *   is done (design_stage's live successor today — see quick task
+ *   260714-qe4's restructure; 'confirmation' itself now sits one step later).
+ * - Both assignment steps carry requiredPosition='head_of_design' in the DB
  *   (the actual position check itself lives in actions/workflow-graph.ts's
  *   authorizeStep, a 'use server' action gating the real request path — this
  *   harness verifies the data it reads is correctly configured).
@@ -122,18 +131,22 @@ async function main() {
     startGroup('Setup: resolve step ids + create throwaway users')
     const assignBrief = await wg.getStepByKey('live', 'assign_designer_brief')
     const kickoff = await wg.getStepByKey('live', 'kickoff_meeting')
-    const designMeeting = await wg.getStepByKey('live', 'design_meeting')
     const briefTaking = await wg.getStepByKey('live', 'brief_taking')
     const designInitiation = await wg.getStepByKey('live', 'design_initiation')
     const designStage = await wg.getStepByKey('live', 'design_stage')
     const confirmation = await wg.getStepByKey('live', 'confirmation')
-    if (!assignBrief || !kickoff || !designMeeting || !briefTaking || !designInitiation || !designStage || !confirmation) {
+    if (!assignBrief || !kickoff || !briefTaking || !designInitiation || !designStage || !confirmation) {
       throw new Error('Missing one or more design-pipeline steps in graph=\'live\' — run the migration first.')
     }
-    recordPass('all 7 steps found (6 new + confirmation)')
+    recordPass('all 6 steps found (5 new + confirmation)')
 
-    if (assignBrief.requiredPosition === 'head_designer' && designInitiation.requiredPosition === 'head_designer') {
-      recordPass('both assignment steps carry requiredPosition="head_designer"')
+    // quick task 260727-dps: the live requiredPosition slug is 'head_of_design'
+    // (renamed from 'head_designer' by quick task 260714-bpq's positions-table
+    // migration, which unified a duplicate head_designer/"Head of design"
+    // pair into head_of_design/"Head of Design") — this harness's assertion
+    // was never updated for that rename.
+    if (assignBrief.requiredPosition === 'head_of_design' && designInitiation.requiredPosition === 'head_of_design') {
+      recordPass('both assignment steps carry requiredPosition="head_of_design"')
     } else {
       recordFail('requiredPosition mismatch on assignment steps', {
         assignBrief: assignBrief.requiredPosition,
@@ -199,13 +212,6 @@ async function main() {
       wg.completeGraphStep({ projectId: project.id, stepDefId: kickoff.id, actorId: architectA }),
     )
 
-    await assertOk('submit design_meeting (yes)', () =>
-      wg.submitYesNoUpload({ projectId: project.id, stepDefId: designMeeting.id, actorId: architectA, answer: 'yes' }),
-    )
-    await assertOk('complete design_meeting', () =>
-      wg.completeGraphStep({ projectId: project.id, stepDefId: designMeeting.id, actorId: architectA }),
-    )
-
     await assertOk('submit design_stage (yes, client approved)', () =>
       wg.submitYesNoUpload({ projectId: project.id, stepDefId: designStage.id, actorId: architectA, answer: 'yes' }),
     )
@@ -213,8 +219,13 @@ async function main() {
       wg.completeGraphStep({ projectId: project.id, stepDefId: designStage.id, actorId: architectA }),
     )
 
+    // quick task 260727-dps: design_stage's immediate live successor today is
+    // 'ops_design_confirmation', not 'confirmation' directly (see quick task
+    // 260714-qe4's restructure, which inserted ops_design_confirmation
+    // between design_stage and confirmation) — this harness's assertion was
+    // never updated for that restructure.
     const actionable = await wg.getActionableSteps(project.id, 'live')
-    assertIncludes('existing "confirmation" step is now actionable, unchanged', actionable, 'confirmation')
+    assertIncludes('existing "ops_design_confirmation" step is now actionable, unchanged', actionable, 'ops_design_confirmation')
     assertExcludes('design_stage no longer actionable (already complete)', actionable, 'design_stage')
     endGroup()
   } catch (err) {
@@ -237,7 +248,7 @@ async function main() {
     for (const f of failures) console.log(`  - ${f}`)
     process.exit(1)
   }
-  console.log('RESULT: PASS — the 6-step Design pipeline works end-to-end and lands on the existing Confirmation step.')
+  console.log('RESULT: PASS — the 5-step Design pipeline works end-to-end and lands on the existing Assign Site PM (ops_design_confirmation) step.')
   process.exit(0)
 }
 
