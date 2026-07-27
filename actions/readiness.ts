@@ -5,7 +5,13 @@ import { db } from '@/db'
 import { readinessForms } from '@/db/schema'
 import { verifySessionForAction } from '@/lib/dal'
 import { advanceOrConfirmDualRole } from '@/actions/workflow'
-import { getLiveWorkflowSteps, assigneeGatedRoles, getStepAssigneeGate } from '@/lib/workflow-graph'
+import {
+  getLiveWorkflowSteps,
+  assigneeGatedRoles,
+  getStepAssigneeGate,
+  stepPositionMismatch,
+  POSITION_MISMATCH_MESSAGE,
+} from '@/lib/workflow-graph'
 import { findStep, canActOnGraphStep, type UserRole, type WorkflowRole } from '@/lib/workflow'
 
 export type ReadinessInput = {
@@ -70,6 +76,14 @@ export async function submitReadinessAction(
     const step = findStep(steps, Number(input.expectedStepN))
     if (!step || !canActOnGraphStep(step, role as UserRole)) {
       return { status: 'error', message: 'You are not authorized to submit this form for this step.' }
+    }
+    // Quick task 260727-g7a: anti-stranding — the authoritative gate lives in
+    // actions/workflow.ts (advanceOrConfirmDualRole's underlying advance),
+    // but this check sits above the `readinessForms` insert below so a
+    // wrong-position caller is rejected before anything is persisted, not
+    // after recording a submission that can never advance the step.
+    if (await stepPositionMismatch(userId, step)) {
+      return { status: 'error', message: POSITION_MISMATCH_MESSAGE }
     }
     // Quick task 260716-h0i: real server-side enforcement — only the site_pm
     // assigned via ops_design_confirmation may act on this project's gated

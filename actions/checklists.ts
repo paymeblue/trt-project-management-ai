@@ -17,6 +17,8 @@ import {
   getStepAssigneeGate,
   completeGraphStep,
   recordAdditionalRequirement,
+  stepPositionMismatch,
+  POSITION_MISMATCH_MESSAGE,
   type LiveWorkflowStep,
 } from '@/lib/workflow-graph'
 import {
@@ -156,6 +158,14 @@ export async function submitChecklistAction(
         status: 'error',
         message: 'You are not authorized to submit this checklist for this step.',
       }
+    }
+    // Quick task 260727-g7a: anti-stranding — the authoritative gate lives in
+    // actions/workflow.ts (advanceOrConfirmDualRole's underlying advance),
+    // but this check sits above the `checklists` insert below so a
+    // wrong-position caller is rejected before anything is persisted, not
+    // after recording a submission that can never advance the step.
+    if (await stepPositionMismatch(userId, step)) {
+      return { status: 'error', message: POSITION_MISMATCH_MESSAGE }
     }
     // Quick task 260716-h0i: real server-side enforcement — only the site_pm
     // assigned via ops_design_confirmation may act on this project's gated

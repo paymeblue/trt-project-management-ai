@@ -16,7 +16,7 @@ import {
   stepRequiredKinds,
   type UserRole,
 } from '@/lib/workflow'
-import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
+import { getLiveWorkflowSteps, stepPositionMismatch, POSITION_MISMATCH_MESSAGE } from '@/lib/workflow-graph'
 
 export const dynamic = 'force-dynamic'
 
@@ -76,6 +76,12 @@ export default async function ChecklistPage({
           : 'This step is not active yet for this project.'
     } else if (!canActOnGraphStep(step, role as UserRole)) {
       workflowNotice = 'It is not your turn to act on this step.'
+    } else if (await stepPositionMismatch(userId, step)) {
+      // Quick task 260727-g7a: anti-stranding — the server gate in
+      // actions/workflow.ts + actions/checklists.ts is authoritative; this
+      // exists so a wrong-position caller is told BEFORE filling the form,
+      // not after submitting a checklist that can never advance the step.
+      workflowNotice = POSITION_MISMATCH_MESSAGE
     } else {
       workflowProjectId = projectId
       workflowStepN = stepN

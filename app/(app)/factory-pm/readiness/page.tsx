@@ -5,7 +5,7 @@ import { verifySession } from '@/lib/dal'
 import ReadinessForm from '@/app/_components/readiness-form'
 import EscalateButton from '@/app/_components/escalate-button'
 import { findStep, canActOnGraphStep, type UserRole } from '@/lib/workflow'
-import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
+import { getLiveWorkflowSteps, stepPositionMismatch, POSITION_MISMATCH_MESSAGE } from '@/lib/workflow-graph'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,6 +38,12 @@ export default async function ReadinessPage({
           : 'This step is not active yet for this project.'
     } else if (!canActOnGraphStep(step, role as UserRole)) {
       workflowNotice = 'It is not your turn to act on this step.'
+    } else if (await stepPositionMismatch(userId, step)) {
+      // Quick task 260727-g7a: anti-stranding — the server gate in
+      // actions/workflow.ts + actions/readiness.ts is authoritative; this
+      // exists so a wrong-position caller is told BEFORE filling the form,
+      // not after submitting a readiness form that can never advance the step.
+      workflowNotice = POSITION_MISMATCH_MESSAGE
     } else {
       workflowProjectId = projectId
       workflowStepN = stepN
