@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   findStep,
   stepHref,
-  workflowRoleLabel,
+  dualRoleStatus,
   canActOnGraphStep,
   lastStepN,
   type UserRole,
@@ -28,13 +28,22 @@ function matchesPosition(step: LiveWorkflowStep, viewerPosition: string | null):
 }
 
 function waitingOn(step: LiveWorkflowStep): string {
+  // Position precedence stays FIRST and unchanged — no live dual-role step
+  // sets requiredPosition today, but if one ever does, the named title still
+  // wins over the role-pair fallback below.
   if (step.requiredPosition) {
     return `Waiting on ${step.requiredPosition
       .split('_')
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ')}`
   }
-  return `Waiting on ${workflowRoleLabel(step.role)}`
+  // quick task 260727-pd3 (BUG-5): a dual-role step must name BOTH roles
+  // ("Factory PM & Site PM"), not just step.role's primary — dualRoleStatus
+  // falls back to today's single-role string unchanged for every non-dual
+  // step. "(either can act first)" clarifies neither role is blocked
+  // waiting on the other to go first.
+  const status = dualRoleStatus(step)
+  return `Waiting on ${status.rolesLabel}${status.isDual ? ' (either can act first)' : ''}`
 }
 
 // Dismissable navbar indicator: shows the "current" in-progress project + the

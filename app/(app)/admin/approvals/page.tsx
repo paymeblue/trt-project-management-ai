@@ -2,7 +2,7 @@ import { desc, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { stepBypassRequests, projects, users } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
-import { findStep, lastStepN, workflowRoleLabel, Roles } from '@/lib/workflow'
+import { findStep, lastStepN, dualRoleStatus, Roles } from '@/lib/workflow'
 import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
 import ApprovalActions from '@/app/_components/approval-actions'
 
@@ -69,7 +69,10 @@ export default async function ApprovalsPage() {
                   <p className="font-semibold text-gray-900">{r.projectName ?? 'Unknown project'}</p>
                   <p className="text-xs text-gray-500">
                     Step {r.stepN}/{lastStep}: {step?.label ?? '—'}
-                    {step ? ` · ${workflowRoleLabel(step.role)}` : ''}
+                    {/* quick task 260727-pd3 (BUG-5): dualRoleStatus falls
+                        back to today's single-role label unchanged for every
+                        non-dual step. */}
+                    {step ? ` · ${dualRoleStatus(step).rolesLabel}` : ''}
                   </p>
                   <p className="mt-1 text-sm text-gray-700">
                     {r.reason || <span className="text-gray-400">No reason given</span>}

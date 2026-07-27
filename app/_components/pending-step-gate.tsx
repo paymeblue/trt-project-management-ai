@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { findStep, stepHref, workflowRoleLabel, type UserRole } from '@/lib/workflow'
+import { findStep, stepHref, userRoleLabel, type UserRole } from '@/lib/workflow'
 import { completeAckStepAction, type AckStepState } from '@/actions/workflow'
 import { useMyWork } from '@/app/_components/my-work-provider'
 import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
@@ -127,7 +127,11 @@ export default function PendingStepGate({ viewerRole }: { viewerRole: UserRole }
             Step {step.n}: {step.label}
           </p>
           <p className="mt-1 text-xs text-gray-500">
-            Your role: {workflowRoleLabel(step.role)} · Deadline: <DeadlineCountdown deadline={item.deadline} />
+            {/* quick task 260727-pd3 (BUG-1): step.role is the step's PRIMARY
+                role, so on a dual-role step (e.g. materials_readiness) a
+                site_pm viewer was told "Your role: Factory PM". Show the
+                VIEWER's own role instead — always correct, dual-role or not. */}
+            Your role: {userRoleLabel(viewerRole)} · Deadline: <DeadlineCountdown deadline={item.deadline} />
           </p>
           {exactDeadline && (
             <p className="mt-1 text-xs text-gray-500">Due on: {exactDeadline}</p>

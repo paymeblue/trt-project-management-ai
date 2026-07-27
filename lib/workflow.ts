@@ -375,10 +375,11 @@ export function dualRoleStatus(
   confirmedRoles?: readonly string[] | null,
 ): DualRoleStatus {
   if (!step.dualRoles?.length) {
+    const primaryRole = step.role
     return {
       isDual: false,
-      roles: [step.role],
-      rolesLabel: workflowRoleLabel(step.role),
+      roles: [primaryRole],
+      rolesLabel: workflowRoleLabel(primaryRole),
       confirmedCount: 0,
       total: 1,
       outstanding: [],

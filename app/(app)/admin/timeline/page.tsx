@@ -8,7 +8,7 @@ import {
   projectComplete,
   canActOnGraphStep,
   stepHref,
-  workflowRoleLabel,
+  dualRoleStatus,
   type UserRole,
 } from '@/lib/workflow'
 import { getLiveWorkflowSteps } from '@/lib/workflow-graph'
@@ -77,7 +77,10 @@ export default async function AdminTimelinePage() {
       step.role === 'operations' &&
       canActOnGraphStep(step, role as UserRole)
     const actHref = canAct && step ? stepHref(step, p.id, role as UserRole) : null
-    const waitingLabel = !complete && step && !actHref ? `Waiting on ${workflowRoleLabel(step.role)}` : null
+    // quick task 260727-pd3 (BUG-5): dualRoleStatus falls back to today's
+    // single-role label unchanged for every non-dual step.
+    const waitingLabel =
+      !complete && step && !actHref ? `Waiting on ${dualRoleStatus(step).rolesLabel}` : null
 
     const history = byProject.get(p.id) ?? []
 

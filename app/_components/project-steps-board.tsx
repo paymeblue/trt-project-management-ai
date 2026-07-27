@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   Roles,
   canActOnGraphStep,
-  workflowRoleLabel,
+  dualRoleStatus,
   stepHref,
   findStep,
   lastStepN,
@@ -350,13 +350,17 @@ function StepsModal({
             const mine = !paused && canActOnGraphStep(step, viewerRole)
             const href = current && mine ? stepHref(step, project.id, viewerRole) : null
 
+            // quick task 260727-pd3 (BUG-5): dualRoleStatus falls back to
+            // today's single-role label unchanged for every non-dual step —
+            // a dual-role step now names both roles here too.
+            const stepRolesLabel = dualRoleStatus(step).rolesLabel
             const tip = done
               ? 'Completed — this step is locked.'
               : current
                 ? mine
                   ? 'This is your current step. Complete it to advance the project.'
-                  : `Waiting on ${workflowRoleLabel(step.role)} to complete this step.`
-                : `Locked — earlier steps must be completed first (needs ${workflowRoleLabel(step.role)}).`
+                  : `Waiting on ${stepRolesLabel} to complete this step.`
+                : `Locked — earlier steps must be completed first (needs ${stepRolesLabel}).`
 
             return (
               <li
@@ -386,7 +390,7 @@ function StepsModal({
                     >
                       {step.n}. {step.label}
                     </p>
-                    <p className="text-xs text-gray-400">{workflowRoleLabel(step.role)}</p>
+                    <p className="text-xs text-gray-400">{stepRolesLabel}</p>
                     {/* Each step's own deadline, ticking, until it's completed. */}
                     {!done && !paused && project.stepDeadlines?.[String(step.n)] && (
                       <div className="mt-1">
@@ -401,7 +405,7 @@ function StepsModal({
                   <div className="mt-1 pl-9">
                     {!mine ? (
                       <p className="text-xs font-medium text-amber-700">
-                        Waiting on {workflowRoleLabel(step.role)}…
+                        Waiting on {stepRolesLabel}…
                       </p>
                     ) : step.kind === 'ack' ? (
                       <AckComplete projectId={project.id} stepN={step.n} />

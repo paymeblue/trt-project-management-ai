@@ -6,7 +6,7 @@
 // fixed hues legible on both themes.
 
 import { getLiveWorkflowSteps } from '@/lib/workflow-graph';
-import { workflowRoleLabel, type WorkflowRole } from '@/lib/workflow';
+import { workflowRoleLabel, dualRoleStatus, type WorkflowRole } from '@/lib/workflow';
 
 const ROLE_COLOR: Record<WorkflowRole, string> = {
   operations: '#6366f1', // indigo
@@ -145,7 +145,12 @@ export default async function TrtFlowDiagram() {
                     className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
                     style={{ backgroundColor: `${color}22`, color }}
                   >
-                    {workflowRoleLabel(step.role)}
+                    {/* quick task 260727-pd3 (BUG-5): a dual-role step (e.g.
+                        materials_readiness) must name BOTH roles here, not
+                        just the step's primary role — dualRoleStatus falls
+                        back to today's single-role label unchanged for every
+                        non-dual step. */}
+                    {dualRoleStatus(step).rolesLabel}
                   </span>
                 </div>
                 <p className="mt-0.5 text-xs leading-relaxed text-on-surface-variant">

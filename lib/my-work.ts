@@ -16,6 +16,7 @@ import {
   getStepAssigneeGate,
   assigneeGatedRoles,
   getApprovalState,
+  getDualRoleConfirmations,
 } from '@/lib/workflow-graph'
 
 // Computes the in-progress projects (for the header switcher) and the subset
@@ -85,6 +86,17 @@ export async function getMyWork(role: UserRole, userId: string): Promise<MyWork>
     string,
     { status: string; sentBy: string | null; sentByName: string | null } | null
   >()
+  // quick task 260727-pd3 (BUG-2): confirmed roles for a dual-role step,
+  // keyed by projectId — bounded prefetch, same shape as approvalStateByProjectId
+  // above (only a project whose CURRENT step actually has dualRoles pays a
+  // round trip). Used below to drop an already-confirmed viewer from
+  // `pending` — this is a visibility/nagging fix only. confirmDualRoleStepAs
+  // re-checks everything server-side and its `role = ANY(confirmed_roles)`
+  // CASE already makes a second confirmation a no-op, so hiding it here
+  // removes a false prompt rather than a capability. `activeProjects` is
+  // deliberately NOT filtered by this map — the project stays visible in the
+  // switcher; only the "Act"/forced-gate signal goes away.
+  const dualRoleConfirmedByProjectId = new Map<string, WorkflowRole[]>()
   for (const p of active) {
     const step = findStep(steps, p.currentStep)
     // Quick task 260716-h0i: also require assigneeGatedRoles(step.key) to
@@ -98,6 +110,9 @@ export async function getMyWork(role: UserRole, userId: string): Promise<MyWork>
     gateByProjectId.set(p.id, gate)
     if (step && step.kind === 'approval') {
       approvalStateByProjectId.set(p.id, await getApprovalState(p.id, step.stepDefId))
+    }
+    if (step?.dualRoles?.length) {
+      dualRoleConfirmedByProjectId.set(p.id, await getDualRoleConfirmations(p.id, step.stepDefId))
     }
   }
 
@@ -142,6 +157,13 @@ export async function getMyWork(role: UserRole, userId: string): Promise<MyWork>
             return false
           }
         }
+      }
+      // quick task 260727-pd3 (BUG-2): a viewer whose OWN role already
+      // confirmed a dual-role step (e.g. site_pm on materials_readiness)
+      // stops being nagged for it — visibility only, see the why-comment on
+      // dualRoleConfirmedByProjectId above.
+      if (step.dualRoles?.length && dualRoleConfirmedByProjectId.get(p.id)?.includes(role as WorkflowRole)) {
+        return false
       }
       return true
     })
