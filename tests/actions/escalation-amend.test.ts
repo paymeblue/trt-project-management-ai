@@ -97,6 +97,13 @@ const EXISTING_CHECKLIST = {
   amendedAt: null,
 }
 
+// Quick task 260727-ibr: variant carrying existing evidence photos, for the
+// append-only photo-persistence test block below.
+const EXISTING_CHECKLIST_WITH_PHOTOS = {
+  ...EXISTING_CHECKLIST,
+  photoData: ['data:image/jpeg;base64,OLD'],
+}
+
 const EXISTING_RESPONSES = [
   { id: 'resp-1', checklistId: 'checklist-1', templateItemId: 'item-1', value: 'yes', textValue: null, notes: null, createdAt: new Date(), updatedAt: new Date() },
 ]
@@ -284,6 +291,187 @@ describe('amendEscalatedChecklistAction — upsert paths', () => {
 
     expect(res.ok).toBe(false)
     expect(res.message).toMatch(/no editable checklist content/i)
+    expect(insertMock).not.toHaveBeenCalled()
+    expect(updateMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('amendEscalatedChecklistAction — append-only photo persistence (260727-ibr)', () => {
+  it('amend path with existing photos + newPhotos: appends, existing entries stay first, length + 1', async () => {
+    selectMock
+      .mockReturnValueOnce(rowsQuery([ESCALATION]))
+      .mockReturnValueOnce(rowsQuery([{ position: 'head_of_projects' }]))
+      .mockReturnValueOnce(rowsQuery([DEFINITION]))
+      .mockReturnValueOnce(rowsQuery(ITEMS))
+      .mockReturnValueOnce(rowsQuery([EXISTING_CHECKLIST_WITH_PHOTOS]))
+      .mockReturnValueOnce(rowsQuery(EXISTING_RESPONSES))
+
+    const res = await amendEscalatedChecklistAction(null, {
+      escalationId: 'esc-1',
+      answers: {},
+      newPhotos: ['data:image/jpeg;base64,NEW'],
+    })
+
+    expect(res.ok).toBe(true)
+    expect(updateSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        photoData: ['data:image/jpeg;base64,OLD', 'data:image/jpeg;base64,NEW'],
+      }),
+    )
+    const call = updateSetMock.mock.calls.find((c) => 'photoData' in (c[0] as object))
+    expect((call?.[0] as { photoData: string[] }).photoData).toHaveLength(2)
+    expect((call?.[0] as { photoData: string[] }).photoData[0]).toBe('data:image/jpeg;base64,OLD')
+  })
+
+  it('amend path with newPhotos omitted: update payload has no photoData key at all', async () => {
+    selectMock
+      .mockReturnValueOnce(rowsQuery([ESCALATION]))
+      .mockReturnValueOnce(rowsQuery([{ position: 'head_of_projects' }]))
+      .mockReturnValueOnce(rowsQuery([DEFINITION]))
+      .mockReturnValueOnce(rowsQuery(ITEMS))
+      .mockReturnValueOnce(rowsQuery([EXISTING_CHECKLIST_WITH_PHOTOS]))
+      .mockReturnValueOnce(rowsQuery(EXISTING_RESPONSES))
+
+    const res = await amendEscalatedChecklistAction(null, {
+      escalationId: 'esc-1',
+      answers: {},
+    })
+
+    expect(res.ok).toBe(true)
+    const checklistUpdateCall = updateSetMock.mock.calls.find((c) =>
+      Object.prototype.hasOwnProperty.call(c[0] as object, 'amendedBy'),
+    )
+    expect(checklistUpdateCall?.[0]).not.toHaveProperty('photoData')
+  })
+
+  it('amend path with newPhotos: [] (explicit empty array) also omits the photoData key', async () => {
+    selectMock
+      .mockReturnValueOnce(rowsQuery([ESCALATION]))
+      .mockReturnValueOnce(rowsQuery([{ position: 'head_of_projects' }]))
+      .mockReturnValueOnce(rowsQuery([DEFINITION]))
+      .mockReturnValueOnce(rowsQuery(ITEMS))
+      .mockReturnValueOnce(rowsQuery([EXISTING_CHECKLIST_WITH_PHOTOS]))
+      .mockReturnValueOnce(rowsQuery(EXISTING_RESPONSES))
+
+    const res = await amendEscalatedChecklistAction(null, {
+      escalationId: 'esc-1',
+      answers: {},
+      newPhotos: [],
+    })
+
+    expect(res.ok).toBe(true)
+    const checklistUpdateCall = updateSetMock.mock.calls.find((c) =>
+      Object.prototype.hasOwnProperty.call(c[0] as object, 'amendedBy'),
+    )
+    expect(checklistUpdateCall?.[0]).not.toHaveProperty('photoData')
+  })
+
+  it('amend path where existing.photoData is null and one new photo is supplied: becomes a one-element array', async () => {
+    selectMock
+      .mockReturnValueOnce(rowsQuery([ESCALATION]))
+      .mockReturnValueOnce(rowsQuery([{ position: 'head_of_projects' }]))
+      .mockReturnValueOnce(rowsQuery([DEFINITION]))
+      .mockReturnValueOnce(rowsQuery(ITEMS))
+      .mockReturnValueOnce(rowsQuery([EXISTING_CHECKLIST])) // photoData: null
+      .mockReturnValueOnce(rowsQuery(EXISTING_RESPONSES))
+
+    const res = await amendEscalatedChecklistAction(null, {
+      escalationId: 'esc-1',
+      answers: {},
+      newPhotos: ['data:image/jpeg;base64,FIRST'],
+    })
+
+    expect(res.ok).toBe(true)
+    expect(updateSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ photoData: ['data:image/jpeg;base64,FIRST'] }),
+    )
+  })
+
+  it('create-from-blank path with new photos: inserted checklists row carries photoData = the new photos', async () => {
+    selectMock
+      .mockReturnValueOnce(rowsQuery([ESCALATION]))
+      .mockReturnValueOnce(rowsQuery([{ position: 'head_of_projects' }]))
+      .mockReturnValueOnce(rowsQuery([DEFINITION]))
+      .mockReturnValueOnce(rowsQuery(ITEMS))
+      .mockReturnValueOnce(rowsQuery([])) // no prior submission
+    insertMock.mockReturnValueOnce({
+      values: (fields: unknown) => {
+        insertValuesMock(fields)
+        return insertResultWithReturning([{ id: 'new-checklist-photo-1' }])
+      },
+    })
+
+    const res = await amendEscalatedChecklistAction(null, {
+      escalationId: 'esc-1',
+      answers: {},
+      newPhotos: ['data:image/jpeg;base64,BLANK1'],
+    })
+
+    expect(res.ok).toBe(true)
+    expect(insertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ photoData: ['data:image/jpeg;base64,BLANK1'] }),
+    )
+  })
+
+  it('create-from-blank path with no new photos: photoData stays null', async () => {
+    selectMock
+      .mockReturnValueOnce(rowsQuery([ESCALATION]))
+      .mockReturnValueOnce(rowsQuery([{ position: 'head_of_projects' }]))
+      .mockReturnValueOnce(rowsQuery([DEFINITION]))
+      .mockReturnValueOnce(rowsQuery(ITEMS))
+      .mockReturnValueOnce(rowsQuery([]))
+    insertMock.mockReturnValueOnce({
+      values: (fields: unknown) => {
+        insertValuesMock(fields)
+        return insertResultWithReturning([{ id: 'new-checklist-photo-2' }])
+      },
+    })
+
+    const res = await amendEscalatedChecklistAction(null, {
+      escalationId: 'esc-1',
+      answers: {},
+    })
+
+    expect(res.ok).toBe(true)
+    expect(insertValuesMock).toHaveBeenCalledWith(expect.objectContaining({ photoData: null }))
+  })
+
+  it('rejects a new photo exceeding MAX_PHOTO_DATA with zero writes', async () => {
+    selectMock
+      .mockReturnValueOnce(rowsQuery([ESCALATION]))
+      .mockReturnValueOnce(rowsQuery([{ position: 'head_of_projects' }]))
+      .mockReturnValueOnce(rowsQuery([DEFINITION]))
+      .mockReturnValueOnce(rowsQuery(ITEMS))
+
+    const oversized = `data:image/jpeg;base64,${'A'.repeat(1_500_001)}`
+    const res = await amendEscalatedChecklistAction(null, {
+      escalationId: 'esc-1',
+      answers: {},
+      newPhotos: [oversized],
+    })
+
+    expect(res.ok).toBe(false)
+    expect(res.message).toMatch(/too large/i)
+    expect(insertMock).not.toHaveBeenCalled()
+    expect(updateMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects more than MAX_AMEND_PHOTOS (6) new photos in one save with zero writes', async () => {
+    selectMock
+      .mockReturnValueOnce(rowsQuery([ESCALATION]))
+      .mockReturnValueOnce(rowsQuery([{ position: 'head_of_projects' }]))
+      .mockReturnValueOnce(rowsQuery([DEFINITION]))
+      .mockReturnValueOnce(rowsQuery(ITEMS))
+
+    const sevenPhotos = Array.from({ length: 7 }, (_, i) => `data:image/jpeg;base64,P${i}`)
+    const res = await amendEscalatedChecklistAction(null, {
+      escalationId: 'esc-1',
+      answers: {},
+      newPhotos: sevenPhotos,
+    })
+
+    expect(res.ok).toBe(false)
+    expect(res.message).toMatch(/up to 6/i)
     expect(insertMock).not.toHaveBeenCalled()
     expect(updateMock).not.toHaveBeenCalled()
   })

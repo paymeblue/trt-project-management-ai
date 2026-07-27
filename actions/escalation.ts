@@ -13,6 +13,7 @@ import {
   checklistResponses,
 } from '@/db/schema'
 import { verifySessionForAction } from '@/lib/dal'
+import { MAX_PHOTO_DATA, MAX_AMEND_PHOTOS } from '@/lib/photo-limits'
 import { escalationTargetPosition, canAmendEscalation } from '@/lib/escalation'
 import { userRoleLabel, type UserRole } from '@/lib/workflow'
 import { notifyUser } from '@/lib/notifications'
@@ -131,6 +132,10 @@ export type EscalationPanelRow = {
   initialAnswers: Record<string, ChecklistAnswer>
   amendedByName: string | null
   amendedAt: Date | null
+  // Quick task 260727-ibr: existing evidence photos on the submission behind
+  // this escalation, rendered read-only in the panel. Empty when there is no
+  // submission yet.
+  photos: string[]
 }
 
 /**
@@ -171,6 +176,7 @@ export async function loadEscalationPanelData(
     const initialAnswers: Record<string, ChecklistAnswer> = {}
     let amendedByName: string | null = null
     let amendedAt: Date | null = null
+    let photos: string[] = []
 
     if (row.checklistSlug) {
       const [def] = await db
@@ -212,6 +218,7 @@ export async function loadEscalationPanelData(
 
         if (submission) {
           hasSubmission = true
+          photos = submission.photoData ?? []
           const responses = await db
             .select()
             .from(checklistResponses)
@@ -252,6 +259,7 @@ export async function loadEscalationPanelData(
       initialAnswers,
       amendedByName,
       amendedAt,
+      photos,
     })
   }
 
@@ -261,6 +269,12 @@ export async function loadEscalationPanelData(
 export type AmendEscalatedChecklistInput = {
   escalationId: string
   answers: Record<string, ChecklistAnswer>
+  // Quick task 260727-ibr: ADDITIVE ONLY. There is deliberately no "remove
+  // photo" or "replace photos" input — a supervisor amending a subordinate's
+  // record must never be able to destroy the subordinate's photographic
+  // evidence. Deletion, if ever needed, is an admin/DB-level action with its
+  // own audit, not something this action exposes.
+  newPhotos?: string[] | null
 }
 
 export async function amendEscalatedChecklistAction(
@@ -318,6 +332,21 @@ export async function amendEscalatedChecklistAction(
 
   const answers = input?.answers ?? {}
 
+  // Quick task 260727-ibr (T-ibr-01): sanitize BEFORE any write, and return
+  // early on violation so the zero-writes invariant holds. `newPhotos` is
+  // fully attacker-controlled — this is a public Server Action HTTP endpoint,
+  // and the client's readUploadFile downscale is a UX affordance, not a
+  // control.
+  const newPhotos = (Array.isArray(input?.newPhotos) ? input.newPhotos : []).filter(
+    (p): p is string => typeof p === 'string' && p.length > 0,
+  )
+  if (newPhotos.length > MAX_AMEND_PHOTOS) {
+    return { ok: false, message: 'You can attach up to 6 photos at a time.' }
+  }
+  if (newPhotos.some((p) => p.length > MAX_PHOTO_DATA)) {
+    return { ok: false, message: 'One of the photos is too large. Please retake it.' }
+  }
+
   const [existing] = await db
     .select()
     .from(checklists)
@@ -330,9 +359,11 @@ export async function amendEscalatedChecklistAction(
       // Amend path: rewrite the existing submission's responses in place.
       // This action MUST NOT touch the project's current-step counter or
       // any step-completion/state-tracking tables, MUST NOT call a
-      // step-completion or additional-requirement-recording function, and
-      // MUST NOT modify `checklists.photoData` (D-02) — this is record
-      // correction, not workflow progression.
+      // step-completion or additional-requirement-recording function.
+      // `checklists.photoData` is APPEND-ONLY as of quick task 260727-ibr —
+      // existing entries are never filtered, reordered, or overwritten
+      // (evidence integrity, T-ibr-02); the rest of D-02 is unchanged: this
+      // is still record correction, not workflow progression.
       const existingResponses = await db
         .select()
         .from(checklistResponses)
@@ -362,9 +393,19 @@ export async function amendEscalatedChecklistAction(
         }
       }
 
+      // APPEND-ONLY: only touch photoData when there's something to append —
+      // never null/[] churn on a row that already holds evidence, and never
+      // filter/reorder what's already there.
       await db
         .update(checklists)
-        .set({ amendedBy: userId, amendedAt: new Date(), updatedAt: new Date() })
+        .set({
+          amendedBy: userId,
+          amendedAt: new Date(),
+          updatedAt: new Date(),
+          ...(newPhotos.length > 0
+            ? { photoData: [...(existing.photoData ?? []), ...newPhotos] }
+            : {}),
+        })
         .where(eq(checklists.id, existing.id))
     } else {
       // Create-from-blank path: the officer left it blank, so the superior's
@@ -380,6 +421,7 @@ export async function amendEscalatedChecklistAction(
           submittedAt: new Date(),
           amendedBy: userId,
           amendedAt: new Date(),
+          photoData: newPhotos.length > 0 ? newPhotos : null,
         })
         .returning({ id: checklists.id })
 

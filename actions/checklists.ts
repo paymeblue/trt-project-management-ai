@@ -10,6 +10,7 @@ import {
   checklistResponses,
 } from '@/db/schema'
 import { verifySessionForAction } from '@/lib/dal'
+import { MAX_PHOTO_DATA } from '@/lib/photo-limits'
 import { advanceOrConfirmDualRole } from '@/actions/workflow'
 import {
   getLiveWorkflowSteps,
@@ -42,8 +43,6 @@ export type ChecklistAnswer = {
   textValue?: string | null
   notes?: string | null
 }
-
-const MAX_PHOTO_DATA = 1_500_000 // ~1.5MB per downscaled data URL
 
 export type SubmitChecklistInput = {
   definitionId: string
