@@ -14,9 +14,15 @@ import {
   findStep,
   canActOnGraphStep,
   stepRequiredKinds,
+  dualRoleStatus,
   type UserRole,
 } from '@/lib/workflow'
-import { getLiveWorkflowSteps, stepPositionMismatch, POSITION_MISMATCH_MESSAGE } from '@/lib/workflow-graph'
+import {
+  getLiveWorkflowSteps,
+  getDualRoleConfirmations,
+  stepPositionMismatch,
+  POSITION_MISMATCH_MESSAGE,
+} from '@/lib/workflow-graph'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,6 +66,12 @@ export default async function ChecklistPage({
   // advance the project on its own (see actions/checklists.ts's
   // partial-fulfillment branch). Affects only the banner copy below.
   let workflowStepMulti = false
+  // quick task 260727-pd3 (BUG-3/BUG-4): pre-submit progress copy for a
+  // dual-role step (e.g. materials_readiness) — set only when the step is
+  // dual-role, so the banner below can tell the truth ("submitting here
+  // records only your half") instead of promising unconditional advancement.
+  let workflowDualText: string | null = null
+  let workflowDualRolesLabel = ''
 
   if (projectId && stepN) {
     const [proj] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
@@ -86,6 +98,12 @@ export default async function ChecklistPage({
       workflowProjectId = projectId
       workflowStepN = stepN
       workflowStepMulti = stepRequiredKinds(step).length > 1
+      if (step.dualRoles?.length) {
+        const confirmed = await getDualRoleConfirmations(projectId, step.stepDefId)
+        const status = dualRoleStatus(step, confirmed)
+        workflowDualText = status.progressText
+        workflowDualRolesLabel = status.rolesLabel
+      }
     }
   } else if (projectId) {
     // Optional, non-blocking checklist tied to a project (e.g. Change Request):
@@ -146,12 +164,26 @@ export default async function ChecklistPage({
         </div>
       )}
 
-      {workflowProjectId && workflowStepN && (
-        <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm text-primary">
-          {workflowStepMulti
-            ? 'Completing this checklist fulfills one requirement of this step — check the step page for anything else still needed.'
-            : 'Completing this checklist will advance the project to its next step.'}
+      {/* quick task 260727-pd3 (BUG-3/BUG-4): dual-role FIRST — a dual-role
+          step (e.g. materials_readiness) is stepRequiredKinds.length === 1,
+          so the OLD two-way branch fell through to the unconditional "will
+          advance" promise below, which is false: submitting here records
+          only the caller's half. Amber/caveat treatment (workflowNotice's
+          palette) so it reads as a caveat, not a confirmation. */}
+      {workflowProjectId && workflowStepN && workflowDualText ? (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          This step needs BOTH {workflowDualRolesLabel} to confirm independently — submitting here records only
+          your half. {workflowDualText}
         </div>
+      ) : (
+        workflowProjectId &&
+        workflowStepN && (
+          <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm text-primary">
+            {workflowStepMulti
+              ? 'Completing this checklist fulfills one requirement of this step — check the step page for anything else still needed.'
+              : 'Completing this checklist will advance the project to its next step.'}
+          </div>
+        )
       )}
 
       {workflowProjectId && !workflowStepN && (

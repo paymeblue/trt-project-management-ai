@@ -111,9 +111,15 @@ export default function ChecklistWizard({
         <span className="material-symbols-outlined text-4xl text-green-600">check_circle</span>
         <p className="mt-2 text-base font-semibold text-gray-900">Checklist submitted</p>
         <p className="mt-1 text-sm text-gray-500">
-          {state.advanced
-            ? 'This step is complete — the project moves to the next step. Returning to your projects…'
-            : 'Your responses were recorded. See “Your submissions” below.'}
+          {/* quick task 260727-pd3 (BUG-4): a dual-role step's server string
+              (recordedText, e.g. "Recorded — 1 of 2 confirmations. Waiting
+              on Factory PM.") is rendered as-is — never reformatted here —
+              so it can never disagree with the pre-submit banner. */}
+          {state.dualRole
+            ? state.dualRole.text
+            : state.advanced
+              ? 'This step is complete — the project moves to the next step. Returning to your projects…'
+              : 'Your responses were recorded. See “Your submissions” below.'}
         </p>
         {state.advanced && returnTo && (
           <a href={returnTo} className="mt-3 inline-block text-sm font-semibold text-primary hover:underline">

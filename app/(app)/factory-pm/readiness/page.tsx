@@ -4,8 +4,13 @@ import { readinessForms, projects } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import ReadinessForm from '@/app/_components/readiness-form'
 import EscalateButton from '@/app/_components/escalate-button'
-import { findStep, canActOnGraphStep, type UserRole } from '@/lib/workflow'
-import { getLiveWorkflowSteps, stepPositionMismatch, POSITION_MISMATCH_MESSAGE } from '@/lib/workflow-graph'
+import { findStep, canActOnGraphStep, dualRoleStatus, type UserRole } from '@/lib/workflow'
+import {
+  getLiveWorkflowSteps,
+  getDualRoleConfirmations,
+  stepPositionMismatch,
+  POSITION_MISMATCH_MESSAGE,
+} from '@/lib/workflow-graph'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +29,12 @@ export default async function ReadinessPage({
   let workflowStepN: number | null = null
   let workflowNotice: string | null = null
   let workflowProjectName = ''
+  // quick task 260727-pd3 (BUG-3/BUG-4): pre-submit progress copy for a
+  // dual-role step (materials_readiness) — set only when the step is
+  // dual-role, so the banner below tells the truth instead of promising
+  // unconditional advancement.
+  let workflowDualText: string | null = null
+  let workflowDualRolesLabel = ''
 
   if (projectId && stepN) {
     const [proj] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
@@ -48,6 +59,12 @@ export default async function ReadinessPage({
       workflowProjectId = projectId
       workflowStepN = stepN
       workflowProjectName = proj.name
+      if (step.dualRoles?.length) {
+        const confirmed = await getDualRoleConfirmations(projectId, step.stepDefId)
+        const status = dualRoleStatus(step, confirmed)
+        workflowDualText = status.progressText
+        workflowDualRolesLabel = status.rolesLabel
+      }
     }
   }
 
@@ -87,10 +104,21 @@ export default async function ReadinessPage({
         </div>
       )}
 
-      {workflowProjectId && (
-        <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm text-primary">
-          Submitting this form will advance the project to its next step.
+      {/* quick task 260727-pd3 (BUG-3/BUG-4): dual-role caveat instead of the
+          unconditional "will advance" promise — materials_readiness needs
+          BOTH factory_pm and site_pm to confirm independently. Non-dual
+          readiness steps keep today's copy verbatim. */}
+      {workflowProjectId && workflowDualText ? (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          This step needs BOTH {workflowDualRolesLabel} to confirm independently — submitting here records only
+          your half. {workflowDualText}
         </div>
+      ) : (
+        workflowProjectId && (
+          <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm text-primary">
+            Submitting this form will advance the project to its next step.
+          </div>
+        )
       )}
 
       <ReadinessForm
