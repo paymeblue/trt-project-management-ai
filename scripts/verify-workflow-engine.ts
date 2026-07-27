@@ -12,6 +12,21 @@
  *   until BOTH test_branch_a and test_branch_b are complete, regardless of
  *   completion order.
  *
+ * quick task 260727-dps (2026-07-27): the 2026-07-22 fix added 'checklist' |
+ * 'readiness' | 'ack' to STATE_GATED_KINDS (lib/workflow.ts) — completeGraphStep
+ * now correctly throws 'step-not-fulfilled' for test_branch_a (checklist),
+ * test_branch_b (readiness), and test_join (ack) unless the kind has been
+ * recorded via recordAdditionalRequirement first, exactly as the live app
+ * does (actions/checklists.ts's partial-fulfillment branch /
+ * submitAdditionalRequirementAction). This harness previously never mirrored
+ * that and failed 7 assertions; it now records fulfillment before each of
+ * those completions via the local fulfillKind() helper below. A new negative
+ * assertion (WF-05 regression lock section) proves completeGraphStep still
+ * throws 'step-not-fulfilled' on an unfulfilled sole-kind checklist step, so
+ * a future regression in STATE_GATED_KINDS fails this harness loudly. The
+ * engine's gating behavior itself is correct and was NOT changed — only this
+ * harness was wrong.
+ *
  * Run via: npm run verify:workflow-engine
  *
  * Exits 0 iff every assertion passes; exits 1 on the first structural error
@@ -157,6 +172,18 @@ async function resolveActor(role: RoleName, createdUserIds: string[]): Promise<A
   return { id: created.id, role }
 }
 
+/**
+ * quick task 260727-dps: mirrors what the live app does before completing a
+ * state-gated checklist/readiness/ack sole-kind step (actions/checklists.ts's
+ * partial-fulfillment branch / submitAdditionalRequirementAction) — records
+ * the kind as fulfilled via wg.recordAdditionalRequirement so the subsequent
+ * completeGraphStep call finds it in workflow_step_states.fulfilledKinds.
+ * Stated once here so every call site below reads identically.
+ */
+async function fulfillKind(projectId: string, stepDefId: string, actorId: string, kind: 'ack' | 'readiness' | 'checklist') {
+  await wg.recordAdditionalRequirement({ projectId, stepDefId, actorId, kind })
+}
+
 async function createTestProject(createdBy: string, suffix: string): Promise<string> {
   const [project] = await db
     .insert(schema.projects)
@@ -299,20 +326,23 @@ async function main() {
 
     // ── WF-05: join not actionable until BOTH branches complete (branch_a then branch_b) ──
     startGroup('WF-05: join actionable only after both branches (a then b)')
-    await assertOk('complete test_branch_a (checklist kind, ungated)', () =>
+    await fulfillKind(mainProjectId, stepIds.test_branch_a, sitePm.id, 'checklist')
+    await assertOk('complete test_branch_a (checklist kind, state-gated since 2026-07-22)', () =>
       wg.completeGraphStep({ projectId: mainProjectId, stepDefId: stepIds.test_branch_a, actorId: sitePm.id }),
     )
     {
       const actionable = await wg.getActionableSteps(mainProjectId, GRAPH)
       await assertExcludes('test_join NOT actionable with only branch_a complete', actionable, 'test_join')
     }
-    await assertOk('complete test_branch_b (readiness kind, ungated)', () =>
+    await fulfillKind(mainProjectId, stepIds.test_branch_b, factoryPm.id, 'readiness')
+    await assertOk('complete test_branch_b (readiness kind, state-gated since 2026-07-22)', () =>
       wg.completeGraphStep({ projectId: mainProjectId, stepDefId: stepIds.test_branch_b, actorId: factoryPm.id }),
     )
     {
       const actionable = await wg.getActionableSteps(mainProjectId, GRAPH)
       await assertIncludes('test_join actionable once both branches complete', actionable, 'test_join')
     }
+    await fulfillKind(mainProjectId, stepIds.test_join, superAdmin.id, 'ack')
     await assertOk('complete test_join', () =>
       wg.completeGraphStep({ projectId: mainProjectId, stepDefId: stepIds.test_join, actorId: superAdmin.id }),
     )
@@ -324,6 +354,18 @@ async function main() {
     createdProjectIds.push(secondProjectId)
     await advanceToBranchPoint(secondProjectId, stepIds, { ops, sitePm, factoryPm })
 
+    // Regression lock (quick task 260727-dps): before recording ANY
+    // fulfillment on this fresh project, prove completeGraphStep still
+    // refuses an unfulfilled sole-kind checklist step. If a future change
+    // ever drops 'checklist' back out of STATE_GATED_KINDS (lib/workflow.ts),
+    // this assertion fails loudly instead of the gate silently reopening.
+    await assertThrows(
+      'completeGraphStep(test_branch_a) with no fulfillment record throws (STATE_GATED_KINDS regression lock)',
+      () => wg.completeGraphStep({ projectId: secondProjectId, stepDefId: stepIds.test_branch_a, actorId: sitePm.id }),
+      'step-not-fulfilled',
+    )
+
+    await fulfillKind(secondProjectId, stepIds.test_branch_b, factoryPm.id, 'readiness')
     await assertOk('complete test_branch_b first (reverse order)', () =>
       wg.completeGraphStep({ projectId: secondProjectId, stepDefId: stepIds.test_branch_b, actorId: factoryPm.id }),
     )
@@ -331,6 +373,7 @@ async function main() {
       const actionable = await wg.getActionableSteps(secondProjectId, GRAPH)
       await assertExcludes('test_join NOT actionable with only branch_b complete', actionable, 'test_join')
     }
+    await fulfillKind(secondProjectId, stepIds.test_branch_a, sitePm.id, 'checklist')
     await assertOk('complete test_branch_a second (reverse order)', () =>
       wg.completeGraphStep({ projectId: secondProjectId, stepDefId: stepIds.test_branch_a, actorId: sitePm.id }),
     )
