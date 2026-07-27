@@ -77,30 +77,19 @@ export default async function WorkflowStepPage({
     )
   }
 
-  if (!canRoleActOnStep(step.role, role as UserRole)) {
-    return denied('Not your step.')
-  }
-
-  // v2.0 Phase 19: a step may additionally be narrowed to one exact
-  // users.position value (e.g. only the Head Designer, not any Design/
-  // Architect user). Fetched fresh, not from the session, since position
-  // can change post-signup via the self-service profile flow.
-  if (step.requiredPosition) {
-    const [actingUser] = await db.select({ position: users.position }).from(users).where(eq(users.id, userId)).limit(1)
-    if (actingUser?.position !== step.requiredPosition) {
-      return denied('This step is restricted to a specific title, and your account is not set to it.')
-    }
-  }
-
-  // Quick task 260713-ekr (security fix, defense-in-depth): a design/architect
-  // user who is not the assignee chosen at this step's governing assignment
-  // step never even sees the form — clean denial, mirroring authorizeStep's
-  // server-action boundary check.
-  const gateUserId = await getStepAssigneeGate(graph, projectId!, step.key)
-  if (gateUserId && gateUserId !== userId) {
-    return denied('This step is assigned to a specific person — only they can act on it.')
-  }
-
+  // quick task 260727-f5e: the page's gates below previously described only
+  // the SENDER of an approval step (step.role / step.requiredPosition), so
+  // once the sender sent (status='sent') the RECEIVER — a different role/
+  // position via receiverRole/receiverRequiredPosition — was denied by both
+  // gates and could never open the page. The step then deadlocked forever
+  // (live step 13 send_for_production: operations sends, chief_production_
+  // officer can never receive). The server action layer (actions/workflow-
+  // graph.ts authorizeStep(..., forReceive)) already computed the right
+  // role/position pair for the receiver; the page just didn't. requiredKinds
+  // is hoisted here (was declared further down) so isApproval/receiverOk can
+  // be computed before the gates run — stepRequiredKinds is pure, so moving
+  // it changes nothing else.
+  //
   // v2.0 Phase 18.1: a step may require MORE than one fulfillment kind
   // (primary + additionalKinds) — render one sub-form per required kind.
   // Each sub-form's own "Complete step" button calls the same
@@ -108,6 +97,47 @@ export default async function WorkflowStepPage({
   // kind has been fulfilled (lib/workflow-graph.ts completeGraphStep), so
   // clicking any one of them once everything is done is enough.
   const requiredKinds = stepRequiredKinds(step)
+
+  // quick task 260727-f5e: one consolidated caller-position fetch, shared by
+  // both gates below and by renderKind('approval'). needsPosition keeps the
+  // query count byte-identical for non-approval steps with no
+  // requiredPosition (previously zero position queries — still zero); do
+  // NOT make this fetch unconditional.
+  const isApproval = requiredKinds.includes('approval')
+  const needsPosition = Boolean(step.requiredPosition) || isApproval
+  let callerPosition: string | null = null
+  if (needsPosition) {
+    const [actingUser] = await db.select({ position: users.position }).from(users).where(eq(users.id, userId)).limit(1)
+    callerPosition = actingUser?.position ?? null
+  }
+  // approvalReceiverEligible already covers the cross-role receiver case
+  // internally (checks step.receiverRole ?? step.role, and
+  // step.receiverRequiredPosition ?? step.requiredPosition) — the page does
+  // not need to duplicate that logic, only bypass its own gates with it.
+  const receiverOk = isApproval && approvalReceiverEligible(step, role as UserRole, callerPosition)
+
+  if (!receiverOk && !canRoleActOnStep(step.role, role as UserRole)) {
+    return denied('Not your step.')
+  }
+
+  // v2.0 Phase 19: a step may additionally be narrowed to one exact
+  // users.position value (e.g. only the Head Designer, not any Design/
+  // Architect user). Fetched fresh, not from the session, since position
+  // can change post-signup via the self-service profile flow. No longer
+  // performs its own query — reads the hoisted callerPosition above.
+  if (!receiverOk && step.requiredPosition && callerPosition !== step.requiredPosition) {
+    return denied('This step is restricted to a specific title, and your account is not set to it.')
+  }
+
+  // Quick task 260713-ekr (security fix, defense-in-depth): a design/architect
+  // user who is not the assignee chosen at this step's governing assignment
+  // step never even sees the form — clean denial, mirroring authorizeStep's
+  // server-action boundary check. NOT bypassed by receiverOk — authorizeStep
+  // applies this gate regardless of forReceive, so the page must too.
+  const gateUserId = await getStepAssigneeGate(graph, projectId!, step.key)
+  if (gateUserId && gateUserId !== userId) {
+    return denied('This step is assigned to a specific person — only they can act on it.')
+  }
 
   // quick task 260714-qe4 (workflow restructure batch 2): the old merged
   // Invoice & Delivery Timeline step's 2-part wizard un-merged into two
@@ -222,20 +252,10 @@ export default async function WorkflowStepPage({
           />
         )
       case 'approval': {
-        // Fetched fresh (not from the session) — same reasoning as the
-        // page-level requiredPosition gate above: position can change
-        // post-signup via the self-service profile flow. A separate query
-        // (not reusing `actingUser` above) since that block only runs when
-        // step.requiredPosition is set, but approval steps commonly gate
-        // the RECEIVER via receiverRequiredPosition with requiredPosition
-        // left null (e.g. send_for_production).
-        const [actingUser] = await db
-          .select({ position: users.position })
-          .from(users)
-          .where(eq(users.id, userId))
-          .limit(1)
-        const callerPosition = actingUser?.position ?? null
-
+        // quick task 260727-f5e: callerPosition is fetched once at page
+        // scope (above, guarded by needsPosition) and shared with the page
+        // gates and here — reaching this branch implies isApproval === true,
+        // so the fetch already ran. No separate query needed.
         const state = await getApprovalState(projectId!, step!.id)
         const phase: 'send' | 'sent' = state?.status === 'sent' ? 'sent' : 'send'
         const drawing = await getApprovalDrawing(projectId!, graph)
