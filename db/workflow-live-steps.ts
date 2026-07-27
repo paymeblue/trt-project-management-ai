@@ -203,11 +203,20 @@ export const LIVE_WORKFLOW_STEPS: WorkflowStep[] = [
     slug: 'confirmation',
   },
   {
+    // quick task 260727-dps: added missing slug — live DB row has
+    // checklist_slug='confirmation_drawing' (scripts/verify-live-workflow.ts
+    // compares n/key/label/role/kind/slug, so parity failed without this).
+    // The live row ALSO carries additionalKinds=['checklist'] (not
+    // representable on the base WorkflowStep type here — same existing
+    // convention already used by the invoice_upload, ops_design_confirmation,
+    // and materials_readiness entries above); migrations patch that column,
+    // the parity check does not cover it.
     n: 11,
     key: 'confirmation_correction',
     label: 'Confirmation Correction (Upload Drawing)',
     role: 'design',
     kind: 'yes_no_upload',
+    slug: 'confirmation_drawing',
   },
   {
     n: 12,
