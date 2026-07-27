@@ -65,6 +65,13 @@ export type SubmitChecklistState = {
   message?: string
   // True when a project workflow step was advanced by this submission.
   advanced?: boolean
+  // quick task 260727-pd3: set only when the linked step is dual-role and
+  // took the advanceOrConfirmDualRole branch (single required kind) — null
+  // for every other submission, including the requiredKinds.length > 1
+  // partial-fulfillment branch below. Text comes from the single shared
+  // dualRoleStatus formatter (via advanceOrConfirmDualRole), never
+  // re-formatted here or on the client.
+  dualRole?: { confirmedCount: number; total: number; text: string } | null
 }
 
 export async function submitChecklistAction(
@@ -215,6 +222,7 @@ export async function submitChecklistAction(
   }
 
   let advanced = false
+  let dualRole: SubmitChecklistState['dualRole'] = null
   if (projectId && input?.expectedStepN && linkedStep) {
     const requiredKinds = stepRequiredKinds(linkedStep)
     if (requiredKinds.length > 1) {
@@ -225,7 +233,8 @@ export async function submitChecklistAction(
       // submission here must NOT unconditionally advance the project.
       // Record this kind fulfilled and only actually complete the step (and
       // thus advance) once every other required kind already has its own
-      // fulfilledKinds entry.
+      // fulfilledKinds entry. dualRole stays null — this branch never routes
+      // through advanceOrConfirmDualRole.
       await recordAdditionalRequirement({
         projectId,
         stepDefId: linkedStep.stepDefId,
@@ -239,16 +248,18 @@ export async function submitChecklistAction(
         advanced = false // other required kinds still pending — this one was still recorded
       }
     } else {
-      advanced = await advanceOrConfirmDualRole(tabToken, {
+      const res = await advanceOrConfirmDualRole(tabToken, {
         projectId,
         expectedStepN: Number(input.expectedStepN),
       })
+      advanced = res.advanced
+      dualRole = res.dualRole
     }
   }
 
   revalidatePath(`/checklists/${slug}`)
   revalidatePath('/workflow/step')
-  return { status: 'success', message: 'Checklist submitted.', advanced }
+  return { status: 'success', message: 'Checklist submitted.', advanced, dualRole }
 }
 
 // ── Template editing (Site PM / Factory PM) ───────────────────────────────

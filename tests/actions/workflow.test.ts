@@ -307,6 +307,8 @@ describe('confirmDualRoleStepAs', () => {
       ok: true,
       advanced: false,
       message: 'Your confirmation was recorded — waiting on the other role.',
+      confirmedRoles: ['factory_pm'],
+      outstandingRoles: ['site_pm'],
     })
     expect(workflowStepStatesInsertMock).toHaveBeenCalledOnce()
     expect(onConflictDoUpdateMock).toHaveBeenCalledOnce()
@@ -331,6 +333,7 @@ describe('confirmDualRoleStepAs', () => {
 
     expect(res.ok).toBe(true)
     expect(res.advanced).toBe(true)
+    expect(res.outstandingRoles).toEqual([])
     expect(setMock).toHaveBeenCalledWith(
       expect.objectContaining({ currentStep: 18, status: 'not_delivered' }),
     )
@@ -450,5 +453,42 @@ describe('confirmDualRoleStepAs', () => {
       })
       expect(workflowStepStatesInsertMock).not.toHaveBeenCalled()
     })
+  })
+})
+
+// quick task 260727-pd3: advanceOrConfirmDualRole's additive object return —
+// dualRole is built from the single shared dualRoleStatus formatter so it can
+// never disagree with the flow-diagram badge / header string / step-page
+// banner.
+describe('advanceOrConfirmDualRole', () => {
+  it('on a dual-role step, returns dualRole progress instead of a bare boolean', async () => {
+    selectOrderByMock.mockResolvedValue(dualRoleStepDefRows)
+    selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 17, status: 'not_delivered' }])
+    verifyMock.mockResolvedValue({ userId: 'f1', role: 'factory_pm' })
+    returningMock.mockResolvedValue([{ confirmedRoles: ['factory_pm'] }])
+
+    const { advanceOrConfirmDualRole } = await import('@/actions/workflow')
+    const res = await advanceOrConfirmDualRole(null, { projectId: 'p1', expectedStepN: 17 })
+
+    expect(res).toEqual({
+      advanced: false,
+      dualRole: {
+        confirmedCount: 1,
+        total: 2,
+        text: 'Recorded — 1 of 2 confirmations. Waiting on Site PM.',
+      },
+    })
+  })
+
+  it('on a non-dual step, returns dualRole: null', async () => {
+    selectOrderByMock.mockResolvedValue(liveStepDefRows)
+    selectLimitMock.mockResolvedValue([{ id: 'p1', currentStep: 2, status: 'not_delivered' }])
+    verifyMock.mockResolvedValue({ userId: 'd1', role: 'design' })
+
+    const { advanceOrConfirmDualRole } = await import('@/actions/workflow')
+    const res = await advanceOrConfirmDualRole(null, { projectId: 'p1', expectedStepN: 2 })
+
+    expect(res.dualRole).toBeNull()
+    expect(typeof res.advanced).toBe('boolean')
   })
 })

@@ -5,7 +5,14 @@ import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { projects, projectStepCompletions, workflowStepStates } from '@/db/schema'
 import { verifySessionForAction } from '@/lib/dal'
-import { canRoleActOnStep, findStep, lastStepN, type UserRole, type WorkflowRole } from '@/lib/workflow'
+import {
+  canRoleActOnStep,
+  findStep,
+  lastStepN,
+  dualRoleStatus,
+  type UserRole,
+  type WorkflowRole,
+} from '@/lib/workflow'
 import {
   getLiveWorkflowSteps,
   assigneeGatedRoles,
@@ -108,7 +115,13 @@ export async function confirmDualRoleStep(tabToken: string | null, opts: {
   projectId: string
   expectedStepN: number
   notes?: string | null
-}): Promise<{ ok: boolean; advanced: boolean; message?: string }> {
+}): Promise<{
+  ok: boolean
+  advanced: boolean
+  message?: string
+  confirmedRoles?: WorkflowRole[]
+  outstandingRoles?: WorkflowRole[]
+}> {
   const { userId, role } = await verifySessionForAction(tabToken)
   return confirmDualRoleStepAs({ ...opts, userId, role })
 }
@@ -129,7 +142,13 @@ export async function confirmDualRoleStepAs(opts: {
   notes?: string | null
   userId: string
   role: UserRole
-}): Promise<{ ok: boolean; advanced: boolean; message?: string }> {
+}): Promise<{
+  ok: boolean
+  advanced: boolean
+  message?: string
+  confirmedRoles?: WorkflowRole[]
+  outstandingRoles?: WorkflowRole[]
+}> {
   const { userId, role, projectId, expectedStepN } = opts
 
   const [proj] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
@@ -187,12 +206,23 @@ export async function confirmDualRoleStepAs(opts: {
       },
     })
     .returning({ confirmedRoles: workflowStepStates.confirmedRoles })
-  const confirmedRoles = row?.confirmedRoles ?? [role]
+  const confirmedRoles = (row?.confirmedRoles ?? [role]) as WorkflowRole[]
+  // quick task 260727-pd3: additive only — computed from the same
+  // confirmedRoles the upsert already returned, never re-derived elsewhere,
+  // so the plumbed progress can never disagree with what was actually
+  // written.
+  const outstandingRoles = step.dualRoles.filter((r) => !confirmedRoles.includes(r))
 
   const allConfirmed = step.dualRoles.every((r) => confirmedRoles.includes(r))
   if (!allConfirmed) {
     revalidateBoards()
-    return { ok: true, advanced: false, message: 'Your confirmation was recorded — waiting on the other role.' }
+    return {
+      ok: true,
+      advanced: false,
+      message: 'Your confirmation was recorded — waiting on the other role.',
+      confirmedRoles,
+      outstandingRoles,
+    }
   }
 
   await db
@@ -219,27 +249,44 @@ export async function confirmDualRoleStepAs(opts: {
 
   await notifyNextStepOfficers(projectId, userId)
   revalidateBoards()
-  return { ok: true, advanced: true, message: 'Both roles confirmed — step completed.' }
+  return {
+    ok: true,
+    advanced: true,
+    message: 'Both roles confirmed — step completed.',
+    confirmedRoles,
+    outstandingRoles,
+  }
 }
 
 /**
  * Shared dispatcher for the readiness/checklist submission actions: most
  * steps advance immediately on a single submission (advanceProjectStep), but
  * a step with `dualRoles` configured (v2.0 Phase 22e) needs BOTH roles to
- * independently confirm first (confirmDualRoleStep). Callers just want a
- * single boolean — this picks the right engine transparently.
+ * independently confirm first (confirmDualRoleStep). Callers no longer just
+ * want a single boolean (quick task 260727-pd3) — they need to tell the user
+ * whether their submission actually completed the step, and if not, how many
+ * confirmations exist and who's still outstanding. `dualRole` is built from
+ * the single shared formatter (dualRoleStatus) so this text can never drift
+ * from the flow-diagram badge / header string / pre-submit banner.
  */
 export async function advanceOrConfirmDualRole(tabToken: string | null, opts: {
   projectId: string
   expectedStepN: number
   notes?: string | null
-}): Promise<boolean> {
+}): Promise<{
+  advanced: boolean
+  dualRole: { confirmedCount: number; total: number; text: string } | null
+}> {
   const step = findStep(await getLiveWorkflowSteps(), opts.expectedStepN)
   if (step?.dualRoles?.length) {
     const res = await confirmDualRoleStep(tabToken, opts)
-    return res.advanced
+    const status = dualRoleStatus(step, res.confirmedRoles)
+    return {
+      advanced: res.advanced,
+      dualRole: { confirmedCount: status.confirmedCount, total: status.total, text: status.recordedText ?? '' },
+    }
   }
-  return advanceProjectStep(tabToken, opts)
+  return { advanced: await advanceProjectStep(tabToken, opts), dualRole: null }
 }
 
 export type AckStepState = { ok: boolean; message?: string }

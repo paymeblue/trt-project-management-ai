@@ -37,6 +37,10 @@ export type ReadinessState = {
   status: 'idle' | 'success' | 'error'
   message?: string
   advanced?: boolean
+  // quick task 260727-pd3: set only when the linked step is dual-role. Text
+  // comes from the single shared dualRoleStatus formatter (via
+  // advanceOrConfirmDualRole), never re-formatted here or on the client.
+  dualRole?: { confirmedCount: number; total: number; text: string } | null
 }
 
 // ~6MB cap on any single data URL we persist (base64 of an image/signature).
@@ -120,13 +124,16 @@ export async function submitReadinessAction(
   }
 
   let advanced = false
+  let dualRole: ReadinessState['dualRole'] = null
   if (input?.projectId && input?.expectedStepN) {
-    advanced = await advanceOrConfirmDualRole(tabToken, {
+    const res = await advanceOrConfirmDualRole(tabToken, {
       projectId: String(input.projectId),
       expectedStepN: Number(input.expectedStepN),
     })
+    advanced = res.advanced
+    dualRole = res.dualRole
   }
 
   revalidatePath('/factory-pm/readiness')
-  return { status: 'success', message: 'Readiness form submitted.', advanced }
+  return { status: 'success', message: 'Readiness form submitted.', advanced, dualRole }
 }

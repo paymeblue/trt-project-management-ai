@@ -47,7 +47,7 @@ beforeEach(() => {
   vi.resetModules()
   verifyMock.mockResolvedValue({ userId: 'f1', role: 'factory_pm' })
   insertValuesMock.mockResolvedValue(undefined)
-  advanceMock.mockResolvedValue(false)
+  advanceMock.mockResolvedValue({ advanced: false, dualRole: null })
   getLiveStepsMock.mockResolvedValue([
     { n: 3, key: 'test_step', label: 'Test', role: 'factory_pm', kind: 'readiness', slug: undefined, stepDefId: 'stepdef-3', dualRoles: null },
   ])
@@ -95,7 +95,7 @@ describe('submitReadinessAction — requires 2 photos', () => {
   })
 
   it('advances the workflow step when launched from a project', async () => {
-    advanceMock.mockResolvedValue(true)
+    advanceMock.mockResolvedValue({ advanced: true, dualRole: null })
     const { submitReadinessAction } = await import('@/actions/readiness')
     const res = await submitReadinessAction(
         null,
@@ -105,6 +105,28 @@ describe('submitReadinessAction — requires 2 photos', () => {
     expect(res.status).toBe('success')
     expect(res.advanced).toBe(true)
     expect(advanceMock).toHaveBeenCalledWith(null, { projectId: 'p1', expectedStepN: 3 })
+  })
+
+  // quick task 260727-pd3: dualRole is plumbed straight through from
+  // advanceOrConfirmDualRole's additive return, never re-formatted here.
+  it('surfaces dualRole progress when the linked step is dual-role', async () => {
+    advanceMock.mockResolvedValue({
+      advanced: false,
+      dualRole: { confirmedCount: 1, total: 2, text: 'Recorded — 1 of 2 confirmations. Waiting on Factory PM.' },
+    })
+    const { submitReadinessAction } = await import('@/actions/readiness')
+    const res = await submitReadinessAction(
+        null,
+      { status: 'idle' },
+      { mode: 'upload', project: 'P', photos: [PHOTO, PHOTO], projectId: 'p1', expectedStepN: 3 },
+    )
+    expect(res.status).toBe('success')
+    expect(res.advanced).toBe(false)
+    expect(res.dualRole).toEqual({
+      confirmedCount: 1,
+      total: 2,
+      text: 'Recorded — 1 of 2 confirmations. Waiting on Factory PM.',
+    })
   })
 
   it('ignores non-image strings when counting photos', async () => {
