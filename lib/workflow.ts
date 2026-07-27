@@ -350,6 +350,84 @@ export function canActOnGraphStep(
   return (step.dualRoles as string[] | null | undefined)?.includes(userRole) ?? false
 }
 
+// Pure formatter for dual-role step labels + progress copy (quick task
+// 260727-pd3). It exists so the flow-diagram badge, the header "Waiting on
+// …" string, both step-page banners, and both submit success screens can
+// never drift apart, and so the dual-role wording ("Factory PM & Site PM",
+// either party may act first) is authored exactly once. This is PRESENTATION
+// ONLY — canActOnGraphStep/confirmDualRoleStepAs remain the authorization
+// boundary; this helper never grants or denies anything, it only describes
+// state that was already decided server-side.
+export type DualRoleStatus = {
+  isDual: boolean
+  roles: WorkflowRole[]
+  rolesLabel: string
+  confirmedCount: number
+  total: number
+  outstanding: WorkflowRole[]
+  outstandingLabel: string | null
+  progressText: string | null
+  recordedText: string | null
+}
+
+export function dualRoleStatus(
+  step: { role: WorkflowRole; dualRoles?: WorkflowRole[] | null },
+  confirmedRoles?: readonly string[] | null,
+): DualRoleStatus {
+  if (!step.dualRoles?.length) {
+    return {
+      isDual: false,
+      roles: [step.role],
+      rolesLabel: workflowRoleLabel(step.role),
+      confirmedCount: 0,
+      total: 1,
+      outstanding: [],
+      outstandingLabel: null,
+      progressText: null,
+      recordedText: null,
+    }
+  }
+
+  const roles = step.dualRoles
+  const rolesLabel = roles.map(workflowRoleLabel).join(' & ')
+  const confirmed = confirmedRoles ?? []
+  // Count against `roles`, never against `confirmedRoles.length` directly —
+  // stray/unknown entries in the confirmed-roles array (should never happen,
+  // but this is a display helper reading persisted data) can never inflate
+  // the count past `total`.
+  const confirmedList = roles.filter((r) => confirmed.includes(r))
+  const outstanding = roles.filter((r) => !confirmed.includes(r))
+  const confirmedCount = confirmedList.length
+  const total = roles.length
+  const outstandingLabel = outstanding.length ? outstanding.map(workflowRoleLabel).join(' & ') : null
+
+  let progressText: string
+  let recordedText: string
+  if (confirmedCount === total) {
+    progressText = 'Both roles confirmed — step complete.'
+    recordedText = progressText
+  } else if (confirmedCount === 0) {
+    progressText = `Both ${rolesLabel} must confirm this step independently — neither has confirmed yet.`
+    recordedText = `Recorded — ${confirmedCount} of ${total} confirmations. Waiting on ${outstandingLabel}.`
+  } else {
+    const confirmedLabel = confirmedList.map(workflowRoleLabel).join(' & ')
+    progressText = `${confirmedCount} of ${total} confirmed — ${confirmedLabel} done, waiting on ${outstandingLabel}.`
+    recordedText = `Recorded — ${confirmedCount} of ${total} confirmations. Waiting on ${outstandingLabel}.`
+  }
+
+  return {
+    isDual: true,
+    roles,
+    rolesLabel,
+    confirmedCount,
+    total,
+    outstanding,
+    outstandingLabel,
+    progressText,
+    recordedText,
+  }
+}
+
 // Checklist slugs that require photo evidence before submit. (The 2-image
 // requirement lives on the Materials / Accessories Readiness Form, not here.)
 export const REQUIRED_PHOTOS: Record<string, number> = {

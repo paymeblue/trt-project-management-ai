@@ -13,6 +13,7 @@ import {
   workflowRoleLabel,
   userRoleLabel,
   roleDashboard,
+  dualRoleStatus,
 } from '@/lib/workflow'
 import { LIVE_WORKFLOW_STEPS } from '@/db/workflow-live-steps'
 
@@ -146,5 +147,70 @@ describe('#7 multi-department extensibility', () => {
     expect(roleDashboard('design')).toBe('/design/dashboard')
     expect(roleDashboard('production')).toBe('/production/dashboard')
     expect(roleDashboard('unknown')).toBe('/dashboard')
+  })
+})
+
+// quick task 260727-pd3: single pure formatter for dual-role labels +
+// progress copy — see lib/workflow.ts for the presentation-only rationale.
+describe('dualRoleStatus', () => {
+  it('falls back to today\'s single-role behavior for a non-dual step', () => {
+    const status = dualRoleStatus({ role: 'factory_pm' })
+    expect(status.isDual).toBe(false)
+    expect(status.rolesLabel).toBe('Factory PM')
+    expect(status.progressText).toBeNull()
+    expect(status.recordedText).toBeNull()
+  })
+
+  it('reports 0 of 2 confirmed when confirmedRoles is null', () => {
+    const status = dualRoleStatus({ role: 'factory_pm', dualRoles: ['factory_pm', 'site_pm'] }, null)
+    expect(status.isDual).toBe(true)
+    expect(status.rolesLabel).toBe('Factory PM & Site PM')
+    expect(status.confirmedCount).toBe(0)
+    expect(status.total).toBe(2)
+    expect(status.outstanding).toEqual(['factory_pm', 'site_pm'])
+    expect(status.progressText).toMatch(/Factory PM & Site PM/)
+    expect(status.progressText).toMatch(/independently/)
+  })
+
+  it('reports the live case: site_pm confirmed, factory_pm outstanding', () => {
+    const status = dualRoleStatus(
+      { role: 'factory_pm', dualRoles: ['factory_pm', 'site_pm'] },
+      ['site_pm'],
+    )
+    expect(status.confirmedCount).toBe(1)
+    expect(status.outstanding).toEqual(['factory_pm'])
+    expect(status.outstandingLabel).toBe('Factory PM')
+    expect(status.progressText).toBe('1 of 2 confirmed — Site PM done, waiting on Factory PM.')
+    expect(status.recordedText).toBe('Recorded — 1 of 2 confirmations. Waiting on Factory PM.')
+  })
+
+  it('reports both roles confirmed — step complete', () => {
+    const status = dualRoleStatus(
+      { role: 'factory_pm', dualRoles: ['factory_pm', 'site_pm'] },
+      ['site_pm', 'factory_pm'],
+    )
+    expect(status.confirmedCount).toBe(2)
+    expect(status.outstanding).toEqual([])
+    expect(status.outstandingLabel).toBeNull()
+    expect(status.progressText).toBe('Both roles confirmed — step complete.')
+    expect(status.recordedText).toBe('Both roles confirmed — step complete.')
+  })
+
+  it('ignores unknown entries in confirmedRoles — cannot inflate confirmedCount past total', () => {
+    const status = dualRoleStatus(
+      { role: 'factory_pm', dualRoles: ['factory_pm', 'site_pm'] },
+      ['site_pm', 'some_other_role', 'yet_another'],
+    )
+    expect(status.confirmedCount).toBe(1)
+    expect(status.total).toBe(2)
+  })
+
+  it('labels follow dualRoles array order, not confirmation order', () => {
+    const status = dualRoleStatus(
+      { role: 'factory_pm', dualRoles: ['factory_pm', 'site_pm'] },
+      ['site_pm'], // site_pm confirmed FIRST, but factory_pm comes first in dualRoles
+    )
+    expect(status.rolesLabel).toBe('Factory PM & Site PM')
+    expect(status.roles).toEqual(['factory_pm', 'site_pm'])
   })
 })

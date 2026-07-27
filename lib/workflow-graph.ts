@@ -789,6 +789,22 @@ export async function getApprovalState(
   return row ? { status: row.status, sentBy: row.sentBy, sentByName: row.sentByName ?? null } : null
 }
 
+// quick task 260727-pd3: the read side of confirmDualRoleStepAs's atomic
+// array_append upsert (actions/workflow.ts) — feeds dualRoleStatus() so
+// callers can show current 1-of-2 progress before a submission, not only
+// after. Mirrors getApprovalState's shape exactly: one row, no join.
+export async function getDualRoleConfirmations(
+  projectId: string,
+  stepDefId: string,
+): Promise<WorkflowRole[]> {
+  const [row] = await db
+    .select({ confirmedRoles: workflowStepStates.confirmedRoles })
+    .from(workflowStepStates)
+    .where(and(eq(workflowStepStates.projectId, projectId), eq(workflowStepStates.stepDefId, stepDefId)))
+    .limit(1)
+  return (row?.confirmedRoles ?? []) as WorkflowRole[]
+}
+
 /** The design drawing to show in the approval pane, resolved via the fallback chain. */
 export async function getApprovalDrawing(
   projectId: string,
