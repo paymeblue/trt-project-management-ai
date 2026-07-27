@@ -209,10 +209,13 @@ describe('amendEscalatedChecklistAction — upsert paths', () => {
     })
 
     expect(res.ok).toBe(true)
-    // No new checklists row was inserted in the amend path.
-    expect(insertMock).not.toHaveBeenCalledWith(expect.anything())
-    // item-2 had no prior response row -> one checklistResponses insert.
-    // (insert is used for the missing-response case only, never for checklists.)
+    // item-1 had a prior response -> UPDATEd, not re-inserted. item-2 had no
+    // prior response row -> exactly one checklistResponses INSERT (the only
+    // insert in the amend path — no new `checklists` row is ever inserted).
+    expect(insertMock).toHaveBeenCalledOnce()
+    expect(insertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ checklistId: 'checklist-1', templateItemId: 'item-2' }),
+    )
     expect(updateSetMock).toHaveBeenCalledWith(
       expect.objectContaining({ amendedBy: 'officer-1', amendedAt: expect.any(Date) }),
     )

@@ -1,12 +1,22 @@
 'use server'
 
-import { and, eq, ne } from 'drizzle-orm'
+import { revalidatePath } from 'next/cache'
+import { and, asc, desc, eq, ne } from 'drizzle-orm'
 import { db } from '@/db'
-import { users, projects, stepEscalations } from '@/db/schema'
+import {
+  users,
+  projects,
+  stepEscalations,
+  checklistDefinitions,
+  checklistTemplateItems,
+  checklists,
+  checklistResponses,
+} from '@/db/schema'
 import { verifySessionForAction } from '@/lib/dal'
-import { escalationTargetPosition } from '@/lib/escalation'
+import { escalationTargetPosition, canAmendEscalation } from '@/lib/escalation'
 import { userRoleLabel, type UserRole } from '@/lib/workflow'
 import { notifyUser } from '@/lib/notifications'
+import type { ChecklistAnswer } from '@/actions/checklists'
 
 export type EscalateResult = { ok: boolean; message: string }
 
@@ -82,4 +92,313 @@ export async function escalateChecklistAction(tabToken: string | null, input: {
   }
 
   return { ok: true, message: `Escalated to ${recipients.length === 1 ? 'the assigned officer' : `${recipients.length} officers`}.` }
+}
+
+// ── Escalation panel: view + upsert (quick task 260727-gow) ────────────────
+// D-01/D-02/D-03: the escalation's target-position holder (or an admin) may
+// view and UPSERT the escalated checklist's content, inline on the dispute
+// page. This is RECORD CORRECTION only — the project's current-step counter
+// and any step-completion/state-tracking tables are never touched, and no
+// step-completion function is ever called. A superior fixing a past step's
+// content must never silently rewind or advance the project. (This file is
+// grep-gated in CI to contain zero references to the specific
+// step-advancement APIs it must stay decoupled from — see the plan's
+// verification step.)
+
+export type EscalationPanelItem = {
+  id: string
+  label: string
+  helpText: string | null
+  itemType: 'radio' | 'text' | 'file'
+  responseOptions: 'yes_no' | 'yes_no_na' | null
+  step: number
+  sectionTitle: string | null
+}
+
+export type EscalationPanelRow = {
+  id: string
+  projectId: string
+  stepN: number | null
+  checklistSlug: string | null
+  checklistLabel: string
+  reason: string | null
+  targetPosition: string
+  createdAt: Date
+  canAmend: boolean
+  definitionName: string | null
+  items: EscalationPanelItem[]
+  hasSubmission: boolean
+  initialAnswers: Record<string, ChecklistAnswer>
+  amendedByName: string | null
+  amendedAt: Date | null
+}
+
+/**
+ * Server helper the dispute page calls to render one panel per escalation on
+ * a project. The viewer's position is read ONCE for the whole page (not per
+ * row) — position is otherwise a fresh-per-invocation read elsewhere in this
+ * file because it can change between calls, but a single page render is one
+ * consistent snapshot in time.
+ */
+export async function loadEscalationPanelData(
+  projectId: string,
+  viewerId: string,
+  viewerRole: UserRole,
+): Promise<EscalationPanelRow[]> {
+  const rows = await db
+    .select()
+    .from(stepEscalations)
+    .where(eq(stepEscalations.projectId, projectId))
+    .orderBy(desc(stepEscalations.createdAt))
+
+  if (rows.length === 0) return []
+
+  const [viewer] = await db
+    .select({ position: users.position })
+    .from(users)
+    .where(eq(users.id, viewerId))
+    .limit(1)
+  const viewerPosition = viewer?.position ?? null
+
+  const result: EscalationPanelRow[] = []
+
+  for (const row of rows) {
+    const canAmend = canAmendEscalation(viewerRole, viewerPosition, row.targetPosition)
+
+    let definitionName: string | null = null
+    let items: EscalationPanelItem[] = []
+    let hasSubmission = false
+    const initialAnswers: Record<string, ChecklistAnswer> = {}
+    let amendedByName: string | null = null
+    let amendedAt: Date | null = null
+
+    if (row.checklistSlug) {
+      const [def] = await db
+        .select()
+        .from(checklistDefinitions)
+        .where(eq(checklistDefinitions.slug, row.checklistSlug))
+        .limit(1)
+
+      if (def) {
+        definitionName = def.name
+
+        const activeItems = await db
+          .select()
+          .from(checklistTemplateItems)
+          .where(
+            and(
+              eq(checklistTemplateItems.definitionId, def.id),
+              eq(checklistTemplateItems.isActive, true),
+            ),
+          )
+          .orderBy(asc(checklistTemplateItems.step), asc(checklistTemplateItems.sortOrder))
+
+        items = activeItems.map((i) => ({
+          id: i.id,
+          label: i.label,
+          helpText: i.helpText,
+          itemType: i.itemType,
+          responseOptions: i.responseOptions,
+          step: i.step,
+          sectionTitle: i.sectionTitle,
+        }))
+
+        const [submission] = await db
+          .select()
+          .from(checklists)
+          .where(and(eq(checklists.projectId, projectId), eq(checklists.definitionId, def.id)))
+          .orderBy(desc(checklists.createdAt))
+          .limit(1)
+
+        if (submission) {
+          hasSubmission = true
+          const responses = await db
+            .select()
+            .from(checklistResponses)
+            .where(eq(checklistResponses.checklistId, submission.id))
+          for (const r of responses) {
+            initialAnswers[r.templateItemId] = {
+              value: r.value,
+              textValue: r.textValue,
+              notes: r.notes,
+            }
+          }
+          if (submission.amendedBy) {
+            amendedAt = submission.amendedAt
+            const [amender] = await db
+              .select({ name: users.name })
+              .from(users)
+              .where(eq(users.id, submission.amendedBy))
+              .limit(1)
+            amendedByName = amender?.name ?? null
+          }
+        }
+      }
+    }
+
+    result.push({
+      id: row.id,
+      projectId: row.projectId,
+      stepN: row.stepN,
+      checklistSlug: row.checklistSlug,
+      checklistLabel: row.checklistLabel,
+      reason: row.reason,
+      targetPosition: row.targetPosition,
+      createdAt: row.createdAt,
+      canAmend,
+      definitionName,
+      items,
+      hasSubmission,
+      initialAnswers,
+      amendedByName,
+      amendedAt,
+    })
+  }
+
+  return result
+}
+
+export type AmendEscalatedChecklistInput = {
+  escalationId: string
+  answers: Record<string, ChecklistAnswer>
+}
+
+export async function amendEscalatedChecklistAction(
+  tabToken: string | null,
+  input: AmendEscalatedChecklistInput,
+): Promise<EscalateResult> {
+  const { userId, role } = await verifySessionForAction(tabToken)
+  const escalationId = String(input?.escalationId ?? '')
+  if (!escalationId) return { ok: false, message: 'Missing escalation.' }
+
+  const [escalation] = await db
+    .select()
+    .from(stepEscalations)
+    .where(eq(stepEscalations.id, escalationId))
+    .limit(1)
+  if (!escalation) return { ok: false, message: 'Escalation not found.' }
+
+  // Fresh db read — NEVER trust a session-carried position (T-gow-02):
+  // positions are mutable and the session token is not re-minted on change.
+  const [viewer] = await db
+    .select({ position: users.position })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+  const viewerPosition = viewer?.position ?? null
+
+  if (!canAmendEscalation(role as UserRole, viewerPosition, escalation.targetPosition)) {
+    return { ok: false, message: 'You are not authorized to update this checklist.' }
+  }
+
+  if (!escalation.checklistSlug) {
+    return { ok: false, message: 'This escalation has no editable checklist content.' }
+  }
+
+  const [def] = await db
+    .select()
+    .from(checklistDefinitions)
+    .where(eq(checklistDefinitions.slug, escalation.checklistSlug))
+    .limit(1)
+  if (!def) return { ok: false, message: 'This escalation has no editable checklist content.' }
+
+  // Active template items are derived server-side from the definition —
+  // never trusted from the client answers map (T-gow-03). Any answer keyed
+  // by an id not in this set is silently discarded below.
+  const items = await db
+    .select()
+    .from(checklistTemplateItems)
+    .where(
+      and(
+        eq(checklistTemplateItems.definitionId, def.id),
+        eq(checklistTemplateItems.isActive, true),
+      ),
+    )
+  if (items.length === 0) return { ok: false, message: 'This checklist has no items.' }
+
+  const answers = input?.answers ?? {}
+
+  const [existing] = await db
+    .select()
+    .from(checklists)
+    .where(and(eq(checklists.projectId, escalation.projectId), eq(checklists.definitionId, def.id)))
+    .orderBy(desc(checklists.createdAt))
+    .limit(1)
+
+  try {
+    if (existing) {
+      // Amend path: rewrite the existing submission's responses in place.
+      // This action MUST NOT touch the project's current-step counter or
+      // any step-completion/state-tracking tables, MUST NOT call a
+      // step-completion or additional-requirement-recording function, and
+      // MUST NOT modify `checklists.photoData` (D-02) — this is record
+      // correction, not workflow progression.
+      const existingResponses = await db
+        .select()
+        .from(checklistResponses)
+        .where(eq(checklistResponses.checklistId, existing.id))
+      const priorByItemId = new Map(existingResponses.map((r) => [r.templateItemId, r]))
+
+      for (const item of items) {
+        const a = answers[item.id] ?? {}
+        const value = a.value === 'yes' || a.value === 'no' || a.value === 'na' ? a.value : null
+        const textValue = a.textValue ? String(a.textValue) : null
+        const notes = a.notes ? String(a.notes) : null
+        const prior = priorByItemId.get(item.id)
+        if (prior) {
+          await db
+            .update(checklistResponses)
+            .set({ value, textValue, notes, updatedAt: new Date() })
+            .where(eq(checklistResponses.id, prior.id))
+        } else {
+          // Handles items added to the template after the original submission.
+          await db.insert(checklistResponses).values({
+            checklistId: existing.id,
+            templateItemId: item.id,
+            value,
+            textValue,
+            notes,
+          })
+        }
+      }
+
+      await db
+        .update(checklists)
+        .set({ amendedBy: userId, amendedAt: new Date(), updatedAt: new Date() })
+        .where(eq(checklists.id, existing.id))
+    } else {
+      // Create-from-blank path: the officer left it blank, so the superior's
+      // edit becomes the first recorded submission — mirrors
+      // submitChecklistAction's insert shape.
+      const [created] = await db
+        .insert(checklists)
+        .values({
+          definitionId: def.id,
+          projectId: escalation.projectId,
+          createdBy: userId,
+          status: 'submitted',
+          submittedAt: new Date(),
+          amendedBy: userId,
+          amendedAt: new Date(),
+        })
+        .returning({ id: checklists.id })
+
+      for (const item of items) {
+        const a = answers[item.id] ?? {}
+        const value = a.value === 'yes' || a.value === 'no' || a.value === 'na' ? a.value : null
+        await db.insert(checklistResponses).values({
+          checklistId: created.id,
+          templateItemId: item.id,
+          value,
+          textValue: a.textValue ? String(a.textValue) : null,
+          notes: a.notes ? String(a.notes) : null,
+        })
+      }
+    }
+  } catch {
+    return { ok: false, message: 'Could not save your changes. Please try again.' }
+  }
+
+  revalidatePath(`/disputes/${escalation.projectId}`)
+  return { ok: true, message: 'Checklist updated.' }
 }
