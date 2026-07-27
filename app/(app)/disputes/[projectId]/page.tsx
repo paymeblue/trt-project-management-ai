@@ -4,8 +4,11 @@ import { db } from '@/db'
 import { projectDisputes, projects, users, notifications } from '@/db/schema'
 import { verifySession } from '@/lib/dal'
 import { postDisputeMessageAction } from '@/actions/disputes'
+import { loadEscalationPanelData } from '@/actions/escalation'
 import { DISPUTE_NOTIFICATION_TYPES, markProjectDisputeNotificationsRead } from '@/lib/notifications'
 import TabTokenForm from '@/app/_components/tab-token-form'
+import EscalationAmendPanel from '@/app/_components/escalation-amend-panel'
+import type { UserRole } from '@/lib/workflow'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +19,7 @@ export default async function DisputePage({
 }: {
   params: Promise<{ projectId: string }>
 }) {
-  const { userId } = await verifySession()
+  const { userId, role } = await verifySession()
   const { projectId } = await params
 
   const [project] = await db
@@ -66,6 +69,13 @@ export default async function DisputePage({
     .where(eq(projectDisputes.projectId, projectId))
     .orderBy(asc(projectDisputes.createdAt))
 
+  // Quick task 260727-gow: only escalations created AFTER this shipped carry
+  // a step_escalations row — pre-existing escalations keep rendering as the
+  // read-only banner above with no panel. When there are none, this renders
+  // nothing extra, so the page looks exactly as it did before for those
+  // projects.
+  const escalationRows = await loadEscalationPanelData(projectId, userId, role as UserRole)
+
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">
       <a href="/site-pm/issues" className="text-sm text-primary hover:underline">
@@ -91,6 +101,31 @@ export default async function DisputePage({
               </div>
               {a.body && <p className="whitespace-pre-wrap text-sm text-amber-900">{a.body}</p>}
             </div>
+          ))}
+        </div>
+      )}
+
+      {escalationRows.length > 0 && (
+        <div className="mb-6">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Escalated steps
+          </p>
+          {escalationRows.map((row) => (
+            <EscalationAmendPanel
+              key={row.id}
+              escalationId={row.id}
+              checklistLabel={row.checklistLabel}
+              reason={row.reason}
+              stepN={row.stepN}
+              createdAt={row.createdAt.toISOString()}
+              definitionName={row.definitionName}
+              items={row.items}
+              initialAnswers={row.initialAnswers}
+              canAmend={row.canAmend}
+              amendedByName={row.amendedByName}
+              amendedAt={row.amendedAt ? row.amendedAt.toISOString() : null}
+              hasSubmission={row.hasSubmission}
+            />
           ))}
         </div>
       )}
