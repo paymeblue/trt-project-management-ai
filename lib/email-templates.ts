@@ -129,3 +129,83 @@ export function projectClosedOutEmail({
 
   return { subject, html, text }
 }
+
+// ── Quick task 260728-eml: escalation-amended + video-call-scheduled ───────
+
+/**
+ * Emailed to the officer who raised an escalation, once a supervisor amends
+ * the checklist they escalated. Until this task the moment was in-app only
+ * (notifyUser, actions/escalation.ts) — this is the out-of-app half of that
+ * same notification.
+ */
+export function escalationAmendedEmail({
+  projectName,
+  checklistLabel,
+  stepN,
+  amenderName,
+  disputeUrl,
+}: {
+  projectName: string
+  checklistLabel: string
+  stepN: number | null
+  amenderName: string | null
+  disputeUrl: string
+}) {
+  const subject = `Your escalated checklist was updated: ${checklistLabel} — ${projectName}`
+  const stepSentence = stepN != null ? ` Step ${stepN}.` : ''
+  const amender = amenderName ? escapeHtml(amenderName) : 'a supervisor'
+  const { html, text } = renderBrandedEmail({
+    preheader: `${checklistLabel} on ${projectName} was just updated.`,
+    heading: 'Your escalated checklist was updated',
+    paragraphs: [
+      `<strong>${escapeHtml(checklistLabel)}</strong> on <strong>${escapeHtml(projectName)}</strong> — the checklist you escalated — was just amended by ${amender}.${escapeHtml(stepSentence)}`,
+    ],
+    cta: { label: 'View the escalation', url: absoluteUrl(disputeUrl) },
+  })
+
+  return { subject, html, text }
+}
+
+/**
+ * Emailed to every invited participant of a call scheduled for later (never
+ * the scheduler — the caller passes only the invitee list). An instant call
+ * has no email counterpart; the in-app notification and the GetStream ring
+ * already cover that case.
+ */
+export function videoCallScheduledEmail({
+  title,
+  scheduledFor,
+  schedulerName,
+  participantNames,
+  joinUrl,
+}: {
+  title: string | null
+  scheduledFor: Date
+  schedulerName: string
+  participantNames: string[]
+  joinUrl: string
+}) {
+  const callName = title?.trim() || 'Video call'
+  const subject = `You're invited: ${callName} — scheduled call`
+  // This renders on the SERVER. A locale-default format would silently mean
+  // "the server's timezone", which the reader has no way to know and which
+  // differs between local dev and Netlify. Pinning to UTC and stating it
+  // makes the string unambiguous for every recipient, regardless of where
+  // they or the server are. (lib/video-calls.ts's in-app notification title
+  // still uses an unlabelled local toLocaleString — that is a pre-existing,
+  // out-of-scope choice left untouched by this task.)
+  const when = `${scheduledFor.toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short', timeZone: 'UTC' })} UTC`
+  const participants = participantNames.map((n) => escapeHtml(n)).join(', ')
+  const { html, text } = renderBrandedEmail({
+    preheader: `${escapeHtml(schedulerName)} scheduled ${callName} for ${when}.`,
+    heading: "You're invited to a scheduled call",
+    paragraphs: [
+      `<strong>${escapeHtml(schedulerName)}</strong> scheduled <strong>${escapeHtml(callName)}</strong> for <strong>${escapeHtml(when)}</strong>.`,
+      `Participants: ${participants}.`,
+    ],
+    cta: { label: 'Join the call', url: absoluteUrl(joinUrl) },
+    footNote: 'The call room opens at the scheduled time.',
+  })
+
+  return { subject, html, text }
+}

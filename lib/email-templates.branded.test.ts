@@ -5,6 +5,8 @@ import {
   passwordResetEmail,
   stepTurnEmail,
   projectClosedOutEmail,
+  escalationAmendedEmail,
+  videoCallScheduledEmail,
 } from '@/lib/email-templates'
 
 afterEach(() => {
@@ -166,5 +168,113 @@ describe('subjects are unchanged from before the refactor', () => {
     expect(projectClosedOutEmail({ projectName: 'P', metDeadline: true }).subject).toBe(
       'Project closed out: P',
     )
+  })
+})
+
+describe('escalationAmendedEmail', () => {
+  const base = {
+    projectName: 'Acme Villa',
+    checklistLabel: 'Factory Process Checklist',
+    disputeUrl: 'https://trt.example.com/disputes/proj-1',
+  }
+
+  it('subject contains the checklist label and project name and reads as an update', () => {
+    const { subject } = escalationAmendedEmail({ ...base, stepN: 3, amenderName: 'Jane' })
+    expect(subject).toContain('Factory Process Checklist')
+    expect(subject).toContain('Acme Villa')
+    expect(subject.toLowerCase()).toMatch(/updated/)
+  })
+
+  it('html contains project name, checklist label, and Step {n} when stepN is non-null', () => {
+    const { html } = escalationAmendedEmail({ ...base, stepN: 3, amenderName: 'Jane' })
+    expect(html).toContain('Acme Villa')
+    expect(html).toContain('Factory Process Checklist')
+    expect(html).toContain('Step 3')
+    expect(html).toContain('Jane')
+  })
+
+  it('omits the step line entirely when stepN is null', () => {
+    const { html } = escalationAmendedEmail({ ...base, stepN: null, amenderName: 'Jane' })
+    expect(html).not.toMatch(/Step \d/)
+  })
+
+  it('falls back to "a supervisor" when amenderName is null', () => {
+    const { html } = escalationAmendedEmail({ ...base, stepN: null, amenderName: null })
+    expect(html).toContain('a supervisor')
+  })
+
+  it('CTA label mentions the escalation/dispute and href is the passed disputeUrl', () => {
+    const { html } = escalationAmendedEmail({ ...base, stepN: null, amenderName: 'Jane' })
+    expect(html).toMatch(/<a[^>]+href="https:\/\/trt\.example\.com\/disputes\/proj-1"[^>]*>[^<]*(escalation|dispute)/i)
+  })
+
+  it('text contains the project name and the raw url', () => {
+    const { text } = escalationAmendedEmail({ ...base, stepN: null, amenderName: 'Jane' })
+    expect(text).toContain('Acme Villa')
+    expect(text).toContain('https://trt.example.com/disputes/proj-1')
+  })
+
+  it('escapes a project name containing a script tag — no raw <script survives', () => {
+    const { html } = escalationAmendedEmail({
+      ...base,
+      projectName: 'Villa & Sons <script>alert(1)</script>',
+      stepN: null,
+      amenderName: 'Jane',
+    })
+    expect(html).not.toContain('<script>')
+    expect(html).toContain('&amp;')
+  })
+})
+
+describe('videoCallScheduledEmail', () => {
+  const base = {
+    scheduledFor: new Date('2026-08-01T14:30:00Z'),
+    schedulerName: 'Admin User',
+    participantNames: ['Alice', 'Bob'],
+    joinUrl: 'https://trt.example.com/calls/call-1',
+  }
+
+  it('subject names the call and reads as a scheduled invitation', () => {
+    const { subject } = videoCallScheduledEmail({ ...base, title: 'Site Kickoff' })
+    expect(subject).toContain('Site Kickoff')
+    expect(subject.toLowerCase()).toMatch(/invited/)
+  })
+
+  it('html contains the formatted date/time and an explicit UTC label', () => {
+    const { html } = videoCallScheduledEmail({ ...base, title: 'Site Kickoff' })
+    expect(html).toContain('2026')
+    expect(html).toContain('UTC')
+  })
+
+  it('lists every participant name, escaped', () => {
+    const { html } = videoCallScheduledEmail({
+      ...base,
+      title: 'Site Kickoff',
+      participantNames: ['Alice & Bob', 'Carol'],
+    })
+    expect(html).toContain('Alice &amp; Bob')
+    expect(html).toContain('Carol')
+  })
+
+  it('falls back to "Video call" when title is null', () => {
+    const { subject, html } = videoCallScheduledEmail({ ...base, title: null })
+    expect(subject).toContain('Video call')
+    expect(html).toContain('Video call')
+  })
+
+  it('falls back to "Video call" when title is blank', () => {
+    const { subject } = videoCallScheduledEmail({ ...base, title: '   ' })
+    expect(subject).toContain('Video call')
+  })
+
+  it('CTA label is a join label and href equals joinUrl', () => {
+    const { html } = videoCallScheduledEmail({ ...base, title: 'Site Kickoff' })
+    expect(html).toMatch(/<a[^>]+href="https:\/\/trt\.example\.com\/calls\/call-1"[^>]*>[^<]*join/i)
+  })
+
+  it('text contains the time string and the raw url', () => {
+    const { text } = videoCallScheduledEmail({ ...base, title: 'Site Kickoff' })
+    expect(text).toContain('2026')
+    expect(text).toContain('https://trt.example.com/calls/call-1')
   })
 })
