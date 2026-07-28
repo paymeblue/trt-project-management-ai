@@ -606,6 +606,18 @@ export const videoCallParticipants = pgTable('video_call_participants', {
   userId:    uuid('user_id').notNull().references(() => users.id),
   invitedBy: uuid('invited_by').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  // Quick task 260728-vce: presence tracking, added ADDITIVELY (both nullable,
+  // no backfill). This row is the INVITE record and must survive a leave —
+  // getMyCalls() (lib/video-calls.ts) derives a user's entire call history,
+  // active AND past, from this table's row existing — so "currently present"
+  // is a DERIVED predicate over these two timestamps, never row
+  // presence/absence. "Currently present" ==
+  // `joinedAt IS NOT NULL AND (leftAt IS NULL OR leftAt < joinedAt)` — the
+  // `leftAt < joinedAt` half is what lets rejoining the same call work
+  // without ever having to clear leftAt back to null on join; a fresh
+  // joinedAt stamp alone re-establishes presence.
+  joinedAt:  timestamp('joined_at'),
+  leftAt:    timestamp('left_at'),
 }, (t) => [
   unique('video_call_participants_call_id_user_id_unique').on(t.callId, t.userId),
 ])
