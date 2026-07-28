@@ -51,6 +51,31 @@ export type CallParticipantInfo = { userId: string; name: string; role: string }
 // safely: disable() on a never-enabled device, or leave()/disconnectUser()
 // on a call/client that never fully connected, are all safe no-ops/rejections
 // we simply swallow.
+// Quick task 260728-vce: best-effort, unload-survivable "I left" beacon.
+// `keepalive: true` is what lets this request outlive the document being
+// torn down — the entire point on `pagehide`, where the tab is closing
+// while the request is still in flight. `navigator.sendBeacon` gives the
+// same unload survivability but cannot set an `Authorization` header (only
+// a body + content-type), which would force this app's per-tab token into a
+// request body and fork the auth path lib/dal.ts already supports for every
+// other request — keepalive fetch keeps this on the SAME one auth path.
+// Called from both exit sites (unmount cleanup and `pagehide`) rather than
+// forking a Server Action for one and a beacon for the other, for the same
+// no-drift reasoning this file already applies to `enableMedia`. This is
+// BEST-EFFORT by nature: a hard tab kill, crash, OS-level process kill, or
+// an offline device can all drop the request — that is precisely why the
+// scheduled sweep (lib/video-calls.ts's sweepStaleCalls) exists as the
+// authoritative backstop, not as a nice-to-have.
+function notifyServerLeft(callId: string) {
+  fetch(`/api/calls/${callId}/leave`, {
+    method: 'POST',
+    keepalive: true,
+    headers: { authorization: `Bearer ${getTabToken() ?? ''}` },
+  }).catch(() => {
+    // Best-effort — see the function comment above.
+  })
+}
+
 async function releaseCallResources(call: Call, client: StreamVideoClient) {
   try {
     await call.camera.disable(true)
@@ -141,6 +166,19 @@ export default function VideoCallRoom({
     }
   }, [])
 
+  // Guards notifyServerLeft so it fires at most once per room mount even
+  // though both the unmount cleanup AND pagehide can race/double-fire (e.g.
+  // a client-side nav away triggers unmount while pagehide never fires, but
+  // a tab close can in principle hit both in quick succession on some
+  // browsers) — the server side is already idempotent (markCallParticipantLeft
+  // re-reads status before acting), this just avoids a redundant request.
+  const leftNotifiedRef = useRef(false)
+  const notifyLeftOnce = useCallback(() => {
+    if (leftNotifiedRef.current) return
+    leftNotifiedRef.current = true
+    notifyServerLeft(callId)
+  }, [callId])
+
   // Single shared enable path used by BOTH the post-join auto-enable and
   // the banner retry button — one code path, so retry can never drift from
   // the initial attempt's classification logic.
@@ -230,8 +268,13 @@ export default function VideoCallRoom({
         // releaseCallResources already swallows every one of its own steps;
         // this is belt-and-suspenders only.
       })
+      // 260728-vce: tell the server this user left — deliberately NOT inside
+      // releaseCallResources, which is media-hardware release and must stay
+      // synchronous-ish and failure-isolated (see that function's own
+      // comment).
+      notifyLeftOnce()
     }
-  }, [call, client, enableMedia])
+  }, [call, client, enableMedia, notifyLeftOnce])
 
   // VPM-04: the effect above only fires on React unmount, which does NOT
   // happen on a hard tab/browser close (no client-side navigation occurs,
@@ -241,10 +284,14 @@ export default function VideoCallRoom({
   useEffect(() => {
     const onPageHide = () => {
       releaseCallResources(call, client).catch(() => {})
+      // 260728-vce: same beacon as the unmount cleanup above — pagehide is
+      // the exit path that never unmounts this component (hard tab/browser
+      // close), so it needs its own call site.
+      notifyLeftOnce()
     }
     window.addEventListener('pagehide', onPageHide)
     return () => window.removeEventListener('pagehide', onPageHide)
-  }, [call, client])
+  }, [call, client, notifyLeftOnce])
 
   const [chatOpen, setChatOpen] = useState(false)
 

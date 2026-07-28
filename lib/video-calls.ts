@@ -262,10 +262,40 @@ export async function addVideoCallParticipants(opts: {
 }
 
 /**
+ * Quick task 260728-vce: stamps presence on (callId, userId) — `joinedAt =
+ * now(), leftAt = null` — using Postgres' own clock (see the naive-timestamp
+ * rationale in sendDueCallReminders' comment; same convention). Called from
+ * ensureCallParticipant on EVERY join, including a rejoin of an
+ * already-invited row, because a fresh `joinedAt` alone is what
+ * re-establishes presence without ever needing to clear `leftAt` back to
+ * null (see db/schema.ts's "currently present" comment).
+ */
+export async function markCallParticipantJoined(
+  callId: string,
+  userId: string,
+): Promise<void> {
+  await db
+    .update(videoCallParticipants)
+    .set({ joinedAt: sql`now()`, leftAt: null })
+    .where(
+      and(
+        eq(videoCallParticipants.callId, callId),
+        eq(videoCallParticipants.userId, userId),
+      ),
+    );
+}
+
+/**
  * Idempotently records `userId` as a participant when they open a call room
  * via a shared link rather than an explicit invite (no notification — they're
  * already looking at the page). Also adds them as a GetStream call member so
  * they can actually connect; a no-op if they're already a member either way.
+ *
+ * The existing-row early return skips only the insert + upsertUsers +
+ * updateCallMembers + addChatChannelMembers work — this function ALWAYS
+ * stamps presence on the way out via markCallParticipantJoined, because the
+ * room page is the single join site and a rejoin must re-establish presence
+ * even though the invite row already exists.
  */
 export async function ensureCallParticipant(
   callId: string,
@@ -281,18 +311,21 @@ export async function ensureCallParticipant(
       ),
     )
     .limit(1);
-  if (existing) return;
 
-  await db
-    .insert(videoCallParticipants)
-    .values({ callId, userId, invitedBy: null })
-    .onConflictDoNothing();
+  if (!existing) {
+    await db
+      .insert(videoCallParticipants)
+      .values({ callId, userId, invitedBy: null })
+      .onConflictDoNothing();
 
-  await upsertVideoCallUsers([userId]);
+    await upsertVideoCallUsers([userId]);
 
-  const call = streamClient().video.call(CALL_TYPE, callId);
-  await call.updateCallMembers({ update_members: [{ user_id: userId }] });
-  await addChatChannelMembers(callId, [userId]);
+    const call = streamClient().video.call(CALL_TYPE, callId);
+    await call.updateCallMembers({ update_members: [{ user_id: userId }] });
+    await addChatChannelMembers(callId, [userId]);
+  }
+
+  await markCallParticipantJoined(callId, userId);
 }
 
 /**
@@ -321,6 +354,56 @@ export async function removeCallParticipant(
   } catch {
     // See comment above — our own row deletion is the source of truth.
   }
+}
+
+// Quick task 260728-vce: the single "currently present" predicate over
+// video_call_participants, reused by markCallParticipantLeft's own-call
+// check and sweepStaleCalls' presence aggregation below — expressed once so
+// the two consumers in this file can never disagree. See db/schema.ts's
+// column comment for the `leftAt < joinedAt` half's rationale (it's what
+// lets rejoining work without ever clearing leftAt back to null).
+const PRESENT_PREDICATE = sql`(${videoCallParticipants.joinedAt} is not null and (${videoCallParticipants.leftAt} is null or ${videoCallParticipants.leftAt} < ${videoCallParticipants.joinedAt}))`;
+
+/**
+ * Stamps `leftAt = now()` for (callId, userId), then — if this was the LAST
+ * present participant on a still-active call — ends the call via the exact
+ * same endVideoCall() the "End for everyone" button uses (never forked), so
+ * the two ways a call can end can never diverge in status/endedAt/GetStream
+ * behavior.
+ *
+ * Idempotent by construction: re-reading the call's status after stamping
+ * leftAt means a second fire (unmount AND pagehide both racing, or a retried
+ * beacon) on an already-ended call is a safe no-op that returns
+ * `{ callEnded: false }` rather than calling endVideoCall twice.
+ */
+export async function markCallParticipantLeft(
+  callId: string,
+  userId: string,
+): Promise<{ callEnded: boolean }> {
+  await db
+    .update(videoCallParticipants)
+    .set({ leftAt: sql`now()` })
+    .where(
+      and(
+        eq(videoCallParticipants.callId, callId),
+        eq(videoCallParticipants.userId, userId),
+      ),
+    );
+
+  const call = await getCall(callId);
+  if (!call || call.status !== 'active') return { callEnded: false };
+
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(videoCallParticipants)
+    .where(and(eq(videoCallParticipants.callId, callId), PRESENT_PREDICATE));
+  const presentCount = Number(row?.count ?? 0);
+
+  if (presentCount === 0) {
+    await endVideoCall(callId);
+    return { callEnded: true };
+  }
+  return { callEnded: false };
 }
 
 export async function endVideoCall(callId: string): Promise<void> {

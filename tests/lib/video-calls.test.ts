@@ -120,6 +120,7 @@ const {
   ensureCallParticipant,
   removeCallParticipant,
   sendDueCallReminders,
+  markCallParticipantLeft,
 } = await import('@/lib/video-calls')
 
 beforeEach(() => {
@@ -268,7 +269,7 @@ describe('addVideoCallParticipants', () => {
 })
 
 describe('ensureCallParticipant', () => {
-  it('does nothing when the user is already a participant', async () => {
+  it('does nothing when the user is already a participant, but still stamps joinedAt/leftAt presence', async () => {
     selectWhereMock.mockResolvedValue([{ id: 'existing-row' }])
 
     await ensureCallParticipant('call-1', 'u1')
@@ -276,6 +277,11 @@ describe('ensureCallParticipant', () => {
     expect(insertValuesMock).not.toHaveBeenCalled()
     expect(updateCallMembersMock).not.toHaveBeenCalled()
     expect(addChatChannelMembersMock).not.toHaveBeenCalled()
+    // A rejoin of an already-invited row must still re-establish presence.
+    expect(updateSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ joinedAt: expect.anything(), leftAt: null }),
+    )
+    expect(updateWhereMock).toHaveBeenCalledOnce()
   })
 
   it('inserts a participant row and adds the GetStream member when not already present', async () => {
@@ -371,5 +377,47 @@ describe('removeCallParticipant', () => {
 
     await expect(removeCallParticipant('call-1', 'u2')).resolves.toBeUndefined()
     expect(deleteWhereMock).toHaveBeenCalledOnce()
+  })
+})
+
+describe('markCallParticipantLeft', () => {
+  it('stamps leftAt but does NOT end the call when other participants are still present', async () => {
+    // First select: getCall's re-read (still 'active'). Second select: the
+    // still-present count (1 other participant remains).
+    selectWhereMock
+      .mockResolvedValueOnce([{ id: 'call-1', status: 'active' }])
+      .mockResolvedValueOnce([{ count: 1 }])
+
+    const result = await markCallParticipantLeft('call-1', 'u2')
+
+    expect(result).toEqual({ callEnded: false })
+    // The leftAt stamp update happened...
+    expect(updateSetMock).toHaveBeenCalledWith(expect.objectContaining({ leftAt: expect.anything() }))
+    // ...but endVideoCall's own status update never ran.
+    expect(updateSetMock.mock.calls.some((c) => (c[0] as { status?: string }).status === 'ended')).toBe(false)
+    expect(endMock).not.toHaveBeenCalled()
+  })
+
+  it('stamps leftAt and ends the call via endVideoCall when this was the last present participant', async () => {
+    selectWhereMock
+      .mockResolvedValueOnce([{ id: 'call-1', status: 'active' }])
+      .mockResolvedValueOnce([{ count: 0 }])
+
+    const result = await markCallParticipantLeft('call-1', 'u2')
+
+    expect(result).toEqual({ callEnded: true })
+    expect(updateSetMock.mock.calls.some((c) => (c[0] as { status?: string }).status === 'ended')).toBe(true)
+    expect(endMock).toHaveBeenCalledOnce()
+  })
+
+  it('is idempotent — a second fire (unmount + pagehide race) on an already-ended call is a no-op', async () => {
+    selectWhereMock.mockResolvedValueOnce([{ id: 'call-1', status: 'ended' }])
+
+    const result = await markCallParticipantLeft('call-1', 'u2')
+
+    expect(result).toEqual({ callEnded: false })
+    expect(endMock).not.toHaveBeenCalled()
+    // Never even reaches the presence-count query once status !== 'active'.
+    expect(updateSetMock.mock.calls.some((c) => (c[0] as { status?: string }).status === 'ended')).toBe(false)
   })
 })
