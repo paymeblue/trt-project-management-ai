@@ -1,12 +1,23 @@
+// Quick task 260728-eml: every template below now renders its body through
+// the shared branded layout (lib/email-layout.ts) instead of a bare <p>
+// fragment. Exported function NAMES, ARGS and SUBJECTS are unchanged —
+// lib/auth/email-flows.ts, actions/admin-users.ts and
+// lib/notify-super-admins-email.ts call these and must not need edits.
+import { escapeHtml, absoluteUrl, renderBrandedEmail } from '@/lib/email-layout'
+
 export function verificationEmail({ name, verifyUrl }: { name: string; verifyUrl: string }) {
   const subject = 'Verify your TRT PM account'
-  const html = `
-<p>Hi ${name},</p>
-<p>Welcome to TRT PM. Please confirm your email address to activate your account:</p>
-<p><a href="${verifyUrl}">Verify email</a></p>
-<p>If you did not create an account, you can safely ignore this email.</p>
-`.trim()
-  const text = `Hi ${name},\n\nWelcome to TRT PM. Verify your email here: ${verifyUrl}\n\nIf you did not create an account, ignore this email.`
+  const url = absoluteUrl(verifyUrl)
+  const { html, text } = renderBrandedEmail({
+    preheader: 'Confirm your email address to activate your TRT PM account.',
+    heading: 'Confirm your email address',
+    paragraphs: [
+      `Hi ${escapeHtml(name)},`,
+      'Welcome to TRT PM. Please confirm your email address to activate your account.',
+    ],
+    cta: { label: 'Verify email', url },
+    footNote: 'If you did not create an account, you can safely ignore this email.',
+  })
 
   return { subject, html, text }
 }
@@ -25,27 +36,41 @@ export function credentialsEmail({
   loginUrl: string
 }) {
   const subject = 'Your TRT PM account'
-  const html = `
-<p>Hi ${name},</p>
-<p>An account has been created for you on TRT PM as <strong>${roleLabel}</strong>. Use these credentials to sign in:</p>
-<p><strong>Email:</strong> ${email}<br/><strong>Temporary password:</strong> ${password}</p>
-<p><a href="${loginUrl}">Sign in to TRT PM</a></p>
-<p>For your security, please change your password after your first sign-in.</p>
-`.trim()
-  const text = `Hi ${name},\n\nAn account has been created for you on TRT PM as ${roleLabel}.\n\nEmail: ${email}\nTemporary password: ${password}\n\nSign in: ${loginUrl}\n\nPlease change your password after your first sign-in.`
+  const url = absoluteUrl(loginUrl)
+  // The temporary password stays in the email body (not behind a link)
+  // because this is the only channel the recipient has at account-creation
+  // time — there is no existing session or token flow to hand them a
+  // password-set link instead. Do not "improve" this into a link without
+  // building that token flow first.
+  const { html, text } = renderBrandedEmail({
+    preheader: `An account has been created for you on TRT PM as ${roleLabel}.`,
+    heading: 'Your TRT PM account is ready',
+    paragraphs: [
+      `Hi ${escapeHtml(name)},`,
+      `An account has been created for you on TRT PM as <strong>${escapeHtml(roleLabel)}</strong>. Use these credentials to sign in:`,
+      `<div style="margin:8px 0;padding:12px 16px;background-color:#fafafa;border:1px solid #e4e4e7;border-radius:6px;"><strong>Email:</strong> ${escapeHtml(email)}<br/><strong>Temporary password:</strong> ${escapeHtml(password)}</div>`,
+    ],
+    cta: { label: 'Sign in to TRT PM', url },
+    footNote: 'For your security, please change your password after your first sign-in.',
+  })
 
   return { subject, html, text }
 }
 
 export function passwordResetEmail({ name, resetUrl }: { name: string; resetUrl: string }) {
   const subject = 'Reset your TRT PM password'
-  const html = `
-<p>Hi ${name},</p>
-<p>We received a request to reset your TRT PM password:</p>
-<p><a href="${resetUrl}">Reset password</a></p>
-<p>This link expires in 1 hour. If you did not request a password reset, you can safely ignore this email.</p>
-`.trim()
-  const text = `Hi ${name},\n\nReset your TRT PM password here: ${resetUrl}\n\nThis link expires in 1 hour. If you did not request this, ignore this email.`
+  const url = absoluteUrl(resetUrl)
+  const { html, text } = renderBrandedEmail({
+    preheader: 'We received a request to reset your TRT PM password.',
+    heading: 'Reset your password',
+    paragraphs: [
+      `Hi ${escapeHtml(name)},`,
+      'We received a request to reset your TRT PM password.',
+    ],
+    cta: { label: 'Reset password', url },
+    footNote:
+      'This link expires in 1 hour. If you did not request a password reset, you can safely ignore this email.',
+  })
 
   return { subject, html, text }
 }
@@ -63,10 +88,14 @@ export function stepTurnEmail({
   stepLabel: string
 }) {
   const subject = `Your turn: ${stepLabel} — ${projectName}`
-  const html = `
-<p>It is your turn to act: <strong>${stepLabel}</strong> is now pending on <strong>${projectName}</strong>.</p>
-`.trim()
-  const text = `It is your turn to act: ${stepLabel} is now pending on ${projectName}.`
+  const { html, text } = renderBrandedEmail({
+    preheader: `${stepLabel} is now pending on ${projectName}.`,
+    heading: "It's your turn",
+    paragraphs: [
+      `It is your turn to act: <strong>${escapeHtml(stepLabel)}</strong> is now pending on <strong>${escapeHtml(projectName)}</strong>.`,
+    ],
+    cta: { label: 'Open TRT PM', url: absoluteUrl('/') },
+  })
 
   return { subject, html, text }
 }
@@ -79,17 +108,24 @@ export function projectClosedOutEmail({
   metDeadline: boolean | null
 }) {
   const subject = `Project closed out: ${projectName}`
+  // These three sentences are pinned verbatim by
+  // lib/email-templates.completion.test.ts (/PAST/, /within its final step
+  // deadline/i, /could not be determined/i) — do not reword them.
   const deadlineLine =
     metDeadline === null
       ? 'No deadline was set for the final step, so on-time status could not be determined.'
       : metDeadline
         ? 'It was delivered within its final step deadline.'
         : 'It was delivered PAST its final step deadline.'
-  const html = `
-<p><strong>${projectName}</strong> has been closed out — every step is complete.</p>
-<p>${deadlineLine}</p>
-`.trim()
-  const text = `${projectName} has been closed out — every step is complete.\n\n${deadlineLine}`
+  const { html, text } = renderBrandedEmail({
+    preheader: `${projectName} has been closed out.`,
+    heading: 'Project closed out',
+    paragraphs: [
+      `<strong>${escapeHtml(projectName)}</strong> has been closed out — every step is complete.`,
+      deadlineLine,
+    ],
+    cta: { label: 'Open TRT PM', url: absoluteUrl('/') },
+  })
 
   return { subject, html, text }
 }
