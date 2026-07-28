@@ -114,6 +114,7 @@ export default async function DisputePage({
             <EscalationAmendPanel
               key={row.id}
               escalationId={row.id}
+              projectName={project.name}
               checklistLabel={row.checklistLabel}
               reason={row.reason}
               stepN={row.stepN}

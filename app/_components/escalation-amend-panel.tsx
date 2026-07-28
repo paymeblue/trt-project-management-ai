@@ -22,6 +22,7 @@ type Group = { title: string | null; items: EscalationPanelItem[] }
 // yes/no/na, notes textarea) rather than inventing a new design system.
 export default function EscalationAmendPanel({
   escalationId,
+  projectName,
   checklistLabel,
   reason,
   stepN,
@@ -36,6 +37,7 @@ export default function EscalationAmendPanel({
   existingPhotos,
 }: {
   escalationId: string
+  projectName: string
   checklistLabel: string
   reason: string | null
   stepN: number | null
@@ -116,14 +118,24 @@ export default function EscalationAmendPanel({
 
   return (
     <div className="mb-4 rounded-xl border border-gray-200 bg-white shadow-sm">
+      {/* Quick task 260728-esc: project name leads the header, not the
+          checklist label — a supervisor with escalations across several
+          projects previously had no way to tell cards apart at a glance
+          (every card said only "Delivery Project Checklist · Step 5" with
+          no project attribution). Checklist label + step number demoted to
+          the same muted register, middot-separated, so the header doesn't
+          grow a second competing bold string. */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
       >
         <span>
-          <span className="text-sm font-semibold text-gray-900">{checklistLabel}</span>
-          {stepN != null && <span className="ml-2 text-xs text-gray-400">Step {stepN}</span>}
+          <span className="text-sm font-semibold text-gray-900">{projectName}</span>
+          <span className="ml-2 text-xs text-gray-400">
+            {checklistLabel}
+            {stepN != null && <> · Step {stepN}</>}
+          </span>
         </span>
         <span className="material-symbols-outlined text-gray-400">
           {open ? 'expand_less' : 'expand_more'}
