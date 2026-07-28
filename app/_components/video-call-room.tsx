@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -18,6 +18,13 @@ import { endVideoCallAction } from '@/actions/video-calls'
 import AddCallParticipants from '@/app/_components/add-call-participants'
 import CallChatPanel from '@/app/_components/call-chat-panel'
 import { getTabToken } from '@/lib/use-tab-token'
+import {
+  classifyMediaFailure,
+  mergeMediaFailures,
+  queryMediaPermissionState,
+  type MediaFailure,
+  type MediaKind,
+} from '@/lib/media-permission'
 
 export type CallParticipantInfo = { userId: string; name: string; role: string }
 
@@ -62,11 +69,66 @@ export default function VideoCallRoom({
   // Surfaced as a real banner below, not just CallControls' small warning
   // badge on the camera/mic buttons — a denied/missing device is easy to
   // miss otherwise, and "check your browser permissions" isn't obvious from
-  // an icon alone.
-  const [mediaBlocked, setMediaBlocked] = useState<{ camera: boolean; microphone: boolean }>({
-    camera: false,
-    microphone: false,
+  // an icon alone. Each kind's failure is classified independently (quick
+  // task 260728-vpm) so a busy camera and an unprompted mic never collapse
+  // into one wrong sentence, and so the banner can offer an in-place retry
+  // instead of telling the user to reload.
+  const [mediaFailures, setMediaFailures] = useState<{ camera: MediaFailure | null; microphone: MediaFailure | null }>({
+    camera: null,
+    microphone: null,
   })
+  const [retrying, setRetrying] = useState(false)
+
+  // enableMedia's setMediaFailures calls are async (permission query +
+  // enable() both await) and can resolve after the user has already left
+  // the call (unmount, navigation away, tab close). Guard every state
+  // update behind this so a late-resolving promise never touches unmounted
+  // component state.
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  // Single shared enable path used by BOTH the post-join auto-enable and
+  // the banner retry button — one code path, so retry can never drift from
+  // the initial attempt's classification logic.
+  const enableMedia = useCallback(
+    async (kind: MediaKind) => {
+      const isSecureContext = window.isSecureContext
+      const hasMediaDevices = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
+
+      // A plain-http LAN-IP test session (or any non-secure origin) can
+      // only ever fail here — calling enable() would just produce a
+      // permission-shaped rejection with the wrong apparent cause. Skip
+      // straight to classification so the banner tells the truth instead
+      // of "check site permissions".
+      if (!isSecureContext || !hasMediaDevices) {
+        const failure = classifyMediaFailure({ isSecureContext, hasMediaDevices }, kind)
+        if (mountedRef.current) setMediaFailures((s) => ({ ...s, [kind]: failure }))
+        return
+      }
+
+      try {
+        if (kind === 'camera') await call.camera.enable()
+        else await call.microphone.enable()
+        // Success (including a successful retry) clears this kind's own
+        // failure — never the other kind's, preserving independence.
+        if (mountedRef.current) setMediaFailures((s) => ({ ...s, [kind]: null }))
+      } catch (err) {
+        // DOMException is an Error subclass, so `.name` carries
+        // NotAllowedError / NotFoundError / NotReadableError / AbortError /
+        // SecurityError / OverconstrainedError.
+        const errorName = err instanceof Error ? err.name : undefined
+        const permissionState = await queryMediaPermissionState(kind)
+        const failure = classifyMediaFailure({ errorName, permissionState, isSecureContext, hasMediaDevices }, kind)
+        if (mountedRef.current) setMediaFailures((s) => ({ ...s, [kind]: failure }))
+      }
+    },
+    [call],
+  )
 
   // If the call was already ended (server-side call.end()) by the time this
   // client tries to join, call.join() can hang forever instead of rejecting
@@ -92,11 +154,13 @@ export default function VideoCallRoom({
         // Camera/mic start OFF by default (SpeakerLayout/CallControls show
         // the crossed-out red icons until manually toggled) — "like Zoom"
         // means video is on the moment you join, not an extra click. Each
-        // enable() is independent: a denied/missing camera must never block
-        // the mic (or vice versa), so they're caught separately rather than
-        // Promise.all'd.
-        call.camera.enable().catch(() => setMediaBlocked((s) => ({ ...s, camera: true })))
-        call.microphone.enable().catch(() => setMediaBlocked((s) => ({ ...s, microphone: true })))
+        // enableMedia call is independent: a denied/missing camera must
+        // never block the mic (or vice versa), so they're never
+        // Promise.all'd. This zero-click path is intentionally NOT gated
+        // behind a permission query or a button — it's the already-granted
+        // fast path.
+        void enableMedia('camera')
+        void enableMedia('microphone')
       })
       .catch(() => {
         settled = true
@@ -111,7 +175,7 @@ export default function VideoCallRoom({
         // joined (the timeout case above) — nothing to clean up either way.
       })
     }
-  }, [call])
+  }, [call, enableMedia])
 
   const [chatOpen, setChatOpen] = useState(false)
 
@@ -161,6 +225,8 @@ export default function VideoCallRoom({
       router.push(dashboard)
     })
   }
+
+  const mediaBanner = mergeMediaFailures(mediaFailures.camera, mediaFailures.microphone)
 
   return (
     <StreamVideo client={client}>
@@ -224,15 +290,33 @@ export default function VideoCallRoom({
             </div>
           )}
 
-          {(mediaBlocked.camera || mediaBlocked.microphone) && (
+          {mediaBanner && (
             <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-              {mediaBlocked.camera && mediaBlocked.microphone
-                ? 'Camera and microphone are blocked for this site.'
-                : mediaBlocked.camera
-                  ? 'Camera is blocked for this site.'
-                  : 'Microphone is blocked for this site.'}{' '}
-              Check your browser&rsquo;s site permissions (usually the icon in the address bar) and
-              reload this page.
+              {mediaBanner.lines.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+              {mediaBanner.canRetryInPlace && (
+                // An explicit user gesture is both the only reliable way to
+                // re-trigger a `prompt`-state permission dialog and the
+                // highest-grant-rate moment to ask — this button never
+                // reloads, navigates, or leaves the call, it only
+                // re-invokes the same enableMedia() the auto-enable path
+                // used.
+                <button
+                  type="button"
+                  disabled={retrying}
+                  onClick={() => {
+                    setRetrying(true)
+                    const kinds: MediaKind[] = []
+                    if (mediaFailures.camera) kinds.push('camera')
+                    if (mediaFailures.microphone) kinds.push('microphone')
+                    Promise.all(kinds.map((kind) => enableMedia(kind))).finally(() => setRetrying(false))
+                  }}
+                  className="mt-2 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-60"
+                >
+                  {retrying ? 'Requesting…' : mediaBanner.retryLabel}
+                </button>
+              )}
             </div>
           )}
 
