@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { markNotificationsReadAction } from '@/actions/notifications'
 import { getTabToken } from '@/lib/use-tab-token'
+import { shouldAutoOpenBell, useForcingOverlayActive, AUTO_SURFACED_KEY } from '@/lib/notification-autosurface'
 
 type Item = {
   id: string
@@ -45,6 +46,82 @@ export default function NotificationsBell() {
   const [feed, setFeed] = useState<Feed>({ items: [], unread: 0 })
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  // Quick task 260728-esc (ESC-C): PendingCallGate/PendingStepGate register
+  // themselves as forcing overlays via the same shared store — the bell
+  // auto-surface must defer to both (see lib/notification-autosurface.ts for
+  // the full precedence rationale) rather than the two components guessing
+  // about each other.
+  const forcingOverlayActive = useForcingOverlayActive()
+  // Ids of unread notifications already auto-surfaced this session. A ref,
+  // not state — it never needs to trigger its own re-render, only the
+  // auto-open decision effect below and sessionStorage read it.
+  const autoSurfacedRef = useRef<Set<string>>(new Set())
+
+  // Hydrate the seen-set from sessionStorage once on mount. Must live inside
+  // an effect, never at module scope or during render — sessionStorage does
+  // not exist during SSR/the first server render, and touching it outside
+  // an effect would throw or desync hydration.
+  //
+  // WHY sessionStorage HERE, when the gates (PendingStepGate/PendingCallGate)
+  // use in-memory Sets that reset on hard reload: the gates re-assert on
+  // hard reload on purpose — an uncompleted step is still on your desk and
+  // should shout again. A notification you have already read the text of is
+  // not work; re-popping it on every hard refresh is the exact nagging this
+  // feature is meant to avoid. Notification ids are stable across reloads,
+  // so the seen-set is meaningful here where the gates' "still pending" set
+  // is not.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(AUTO_SURFACED_KEY)
+      if (raw) autoSurfacedRef.current = new Set(JSON.parse(raw) as string[])
+    } catch {
+      // sessionStorage unavailable (private mode, storage disabled, etc.) —
+      // falls back to in-memory-only for this tab; everything still works,
+      // it just re-arms on every hard reload instead of once per session.
+    }
+  }, [])
+
+  // Quick task 260728-esc (ESC-C): auto-surface unread notification CONTENT
+  // (title + body, not just the count badge) once per session, re-arming
+  // only when a genuinely new unread id appears. Deliberately does NOT call
+  // markNotificationsReadAction — opening the panel has never marked things
+  // read and must not start now (the badge must survive a glanced-at,
+  // not-acted-on notification). Never calls .focus() — the panel opening is
+  // the only DOM effect, so an in-progress form field's caret never moves.
+  useEffect(() => {
+    const unreadIds = feed.items.filter((i) => !i.read).map((i) => i.id)
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null
+    const isTypingInForm = !!(
+      activeEl &&
+      (activeEl.tagName === 'INPUT' ||
+        activeEl.tagName === 'TEXTAREA' ||
+        activeEl.tagName === 'SELECT' ||
+        (activeEl as HTMLElement).isContentEditable)
+    )
+
+    if (
+      shouldAutoOpenBell({
+        unreadIds,
+        autoSurfacedIds: autoSurfacedRef.current,
+        isOpen: open,
+        forcingOverlayActive,
+        isTypingInForm,
+      })
+    ) {
+      setOpen(true)
+      // Persist EVERY currently-unread id (not just the one that triggered)
+      // — this is what makes it once-per-session rather than
+      // once-per-notification.
+      const next = new Set(autoSurfacedRef.current)
+      for (const id of unreadIds) next.add(id)
+      autoSurfacedRef.current = next
+      try {
+        sessionStorage.setItem(AUTO_SURFACED_KEY, JSON.stringify([...next]))
+      } catch {
+        // best-effort persistence only — see hydration comment above
+      }
+    }
+  }, [feed, open, forcingOverlayActive])
 
   const refresh = useCallback(async () => {
     try {

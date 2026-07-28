@@ -9,6 +9,7 @@ import { useMyWork } from '@/app/_components/my-work-provider'
 import { useWorkflowSteps } from '@/app/_components/workflow-steps-provider'
 import DeadlineCountdown from '@/app/_components/deadline-countdown'
 import { getTabToken } from '@/lib/use-tab-token'
+import { useRegisterForcingOverlay } from '@/lib/notification-autosurface'
 
 const INITIAL_ACK: AckStepState = { ok: false }
 
@@ -77,9 +78,16 @@ export default function PendingStepGate({ viewerRole }: { viewerRole: UserRole }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item])
 
-  if (!item) return null
+  // Quick task 260728-esc: hooks cannot live after a conditional return, so
+  // `step` is computed here (guarded) and the forcing-overlay registration
+  // happens before either early return below — the registration must
+  // reflect what this component actually renders (the modal only renders
+  // when both `item` and `step` resolve), so the bell's auto-surface can
+  // correctly defer to this gate whenever it is genuinely on screen.
+  const step = item ? findStep(steps, item.stepN) : null
+  useRegisterForcingOverlay(!!(item && step))
 
-  const step = findStep(steps, item.stepN)
+  if (!item) return null
   if (!step) return null
 
   const others = pending.filter(

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { markNotificationsReadAction } from '@/actions/notifications'
 import { getTabToken } from '@/lib/use-tab-token'
 import { createRingtone, type Ringtone } from '@/lib/ringtone'
+import { useRegisterForcingOverlay } from '@/lib/notification-autosurface'
 
 type Item = {
   id: string
@@ -83,6 +84,12 @@ export default function PendingCallGate() {
     else ringtoneRef.current?.stop()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending?.id])
+
+  // Quick task 260728-esc: registered before the early return below (hooks
+  // cannot live after a conditional return) — this is the highest-priority
+  // forcing overlay (z-[70]), so the bell's auto-surface must always be able
+  // to see it and defer.
+  useRegisterForcingOverlay(!!pending)
 
   if (!pending) return null
 
