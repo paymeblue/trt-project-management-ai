@@ -390,7 +390,7 @@ describe('confirmDualRoleStepAs', () => {
       expect(res).toEqual({
         ok: false,
         advanced: false,
-        message: 'This step is assigned to a specific Site PM for this project.',
+        message: 'This step is assigned to a specific person for this project — only they can act on it.',
       })
       expect(workflowStepStatesInsertMock).not.toHaveBeenCalled()
       expect(insertValuesMock).not.toHaveBeenCalled()

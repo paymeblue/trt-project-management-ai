@@ -241,6 +241,37 @@ export async function stepPositionMismatch(
   return actingUser?.position !== step.requiredPosition
 }
 
+// ── Assignee gate, READ side (quick task 260728-cfn, anti-stranding fix) ──
+// This is the READ-side twin of the gate the 5 write paths already enforce
+// inline (advanceProjectStep/confirmDualRoleStepAs in actions/workflow.ts,
+// actions/readiness.ts, actions/checklists.ts, and authorizeStep in
+// actions/workflow-graph.ts) — it exists to stop STRANDING (a non-assignee
+// filling out an entire multi-step checklist or readiness form and being
+// rejected only at submit), never as an authorization boundary of its own.
+// The write paths keep their own independent inline checks unchanged
+// (defense in depth); this helper is read-only pre-submit visibility.
+//
+// `role` is a REQUIRED parameter, not an optimization: materials_readiness
+// is dual-role and gated to the site_pm party ONLY (see ASSIGNEE_GATED_STEPS
+// above), so consulting the gate without first checking assigneeGatedRoles
+// would wrongly block a factory_pm acting on their own half of that step. A
+// null gate means "not assigned yet" — no restriction, matching
+// getStepAssigneeGate's documented contract.
+export const ASSIGNEE_MISMATCH_MESSAGE =
+  'This step is assigned to a specific person for this project — only they can act on it.'
+
+export async function stepAssigneeMismatch(
+  userId: string,
+  projectId: string,
+  step: { key: string },
+  role: UserRole,
+  graph = 'live',
+): Promise<boolean> {
+  if (!assigneeGatedRoles(step.key).includes(role as WorkflowRole)) return false
+  const gateUserId = await getStepAssigneeGate(graph, projectId, step.key)
+  return gateUserId !== null && gateUserId !== userId
+}
+
 export async function getGraphEdges(
   graph = 'live',
 ): Promise<{ fromStepId: string; toStepId: string }[]> {

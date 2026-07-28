@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // lib/workflow-graph.ts starts with `import 'server-only'` and transitively
 // imports `@/db` (which connects to Neon at module load time) — both are
@@ -6,10 +6,25 @@ import { describe, it, expect, vi } from 'vitest'
 // itself is pure and never touches either. The DB-touching getStepAssigneeGate
 // is exercised by scripts/verify-assignee-gate.ts against the real live DB,
 // not here.
+//
+// Quick task 260728-cfn: replaced the flat `{}` db stub with a chainable mock
+// (same shape as tests/actions/workflow.test.ts) so stepAssigneeMismatch's
+// two sequential single-row reads (getStepByKey, then the workflow_step_states
+// row) can be exercised, including the zero-queries fast path assertion.
+const { selectLimitMock } = vi.hoisted(() => ({ selectLimitMock: vi.fn() }))
 vi.mock('server-only', () => ({}))
-vi.mock('@/db', () => ({ db: {} }))
+vi.mock('@/db', () => ({
+  db: {
+    select: () => ({
+      from: () => ({
+        where: () => ({ limit: selectLimitMock }),
+      }),
+    }),
+  },
+}))
 
-const { assigneeGoverningStepKey, assigneeGatedRoles } = await import('@/lib/workflow-graph')
+const { assigneeGoverningStepKey, assigneeGatedRoles, stepAssigneeMismatch } =
+  await import('@/lib/workflow-graph')
 describe('assigneeGoverningStepKey (quick task 260713-ekr)', () => {
   it('maps brief_taking to assign_designer_brief', () => {
     expect(assigneeGoverningStepKey('brief_taking')).toBe('assign_designer_brief')
@@ -73,5 +88,68 @@ describe('assigneeGatedRoles (quick task 260716-h0i)', () => {
 
   it('returns [] for an unrelated step key', () => {
     expect(assigneeGatedRoles('invoice_upload')).toEqual([])
+  })
+})
+
+describe('stepAssigneeMismatch (quick task 260728-cfn)', () => {
+  beforeEach(() => {
+    selectLimitMock.mockReset()
+  })
+
+  it('returns true when the gate is held by a DIFFERENT user (gated role)', async () => {
+    // First read: getStepByKey resolves the governing step's row (only `id`
+    // matters downstream). Second read: the workflow_step_states row holding
+    // the recorded assignee.
+    selectLimitMock.mockResolvedValueOnce([{ id: 'stepdef-gov' }])
+    selectLimitMock.mockResolvedValueOnce([{ assignedUserId: 's1' }])
+
+    const mismatch = await stepAssigneeMismatch(
+      's2',
+      'p1',
+      { key: 'materials_readiness' },
+      'site_pm',
+    )
+
+    expect(mismatch).toBe(true)
+  })
+
+  it('returns false when the gate is held by the caller (gated role)', async () => {
+    selectLimitMock.mockResolvedValueOnce([{ id: 'stepdef-gov' }])
+    selectLimitMock.mockResolvedValueOnce([{ assignedUserId: 's1' }])
+
+    const mismatch = await stepAssigneeMismatch(
+      's1',
+      'p1',
+      { key: 'materials_readiness' },
+      'site_pm',
+    )
+
+    expect(mismatch).toBe(false)
+  })
+
+  it('returns false when no assignment has been recorded yet (gate resolves null)', async () => {
+    selectLimitMock.mockResolvedValueOnce([{ id: 'stepdef-gov' }])
+    selectLimitMock.mockResolvedValueOnce([]) // no workflow_step_states row yet
+
+    const mismatch = await stepAssigneeMismatch(
+      's1',
+      'p1',
+      { key: 'materials_readiness' },
+      'site_pm',
+    )
+
+    expect(mismatch).toBe(false)
+  })
+
+  it('returns false and issues ZERO db queries when role is not in assigneeGatedRoles(step.key) (factory_pm on the dual-role materials_readiness step)', async () => {
+    const mismatch = await stepAssigneeMismatch(
+      'f1',
+      'p1',
+      { key: 'materials_readiness' },
+      'factory_pm',
+    )
+
+    expect(mismatch).toBe(false)
+    expect(selectLimitMock).not.toHaveBeenCalled()
   })
 })

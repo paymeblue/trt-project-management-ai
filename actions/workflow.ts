@@ -20,6 +20,7 @@ import {
   notifyNextStepOfficers,
   stepPositionMismatch,
   POSITION_MISMATCH_MESSAGE,
+  ASSIGNEE_MISMATCH_MESSAGE,
 } from '@/lib/workflow-graph'
 
 function revalidateBoards() {
@@ -182,10 +183,15 @@ export async function confirmDualRoleStepAs(opts: {
   if (assigneeGatedRoles(step.key).includes(role as WorkflowRole)) {
     const gateUserId = await getStepAssigneeGate('live', projectId, step.key)
     if (gateUserId && gateUserId !== userId) {
+      // Quick task 260728-cfn: message text shared with the pre-submit
+      // notice via ASSIGNEE_MISMATCH_MESSAGE — the gate logic above (this
+      // block's structure and the check it performs) is intentionally left
+      // untouched; only the user-facing STRING is centralized, since string
+      // drift is what actually caused pre/post-submit wording to diverge.
       return {
         ok: false,
         advanced: false,
-        message: 'This step is assigned to a specific Site PM for this project.',
+        message: ASSIGNEE_MISMATCH_MESSAGE,
       }
     }
   }

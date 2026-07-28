@@ -37,6 +37,11 @@ vi.mock('@/lib/workflow-graph', () => ({
   // which exercise requiredPosition) are unaffected.
   stepPositionMismatch: stepPositionMismatchMock,
   POSITION_MISMATCH_MESSAGE: 'This step is restricted to a specific title, and your account is not set to it.',
+  // Quick task 260728-cfn: submitReadinessAction now imports this constant
+  // for the assignee-gate rejection message — stub with the same text as the
+  // real constant so the import resolves and any future assertion matches.
+  ASSIGNEE_MISMATCH_MESSAGE:
+    'This step is assigned to a specific person for this project — only they can act on it.',
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
