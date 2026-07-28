@@ -31,6 +31,7 @@ const {
   updateMock,
   updateSetMock,
   updateWhereMock,
+  notifyUserMock,
 } = vi.hoisted(() => {
   const insertReturningMock = vi.fn()
   const insertValuesMock = vi.fn()
@@ -38,6 +39,7 @@ const {
   const updateWhereMock = vi.fn()
   const updateSetMock = vi.fn()
   const updateMock = vi.fn()
+  const notifyUserMock = vi.fn()
   return {
     verifyMock: vi.fn(),
     selectMock: vi.fn(),
@@ -47,13 +49,14 @@ const {
     updateMock,
     updateSetMock,
     updateWhereMock,
+    notifyUserMock,
   }
 })
 
 vi.mock('server-only', () => ({}))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/dal', () => ({ verifySession: verifyMock, verifySessionForAction: verifyMock }))
-vi.mock('@/lib/notifications', () => ({ notifyUser: vi.fn() }))
+vi.mock('@/lib/notifications', () => ({ notifyUser: notifyUserMock }))
 vi.mock('@/db', () => ({
   db: {
     select: (...args: unknown[]) => selectMock(...args),
@@ -512,5 +515,103 @@ describe('loadEscalationPanelData', () => {
     const rows = await loadEscalationPanelData('proj-1', 'viewer-1', 'site_pm')
     expect(rows).toEqual([])
     expect(selectMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('amendEscalatedChecklistAction — amend notification (260728-esc)', () => {
+  it('on a successful amend by a DIFFERENT user, notifyUser is called exactly once naming project/checklist/step/amender', async () => {
+    verifyMock.mockResolvedValue({ userId: 'head-1', role: 'super_admin' })
+    selectMock
+      .mockReturnValueOnce(rowsQuery([ESCALATION])) // step_escalations lookup
+      .mockReturnValueOnce(rowsQuery([{ position: null }])) // fresh users.position (admin bypass)
+      .mockReturnValueOnce(rowsQuery([DEFINITION]))
+      .mockReturnValueOnce(rowsQuery(ITEMS))
+      .mockReturnValueOnce(rowsQuery([EXISTING_CHECKLIST])) // prior submission
+      .mockReturnValueOnce(rowsQuery(EXISTING_RESPONSES))
+      .mockReturnValueOnce(rowsQuery([{ name: 'Villa Rossi' }])) // projects.name
+      .mockReturnValueOnce(rowsQuery([{ name: 'Head of Projects' }])) // users.name (amender)
+
+    const res = await amendEscalatedChecklistAction(null, {
+      escalationId: 'esc-1',
+      answers: { 'item-1': { value: 'no' } },
+    })
+
+    expect(res.ok).toBe(true)
+    expect(notifyUserMock).toHaveBeenCalledOnce()
+    expect(notifyUserMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientId: 'officer-1', // ESCALATION.createdBy
+        actorId: 'head-1',
+        type: 'escalation_amended',
+        projectId: 'proj-1',
+        title: expect.stringContaining('Villa Rossi'),
+        body: expect.stringContaining('Head of Projects'),
+      }),
+    )
+    expect(notifyUserMock.mock.calls[0][0].title).toContain('Delivery Project Checklist')
+    expect(notifyUserMock.mock.calls[0][0].title).toContain('Step 5')
+  })
+
+  it('when the amender IS escalation.createdBy, notifyUser is never called and the amend still returns ok: true', async () => {
+    verifyMock.mockResolvedValue({ userId: 'officer-1', role: 'site_pm', position: 'head_of_projects' })
+    selectMock
+      .mockReturnValueOnce(rowsQuery([ESCALATION])) // createdBy: 'officer-1' === caller
+      .mockReturnValueOnce(rowsQuery([{ position: 'head_of_projects' }]))
+      .mockReturnValueOnce(rowsQuery([DEFINITION]))
+      .mockReturnValueOnce(rowsQuery(ITEMS))
+      .mockReturnValueOnce(rowsQuery([EXISTING_CHECKLIST]))
+      .mockReturnValueOnce(rowsQuery(EXISTING_RESPONSES))
+
+    const res = await amendEscalatedChecklistAction(null, {
+      escalationId: 'esc-1',
+      answers: {},
+    })
+
+    expect(res.ok).toBe(true)
+    expect(notifyUserMock).not.toHaveBeenCalled()
+  })
+
+  it('when escalation.createdBy is null, notifyUser is never called and the amend still returns ok: true', async () => {
+    verifyMock.mockResolvedValue({ userId: 'head-1', role: 'super_admin' })
+    selectMock
+      .mockReturnValueOnce(rowsQuery([{ ...ESCALATION, createdBy: null }]))
+      .mockReturnValueOnce(rowsQuery([{ position: null }]))
+      .mockReturnValueOnce(rowsQuery([DEFINITION]))
+      .mockReturnValueOnce(rowsQuery(ITEMS))
+      .mockReturnValueOnce(rowsQuery([EXISTING_CHECKLIST]))
+      .mockReturnValueOnce(rowsQuery(EXISTING_RESPONSES))
+
+    const res = await amendEscalatedChecklistAction(null, {
+      escalationId: 'esc-1',
+      answers: {},
+    })
+
+    expect(res.ok).toBe(true)
+    expect(notifyUserMock).not.toHaveBeenCalled()
+  })
+
+  it('when notifyUser throws, the action still returns ok: true and the already-performed writes are not reverted', async () => {
+    verifyMock.mockResolvedValue({ userId: 'head-1', role: 'super_admin' })
+    selectMock
+      .mockReturnValueOnce(rowsQuery([ESCALATION]))
+      .mockReturnValueOnce(rowsQuery([{ position: null }]))
+      .mockReturnValueOnce(rowsQuery([DEFINITION]))
+      .mockReturnValueOnce(rowsQuery(ITEMS))
+      .mockReturnValueOnce(rowsQuery([EXISTING_CHECKLIST]))
+      .mockReturnValueOnce(rowsQuery(EXISTING_RESPONSES))
+      .mockReturnValueOnce(rowsQuery([{ name: 'Villa Rossi' }]))
+      .mockReturnValueOnce(rowsQuery([{ name: 'Head of Projects' }]))
+    notifyUserMock.mockRejectedValueOnce(new Error('smtp down'))
+
+    const res = await amendEscalatedChecklistAction(null, {
+      escalationId: 'esc-1',
+      answers: { 'item-1': { value: 'yes' } },
+    })
+
+    expect(res.ok).toBe(true)
+    // The checklist write already committed before the notification block ran.
+    expect(updateSetMock).toHaveBeenCalledWith(
+      expect.objectContaining({ amendedBy: 'head-1', amendedAt: expect.any(Date) }),
+    )
   })
 })

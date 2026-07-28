@@ -441,6 +441,52 @@ export async function amendEscalatedChecklistAction(
     return { ok: false, message: 'Could not save your changes. Please try again.' }
   }
 
+  // Quick task 260728-esc (ESC-B): tell the officer who raised this
+  // escalation that their step was just corrected — until now
+  // amendEscalatedChecklistAction never notified anyone, so a supervisor's
+  // fix was invisible to the person who filed it. Resolve the recipient
+  // into its own variable (not inlined into the notifyUser call below) so a
+  // planned follow-up — sending the same officer a Resend email at this
+  // exact choke point — can reuse it without restructuring this block.
+  // Guards, in order: (1) `createdBy` is nullable (`onDelete: 'set null'`,
+  // the officer's account may have been deleted since); (2) a supervisor who
+  // escalated their own step and then amended it must not be told about
+  // themselves — notifyUser already self-guards on recipientId === actorId,
+  // but the explicit skip here is the documented invariant and avoids two
+  // pointless DB reads when it can never fire anyway.
+  const recipientId = escalation.createdBy
+  if (recipientId && recipientId !== userId) {
+    // Best-effort: the checklist write above has already committed, so a
+    // notification fault (bad project/user row, transient DB error) must
+    // never surface as "Could not save your changes" nor provoke a retry
+    // that would double-write the responses just persisted — mirrors how
+    // sendApprovalAction (actions/workflow-graph.ts ~line 215) treats its
+    // own post-write notification fan-out as non-fatal for a staffing gap.
+    try {
+      const [proj] = await db
+        .select({ name: projects.name })
+        .from(projects)
+        .where(eq(projects.id, escalation.projectId))
+        .limit(1)
+      const [amender] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId)).limit(1)
+
+      const projectName = proj?.name ?? 'the project'
+      const stepSuffix = escalation.stepN != null ? ` · Step ${escalation.stepN}` : ''
+      const amenderName = amender?.name ?? null
+
+      await notifyUser({
+        recipientId,
+        actorId: userId,
+        type: 'escalation_amended',
+        title: `Your escalated step was updated: ${escalation.checklistLabel} on ${projectName}${stepSuffix}`,
+        body: amenderName ? `Amended by ${amenderName}.` : 'Amended by a supervisor.',
+        projectId: escalation.projectId,
+      })
+    } catch {
+      // Swallowed intentionally — see comment above.
+    }
+  }
+
   revalidatePath(`/disputes/${escalation.projectId}`)
   return { ok: true, message: 'Checklist updated.' }
 }
