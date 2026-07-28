@@ -7,6 +7,7 @@ import { notifyUser, VIDEO_CALL_REMINDER_NOTIFICATION_TYPE } from '@/lib/notific
 import { toTitleCase } from '@/lib/text-case';
 import { getOrCreateChatChannel, addChatChannelMembers } from '@/lib/video-chat';
 import { emailVideoCallScheduled } from '@/lib/notify-video-call-email';
+import { evaluateCallForSweep, type SweepCandidate } from '@/lib/call-sweep';
 
 // ── GetStream-backed video calls ────────────────────────────────────────────
 // trt-pm's own record of who a call is FOR — GetStream owns the actual
@@ -506,4 +507,134 @@ export async function sendDueCallReminders(): Promise<{ remindedCallIds: string[
   }
 
   return { remindedCallIds };
+}
+
+export type SweepResult = {
+  examined: number;
+  endedCallIds: string[];
+  skipped: { callId: string; reason: string }[];
+};
+
+/**
+ * Quick task 260728-vce (T-vce-02): the authoritative backstop that ends
+ * calls nobody could still be in — the event-driven leave path
+ * (markCallParticipantLeft) is best-effort and can be dropped by a hard tab
+ * kill, crash, or offline device, so this is what actually guarantees a
+ * call doesn't stay ACTIVE forever. Called only by the CRON_SECRET-protected
+ * route (app/api/cron/end-stale-calls/route.ts) on a 10-minute Netlify
+ * Scheduled Function trigger — never invoked directly by any user-facing
+ * action.
+ *
+ * Every end/skip decision is delegated to evaluateCallForSweep (the pure,
+ * exhaustively-tested predicate in lib/call-sweep.ts) — this function's own
+ * job is only to gather each candidate's shape and act on the verdict, never
+ * to re-implement the thresholds itself.
+ */
+export async function sweepStaleCalls(): Promise<SweepResult> {
+  // DB clock, not `new Date()` — same naive-timestamp rationale as
+  // sendDueCallReminders above (quick task 260706-bpg's incident).
+  const nowResult = await db.execute<{ now: Date | string }>(sql`select now() as now`);
+  const now = new Date(nowResult.rows[0]?.now ?? Date.now());
+
+  const candidates = await db
+    .select({
+      id: videoCalls.id,
+      createdAt: videoCalls.createdAt,
+      scheduledFor: videoCalls.scheduledFor,
+    })
+    .from(videoCalls)
+    .where(and(eq(videoCalls.status, 'active'), isNull(videoCalls.endedAt)));
+
+  if (candidates.length === 0) {
+    return { examined: 0, endedCallIds: [], skipped: [] };
+  }
+
+  const callIds = candidates.map((c) => c.id);
+
+  // One grouped query over video_call_participants for every candidate call
+  // at once, rather than one query per call — presentCount/everJoined/
+  // lastLeftAt per call, using the exact same PRESENT_PREDICATE
+  // markCallParticipantLeft uses above, so the two can never disagree on
+  // what "present" means.
+  const presenceRows = await db
+    .select({
+      callId: videoCallParticipants.callId,
+      presentCount: sql<number>`count(*) filter (where ${PRESENT_PREDICATE})`,
+      everJoined: sql<boolean>`bool_or(${videoCallParticipants.joinedAt} is not null)`,
+      lastLeftAt: sql<Date | null>`max(${videoCallParticipants.leftAt})`,
+    })
+    .from(videoCallParticipants)
+    .where(inArray(videoCallParticipants.callId, callIds))
+    .groupBy(videoCallParticipants.callId);
+
+  const presenceByCallId = new Map(
+    presenceRows.map((r) => [
+      r.callId,
+      {
+        presentCount: Number(r.presentCount ?? 0),
+        everJoined: Boolean(r.everJoined),
+        lastLeftAt: r.lastLeftAt ? new Date(r.lastLeftAt) : null,
+      },
+    ]),
+  );
+
+  const skipped: { callId: string; reason: string }[] = [];
+  const survivors: string[] = [];
+
+  for (const call of candidates) {
+    const presence = presenceByCallId.get(call.id) ?? {
+      presentCount: 0,
+      everJoined: false,
+      lastLeftAt: null,
+    };
+    const sweepCandidate: SweepCandidate = {
+      callId: call.id,
+      createdAt: call.createdAt,
+      scheduledFor: call.scheduledFor,
+      presentCount: presence.presentCount,
+      everJoined: presence.everJoined,
+      lastLeftAt: presence.lastLeftAt,
+    };
+    const decision = evaluateCallForSweep(sweepCandidate, now);
+    if (!decision.sweep) {
+      skipped.push({ callId: call.id, reason: decision.reason });
+      continue;
+    }
+    survivors.push(call.id);
+  }
+
+  const endedCallIds: string[] = [];
+
+  for (const callId of survivors) {
+    // Deploy-time mitigation: every participant row that predates this task
+    // has joined_at = NULL, so any call in progress at deploy that was
+    // created over NEVER_JOINED_MINUTES ago looks "never joined" to the
+    // predicate — the room page re-stamps joinedAt on render, but a tab that
+    // is ALREADY open does not re-render. This best-effort GetStream
+    // live-session check is the mitigation for exactly that one-time
+    // window: if GetStream itself reports live participants, skip ending
+    // the call even though our own DB thinks it's stale. Wrapped in
+    // try/catch: a GetStream error (including "call not found", which must
+    // count as NOT live) proceeds with the DB decision — the thresholds
+    // are already conservative — never blocks our own DB update, same
+    // contract as endVideoCall's own best-effort GetStream calls.
+    let liveOnGetStream = false;
+    try {
+      const res = await streamClient().video.call(CALL_TYPE, callId).get();
+      const liveParticipants = res.call.session?.participants ?? [];
+      liveOnGetStream = liveParticipants.length > 0;
+    } catch {
+      liveOnGetStream = false;
+    }
+
+    if (liveOnGetStream) {
+      skipped.push({ callId, reason: 'getstream-live-session-veto' });
+      continue;
+    }
+
+    await endVideoCall(callId);
+    endedCallIds.push(callId);
+  }
+
+  return { examined: candidates.length, endedCallIds, skipped };
 }

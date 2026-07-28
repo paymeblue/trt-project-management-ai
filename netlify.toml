@@ -11,5 +11,9 @@
 # override a currently-working configuration this task has no visibility
 # into. Task 6's checkpoint must confirm the next deploy's build behavior is
 # unaffected by this file's addition.
+#
+# Quick task 260728-vce added a second scheduled function here,
+# end-stale-calls.mts (*/10 * * * *) — picked up automatically by the same
+# [functions] directory below, no further config needed.
 [functions]
   directory = "netlify/functions"
