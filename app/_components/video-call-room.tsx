@@ -12,6 +12,7 @@ import {
   CallControls,
   CallingState,
   useCallStateHooks,
+  type Call,
 } from '@stream-io/video-react-sdk'
 import '@stream-io/video-react-sdk/dist/css/styles.css'
 import { endVideoCallAction } from '@/actions/video-calls'
@@ -27,6 +28,53 @@ import {
 } from '@/lib/media-permission'
 
 export type CallParticipantInfo = { userId: string; name: string; role: string }
+
+// Quick task 260728-vpm (VPM-04) — release the camera/mic hardware on EVERY
+// exit path: the CallControls leave button, "End for everyone", client-side
+// navigation away, and tab close.
+//
+// Root cause of the live "camera light stays on after ending a call" bug:
+// call.leave() DOES stop devices internally (CameraManager/MicrophoneManager
+// default `stopOnLeave: true`), but only as the LAST step of its own long
+// sequential teardown (subscriber/publisher/sfuClient/dynascale disposal all
+// run first) — if any earlier step throws, leave() rejects before ever
+// reaching its own camera/mic disable call, and this component's previous
+// cleanup only ever ran `call.leave().catch(() => {})`, silently swallowing
+// that rejection with the hardware still held.
+//
+// Disabling camera/mic explicitly and FIRST — independent of whether
+// leave()/disconnectUser() themselves succeed — guarantees release no
+// matter what the SDK's own teardown does. Each step below is independently
+// try/caught so one failing step can never skip the next, and a call that
+// never actually joined (the JOIN_TIMEOUT_MS case) still runs every step
+// safely: disable() on a never-enabled device, or leave()/disconnectUser()
+// on a call/client that never fully connected, are all safe no-ops/rejections
+// we simply swallow.
+async function releaseCallResources(call: Call, client: StreamVideoClient) {
+  try {
+    await call.camera.disable(true)
+  } catch {
+    // Already disabled, device never enabled, or call already left/torn
+    // down — nothing to release.
+  }
+  try {
+    await call.microphone.disable(true)
+  } catch {
+    // Same as above.
+  }
+  try {
+    await call.leave()
+  } catch {
+    // Already left (e.g. CallControls' own leave button already invoked
+    // call.leave() internally), or never actually joined — nothing further
+    // to do; the camera/mic disable above already ran regardless.
+  }
+  try {
+    await client.disconnectUser()
+  } catch {
+    // Client already disconnected, or never finished connecting.
+  }
+}
 
 export default function VideoCallRoom({
   apiKey,
@@ -170,12 +218,31 @@ export default function VideoCallRoom({
     return () => {
       settled = true
       clearTimeout(timeout)
-      call.leave().catch(() => {
-        // Already disconnected (e.g. tab closing), or never actually
-        // joined (the timeout case above) — nothing to clean up either way.
+      // VPM-04: explicitly release camera/mic (then leave, then disconnect
+      // the client) on every component-unmount exit path — CallControls'
+      // leave button and "End for everyone" both navigate away afterward,
+      // unmounting this component; client-side navigation away unmounts it
+      // directly. See releaseCallResources' own comment for why this can't
+      // just rely on call.leave() doing it internally.
+      releaseCallResources(call, client).catch(() => {
+        // releaseCallResources already swallows every one of its own steps;
+        // this is belt-and-suspenders only.
       })
     }
-  }, [call, enableMedia])
+  }, [call, client, enableMedia])
+
+  // VPM-04: the effect above only fires on React unmount, which does NOT
+  // happen on a hard tab/browser close (no client-side navigation occurs,
+  // so nothing ever unmounts). `pagehide` is the standard, bfcache-safe
+  // signal for "the document is going away" — register it once per
+  // call/client pair so that exit path also releases the hardware.
+  useEffect(() => {
+    const onPageHide = () => {
+      releaseCallResources(call, client).catch(() => {})
+    }
+    window.addEventListener('pagehide', onPageHide)
+    return () => window.removeEventListener('pagehide', onPageHide)
+  }, [call, client])
 
   const [chatOpen, setChatOpen] = useState(false)
 
