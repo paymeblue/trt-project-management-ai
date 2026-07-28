@@ -6,6 +6,7 @@ import { videoCalls, videoCallParticipants, users } from '@/db/schema';
 import { notifyUser, VIDEO_CALL_REMINDER_NOTIFICATION_TYPE } from '@/lib/notifications';
 import { toTitleCase } from '@/lib/text-case';
 import { getOrCreateChatChannel, addChatChannelMembers } from '@/lib/video-chat';
+import { emailVideoCallScheduled } from '@/lib/notify-video-call-email';
 
 // ── GetStream-backed video calls ────────────────────────────────────────────
 // trt-pm's own record of who a call is FOR — GetStream owns the actual
@@ -185,6 +186,24 @@ export async function createVideoCall(opts: {
       }),
     ),
   );
+
+  // Best-effort email counterpart to the in-app notification above, gated on
+  // `scheduledFor`: an instant call's email would arrive after the call is
+  // already over, so the in-app notification and the GetStream ring already
+  // cover that case on their own. `invitees` already excludes the creator by
+  // construction (see filter above), so the scheduler can never receive a
+  // copy addressed as if someone else invited them. Placed after the
+  // GetStream try/catch that deletes-and-rethrows on failure, so an email
+  // only ever describes a call that fully exists.
+  if (scheduledFor) {
+    await emailVideoCallScheduled({
+      callId: row.id,
+      title,
+      scheduledFor,
+      schedulerName: opts.creatorName,
+      inviteeIds: invitees,
+    });
+  }
 
   return { id: row.id };
 }

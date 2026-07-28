@@ -17,6 +17,7 @@ import { MAX_PHOTO_DATA, MAX_AMEND_PHOTOS } from '@/lib/photo-limits'
 import { escalationTargetPosition, canAmendEscalation } from '@/lib/escalation'
 import { userRoleLabel, type UserRole } from '@/lib/workflow'
 import { notifyUser } from '@/lib/notifications'
+import { emailEscalationAmended } from '@/lib/notify-escalation-email'
 import type { ChecklistAnswer } from '@/actions/checklists'
 
 export type EscalateResult = { ok: boolean; message: string }
@@ -481,6 +482,15 @@ export async function amendEscalatedChecklistAction(
         title: `Your escalated step was updated: ${escalation.checklistLabel} on ${projectName}${stepSuffix}`,
         body: amenderName ? `Amended by ${amenderName}.` : 'Amended by a supervisor.',
         projectId: escalation.projectId,
+      })
+
+      await emailEscalationAmended({
+        recipientId,
+        projectId: escalation.projectId,
+        projectName,
+        checklistLabel: escalation.checklistLabel,
+        stepN: escalation.stepN,
+        amenderName,
       })
     } catch {
       // Swallowed intentionally — see comment above.
