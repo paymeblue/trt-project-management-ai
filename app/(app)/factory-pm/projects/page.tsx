@@ -1,12 +1,16 @@
 import { verifySession } from '@/lib/dal'
 import { getBoardProjects } from '@/lib/projects-board'
 import ProjectStepsBoard from '@/app/_components/project-steps-board'
+import type { UserRole } from '@/lib/workflow'
 
 export const dynamic = 'force-dynamic'
 
 export default async function FactoryProjectsPage() {
-  await verifySession()
-  const board = await getBoardProjects()
+  // Quick task 260728-cfn: role + userId are needed to resolve/consume each
+  // gated project's assignee (getBoardProjects(role) + viewerUserId prop) —
+  // previously discarded entirely.
+  const { userId, role } = await verifySession()
+  const board = await getBoardProjects(role as UserRole)
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
@@ -19,7 +23,7 @@ export default async function FactoryProjectsPage() {
         later steps stay locked until earlier ones are completed.
       </p>
 
-      <ProjectStepsBoard projects={board} viewerRole="factory_pm" />
+      <ProjectStepsBoard projects={board} viewerRole="factory_pm" viewerUserId={userId} />
     </div>
   )
 }

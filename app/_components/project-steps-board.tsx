@@ -27,6 +27,12 @@ export type BoardProject = {
   currentStep: number
   status: 'delivered' | 'not_delivered' | 'paused'
   stepDeadlines?: Record<string, string> // stepN → ISO (REQ-G05)
+  // Quick task 260728-cfn: the userId assigned via the governing assignment
+  // step for the project's CURRENT step, when that step is assignee-gated
+  // for the viewer's role — null otherwise (ungated step, no assignment yet,
+  // or the producer didn't resolve it). Optional so no existing consumer
+  // that constructs a BoardProject without this field breaks.
+  gatedToUserId?: string | null
 }
 
 // The deadline that applies to a given step: its own per-step deadline, else the
@@ -287,10 +293,12 @@ function FlagControls({ project, viewerRole }: { project: BoardProject; viewerRo
 function StepsModal({
   project,
   viewerRole,
+  viewerUserId,
   onClose,
 }: {
   project: BoardProject
   viewerRole: UserRole
+  viewerUserId: string
   onClose: () => void
 }) {
   const steps = useWorkflowSteps()
@@ -347,7 +355,14 @@ function StepsModal({
           {steps.map((step) => {
             const done = step.n < project.currentStep
             const current = step.n === project.currentStep
-            const mine = !paused && canActOnGraphStep(step, viewerRole)
+            // Quick task 260728-cfn: `!current ||` is deliberate —
+            // gatedToUserId is resolved for the project's CURRENT step ONLY,
+            // so it must never be applied to a done/locked row (those aren't
+            // what the gate describes).
+            const mine =
+              !paused &&
+              canActOnGraphStep(step, viewerRole) &&
+              (!current || project.gatedToUserId == null || project.gatedToUserId === viewerUserId)
             const href = current && mine ? stepHref(step, project.id, viewerRole) : null
 
             // quick task 260727-pd3 (BUG-5): dualRoleStatus falls back to
@@ -475,9 +490,11 @@ const PROJECTS_POLL_MS = 4000
 export default function ProjectStepsBoard({
   projects: initialProjects,
   viewerRole,
+  viewerUserId,
 }: {
   projects: BoardProject[]
   viewerRole: UserRole
+  viewerUserId: string
 }) {
   // Seed from the server-rendered snapshot, then poll /api/projects so newly
   // created projects and step advances appear without a manual refresh. The
@@ -525,7 +542,14 @@ export default function ProjectStepsBoard({
   function needsViewer(p: BoardProject) {
     if (p.status === 'paused' || projectComplete(p.currentStep, lastN)) return false
     const step = findStep(steps, p.currentStep)
-    return step ? canActOnGraphStep(step, viewerRole) : false
+    if (!step) return false
+    // Quick task 260728-cfn: this function already operates on the current
+    // step exclusively (guarded above), so no `!current` carve-out is needed
+    // here (unlike StepsModal's `mine`, which also renders done/locked rows).
+    return (
+      canActOnGraphStep(step, viewerRole) &&
+      (p.gatedToUserId == null || p.gatedToUserId === viewerUserId)
+    )
   }
 
   if (projects.length === 0) {
@@ -595,7 +619,12 @@ export default function ProjectStepsBoard({
       </div>
 
       {selected && (
-        <StepsModal project={selected} viewerRole={viewerRole} onClose={() => setSelectedId(null)} />
+        <StepsModal
+          project={selected}
+          viewerRole={viewerRole}
+          viewerUserId={viewerUserId}
+          onClose={() => setSelectedId(null)}
+        />
       )}
     </div>
   )
