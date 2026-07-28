@@ -6,6 +6,8 @@ import {
   type AuditChecklistSubmission,
   type AuditReadinessSubmission,
 } from '@/lib/project-audit'
+import { isImageAsset, type AuditAsset } from '@/lib/audit-assets'
+import AuditAssetGallery from '@/app/_components/audit-asset-gallery'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +19,19 @@ function fmtDate(d: Date | null): string {
   return d ? new Date(d).toLocaleDateString() : '—'
 }
 
-function ChecklistSubmissionDetails({ submission }: { submission: AuditChecklistSubmission }) {
+function ChecklistSubmissionDetails({
+  submission,
+  stepContext,
+}: {
+  submission: AuditChecklistSubmission
+  stepContext: string
+}) {
+  const photoAssets: AuditAsset[] = submission.photos.map((src, i) => ({
+    dataUrl: src,
+    label: `Checklist photo ${i + 1}`,
+    context: `${stepContext} · ${submission.definitionTitle}`,
+    downloadName: `checklist-photo-${i + 1}`,
+  }))
   return (
     <details className="rounded-md border border-gray-200 bg-white p-2">
       <summary className="cursor-pointer text-xs font-medium text-primary">
@@ -32,17 +46,9 @@ function ChecklistSubmissionDetails({ submission }: { submission: AuditChecklist
             {item.notes && <p className="text-[11px] text-gray-400">Note: {item.notes}</p>}
           </div>
         ))}
-        {submission.photos.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {submission.photos.map((src, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={i}
-                src={src}
-                alt={`Checklist photo ${i + 1}`}
-                className="h-20 w-20 rounded-md border border-gray-200 object-cover"
-              />
-            ))}
+        {photoAssets.length > 0 && (
+          <div className="mt-2">
+            <AuditAssetGallery assets={photoAssets} thumbClassName="h-24 w-24" />
           </div>
         )}
       </div>
@@ -50,8 +56,22 @@ function ChecklistSubmissionDetails({ submission }: { submission: AuditChecklist
   )
 }
 
-function ReadinessSubmissionDetails({ submission }: { submission: AuditReadinessSubmission }) {
-  const legacyUploadIsImage = submission.uploadData?.startsWith('data:image/') ?? false
+function ReadinessSubmissionDetails({
+  submission,
+  stepContext,
+}: {
+  submission: AuditReadinessSubmission
+  stepContext: string
+}) {
+  // quick task 260728-lbx: one gate governs the whole page — isImageAsset
+  // (lib/audit-assets.ts) replaces the local startsWith check that used to
+  // live here.
+  const legacyUploadIsImage = isImageAsset(submission.uploadData)
+  const photoAssets: AuditAsset[] = submission.photos.map((src, i) => ({
+    dataUrl: src,
+    label: `Readiness photo ${i + 1}`,
+    context: stepContext,
+  }))
   return (
     <details className="rounded-md border border-gray-200 bg-white p-2">
       <summary className="cursor-pointer text-xs font-medium text-primary">
@@ -69,11 +89,16 @@ function ReadinessSubmissionDetails({ submission }: { submission: AuditReadiness
         {submission.signatureData && (
           <div className="mt-2">
             <p className="text-xs text-gray-700">Signature</p>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={submission.signatureData}
-              alt="Signature"
-              className="mt-1 h-20 w-40 rounded-md border border-gray-200 object-contain"
+            <AuditAssetGallery
+              assets={[
+                {
+                  dataUrl: submission.signatureData,
+                  label: 'Signature',
+                  context: stepContext,
+                  downloadName: 'signature',
+                },
+              ]}
+              thumbClassName="h-20 w-40"
             />
           </div>
         )}
@@ -81,11 +106,16 @@ function ReadinessSubmissionDetails({ submission }: { submission: AuditReadiness
           <div className="mt-2">
             <p className="text-xs text-gray-700">Legacy upload</p>
             {legacyUploadIsImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={submission.uploadData}
-                alt={submission.uploadName ?? 'Uploaded scan'}
-                className="mt-1 h-20 w-20 rounded-md border border-gray-200 object-cover"
+              <AuditAssetGallery
+                assets={[
+                  {
+                    dataUrl: submission.uploadData,
+                    label: submission.uploadName ?? 'Legacy upload',
+                    context: stepContext,
+                    downloadName: submission.uploadName ?? 'upload',
+                  },
+                ]}
+                thumbClassName="h-24 w-24"
               />
             ) : (
               // Non-image uploads: filename text only — never a clickable
@@ -95,17 +125,9 @@ function ReadinessSubmissionDetails({ submission }: { submission: AuditReadiness
             )}
           </div>
         )}
-        {submission.photos.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {submission.photos.map((src, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={i}
-                src={src}
-                alt={`Readiness photo ${i + 1}`}
-                className="h-20 w-20 rounded-md border border-gray-200 object-cover"
-              />
-            ))}
+        {photoAssets.length > 0 && (
+          <div className="mt-2">
+            <AuditAssetGallery assets={photoAssets} thumbClassName="h-24 w-24" />
           </div>
         )}
       </div>
@@ -113,21 +135,26 @@ function ReadinessSubmissionDetails({ submission }: { submission: AuditReadiness
   )
 }
 
-function UploadCell({ upload }: { upload: AuditRow['upload'] }) {
+function UploadCell({ upload, stepContext }: { upload: AuditRow['upload']; stepContext: string }) {
   if (!upload) return <span className="text-gray-400">—</span>
   if (upload.isImage) {
-    // download attr: browsers block top-frame navigation to data: URLs, so a
-    // plain link would silently do nothing — the thumbnail previews inline
-    // and the click saves the full-size file.
+    // quick task 260728-lbx: the thumbnail now OPENS a lightbox (an <img> in
+    // this document, which cannot execute script regardless of payload) —
+    // the download link moved INSIDE the lightbox overlay. Top-frame
+    // navigation to a data: URL is still never performed (T-bpp-03 intact):
+    // this component never renders an <a href={dataUrl}> at all.
     return (
-      <a href={upload.dataUrl} download={upload.name ?? 'upload'} rel="noreferrer">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={upload.dataUrl}
-          alt={upload.name ?? 'Uploaded file'}
-          className="h-16 w-16 rounded-md border border-gray-200 object-cover"
-        />
-      </a>
+      <AuditAssetGallery
+        assets={[
+          {
+            dataUrl: upload.dataUrl,
+            label: upload.name ?? 'Uploaded file',
+            context: stepContext,
+            downloadName: upload.name ?? 'upload',
+          },
+        ]}
+        thumbClassName="h-20 w-20"
+      />
     )
   }
   // PDFs (invoices, sign-off documents) are viewable via download. Strictly
@@ -151,6 +178,7 @@ function UploadCell({ upload }: { upload: AuditRow['upload'] }) {
 
 function AuditTableRow({ row }: { row: AuditRow }) {
   const notStarted = row.status === 'not_started'
+  const stepContext = `Step ${row.n} — ${row.label}`
   return (
     <>
       <tr className={`align-top ${notStarted ? 'text-gray-400' : ''}`}>
@@ -173,7 +201,7 @@ function AuditTableRow({ row }: { row: AuditRow }) {
         <td className="px-4 py-3 text-gray-600">{fmt(row.completedAt)}</td>
         <td className="px-4 py-3 text-gray-600">{row.answer ?? <span className="text-gray-400">—</span>}</td>
         <td className="px-4 py-3">
-          <UploadCell upload={row.upload} />
+          <UploadCell upload={row.upload} stepContext={stepContext} />
         </td>
         <td className="px-4 py-3 text-gray-600">
           {row.sentByName || row.receivedByName ? (
@@ -193,7 +221,7 @@ function AuditTableRow({ row }: { row: AuditRow }) {
         <tr>
           <td colSpan={7} className="space-y-2 bg-gray-50 px-4 py-3">
             {row.checklistSubmissions.map((submission, i) => (
-              <ChecklistSubmissionDetails key={i} submission={submission} />
+              <ChecklistSubmissionDetails key={i} submission={submission} stepContext={stepContext} />
             ))}
           </td>
         </tr>
@@ -202,7 +230,7 @@ function AuditTableRow({ row }: { row: AuditRow }) {
         <tr>
           <td colSpan={7} className="space-y-2 bg-gray-50 px-4 py-3">
             {row.readinessSubmissions.map((submission, i) => (
-              <ReadinessSubmissionDetails key={i} submission={submission} />
+              <ReadinessSubmissionDetails key={i} submission={submission} stepContext={stepContext} />
             ))}
           </td>
         </tr>
