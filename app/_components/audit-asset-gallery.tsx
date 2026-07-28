@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { imageAssetsOnly, type AuditAsset } from '@/lib/audit-assets'
 
 type AuditAssetGalleryProps = {
@@ -19,6 +20,17 @@ export default function AuditAssetGallery({ assets, thumbClassName = 'h-24 w-24'
 
   const close = () => setOpenIndex(null)
   const showPrevNext = images.length > 1
+
+  // The overlay is portalled to <body> rather than rendered in place. Inside
+  // the audit table it sat within an ancestor that establishes a containing
+  // block, which makes `position: fixed` resolve against THAT ancestor instead
+  // of the viewport — the overlay was clipped to the content column (offset by
+  // the sidebar, title cut off at the top) instead of covering the screen.
+  // Portalling to body escapes every such ancestor. No mounted-state flag is
+  // needed: the overlay only ever renders once `openIndex` is set by a click,
+  // which cannot happen during SSR, so a direct document check is both
+  // sufficient and free of the cascading-render lint rule.
+  const canPortal = typeof document !== 'undefined'
 
   useEffect(() => {
     if (openIndex === null) return
@@ -64,7 +76,7 @@ export default function AuditAssetGallery({ assets, thumbClassName = 'h-24 w-24'
         ))}
       </div>
 
-      {current && (
+      {current && canPortal && createPortal(
         <div
           className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/80 p-4"
           onClick={close}
@@ -111,11 +123,20 @@ export default function AuditAssetGallery({ assets, thumbClassName = 'h-24 w-24'
                   only ever sets an <img src> — so T-bpp-03 is preserved, not
                   relaxed. The download link below reuses the same <a
                   download> mechanism that already shipped. */}
+              {/* Sized BOX + object-contain, not bare max-h/max-w on the img:
+                  max-* only caps an image, it never scales one up, so a
+                  natively-small asset (an icon-sized SVG, a phone screenshot
+                  of a drawing) stayed thumbnail-sized even inside the
+                  full-screen overlay — the whole complaint this lightbox
+                  exists to fix. Giving the img a viewport-sized box and
+                  letting object-contain fit it means small assets scale UP to
+                  fill the space and large ones scale DOWN, both preserving
+                  aspect ratio. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={current.dataUrl}
                 alt={current.label}
-                className="max-h-[85vh] max-w-[90vw] rounded-md object-contain"
+                className="h-[80vh] w-[85vw] rounded-md object-contain"
               />
 
               {showPrevNext && (
@@ -141,7 +162,8 @@ export default function AuditAssetGallery({ assets, thumbClassName = 'h-24 w-24'
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   )
