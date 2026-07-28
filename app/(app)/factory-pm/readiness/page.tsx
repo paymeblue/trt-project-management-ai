@@ -10,6 +10,8 @@ import {
   getDualRoleConfirmations,
   stepPositionMismatch,
   POSITION_MISMATCH_MESSAGE,
+  stepAssigneeMismatch,
+  ASSIGNEE_MISMATCH_MESSAGE,
 } from '@/lib/workflow-graph'
 
 export const dynamic = 'force-dynamic'
@@ -55,6 +57,15 @@ export default async function ReadinessPage({
       // exists so a wrong-position caller is told BEFORE filling the form,
       // not after submitting a readiness form that can never advance the step.
       workflowNotice = POSITION_MISMATCH_MESSAGE
+    } else if (await stepAssigneeMismatch(userId, projectId, step, role as UserRole)) {
+      // Quick task 260728-cfn: anti-stranding — the authoritative gate lives
+      // in actions/checklists.ts / actions/readiness.ts / actions/workflow.ts
+      // and is unchanged; this branch exists so a non-assigned officer is
+      // told BEFORE filling a readiness form, not after submitting one that
+      // can never advance the step. Runs AFTER the role check above, so
+      // stepAssigneeMismatch's role-scoped fast path means a factory_pm on
+      // the dual-role materials_readiness step never triggers it.
+      workflowNotice = ASSIGNEE_MISMATCH_MESSAGE
     } else {
       workflowProjectId = projectId
       workflowStepN = stepN
