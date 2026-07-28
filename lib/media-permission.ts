@@ -49,14 +49,22 @@ const DETAIL: Record<MediaFailureCause, (label: string) => string> = {
     'Camera and microphone are only available on a secure origin. Open the app over https, or via http://localhost — a plain-http LAN address (http://192.168.x.x) can never be granted, and no site-permission setting will change that.',
   unsupported: () =>
     'This browser does not expose media devices at all. Use a current version of Chrome, Edge, Safari, or Firefox.',
+  // NOTE: real Unicode punctuation only, never HTML entities. These strings
+  // are rendered as React text nodes, so React escapes them and an entity
+  // like &rsquo; shows up literally as "&rsquo;" on screen (observed live in
+  // production before this fix).
   no_device: (label) =>
-    `No ${label} was detected. Connect one and check it isn&rsquo;t disabled in your OS settings, then retry.`,
+    `No ${label} was detected. Connect one and check it isn’t disabled in your OS settings, then retry.`,
   device_busy: (label) =>
     `The ${label} is already in use by another app (Zoom, Teams, Meet) or another browser tab. Close it and retry.`,
   permission_denied: (label) =>
-    `Access is blocked for this site. Open the permission control in the address bar, set ${label} to Allow, then use the retry button below &mdash; no reload needed.`,
+    `Access is blocked for this site. Open the permission control in the address bar, set ${label} to Allow, then use the retry button below — no reload needed.`,
   permission_prompt: () => 'Access has not been granted yet. Click retry and choose Allow in the browser prompt.',
-  unknown: (label) => `Could not start the ${label}. Retry, and if it persists check the browser&rsquo;s site settings.`,
+  // The most common real cause that lands here is another tab or app still
+  // holding the device (including a previous call whose page is still open),
+  // so lead with that rather than sending the user to site settings first.
+  unknown: (label) =>
+    `Could not start the ${label}. It is usually still held by another tab or app — close any other call or meeting window (and any earlier tab of this app) and retry. If it persists, check this site’s permissions in the address bar.`,
 }
 
 const TITLE: Record<MediaFailureCause, (label: string) => string> = {
@@ -71,6 +79,53 @@ const TITLE: Record<MediaFailureCause, (label: string) => string> = {
 
 function capitalize(s: string): string {
   return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1)
+}
+
+// The DOMException names classifyMediaFailure actually branches on.
+const KNOWN_MEDIA_ERROR_NAMES = [
+  'NotAllowedError',
+  'NotFoundError',
+  'NotReadableError',
+  'OverconstrainedError',
+  'AbortError',
+  'SecurityError',
+] as const
+
+/**
+ * mediaErrorName — PURE. Digs the real DOMException name out of whatever the
+ * Stream SDK threw.
+ *
+ * WHY this exists: the call site used to pass `err instanceof Error ? err.name
+ * : undefined` straight through, but `call.camera.enable()` WRAPS the
+ * underlying getUserMedia DOMException in its own Error, whose `.name` is just
+ * "Error". Every genuine cause therefore fell through to the 'unknown' branch
+ * and every user got the vague catch-all message — observed live in production
+ * on an HTTPS origin where the true cause was the device being held. Unwrap by
+ * checking the error's own name, then its message text (SDKs routinely
+ * stringify the original name into the message), then its `cause` chain.
+ * Depth-capped so a self-referential cause chain can't spin.
+ */
+export function mediaErrorName(err: unknown, depth = 0): string | undefined {
+  if (err == null || depth > 4) return undefined
+
+  const matchIn = (s: string) => KNOWN_MEDIA_ERROR_NAMES.find((n) => s.includes(n))
+
+  if (typeof err === 'string') return matchIn(err)
+
+  if (typeof err === 'object') {
+    const o = err as { name?: unknown; message?: unknown; cause?: unknown }
+    if (typeof o.name === 'string') {
+      const direct = KNOWN_MEDIA_ERROR_NAMES.find((n) => n === o.name)
+      if (direct) return direct
+    }
+    if (typeof o.message === 'string') {
+      const fromMessage = matchIn(o.message)
+      if (fromMessage) return fromMessage
+    }
+    return mediaErrorName(o.cause, depth + 1)
+  }
+
+  return undefined
 }
 
 /**

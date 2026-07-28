@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { classifyMediaFailure, mergeMediaFailures, type MediaFailureCause } from './media-permission'
+import { classifyMediaFailure, mediaErrorName, mergeMediaFailures, type MediaFailureCause } from './media-permission'
 
 const ALL_CAUSES: MediaFailureCause[] = [
   'insecure_context',
@@ -172,5 +172,31 @@ describe('mergeMediaFailures', () => {
 
     const insecureMic = classifyMediaFailure({ isSecureContext: false, hasMediaDevices: true }, 'microphone')
     expect(mergeMediaFailures(insecure, insecureMic)!.canRetryInPlace).toBe(false)
+  })
+})
+
+describe('mediaErrorName (unwraps SDK-wrapped DOMExceptions)', () => {
+  it('returns a direct DOMException name', () => {
+    expect(mediaErrorName(Object.assign(new Error('x'), { name: 'NotReadableError' }))).toBe('NotReadableError')
+  })
+
+  it('recovers the name from a wrapper Error message', () => {
+    // What call.camera.enable() actually throws: name is a useless "Error",
+    // the real cause only appears stringified inside the message.
+    expect(mediaErrorName(new Error('Failed to start camera: NotReadableError: Device in use'))).toBe(
+      'NotReadableError',
+    )
+  })
+
+  it('recovers the name from a nested cause chain', () => {
+    const inner = Object.assign(new Error('busy'), { name: 'NotAllowedError' })
+    expect(mediaErrorName(new Error('wrapper', { cause: inner }))).toBe('NotAllowedError')
+  })
+
+  it('returns undefined for an unrecognised error and never throws on a cyclic cause', () => {
+    const a: { message: string; cause?: unknown } = { message: 'nope' }
+    a.cause = a
+    expect(mediaErrorName(a)).toBeUndefined()
+    expect(mediaErrorName(null)).toBeUndefined()
   })
 })

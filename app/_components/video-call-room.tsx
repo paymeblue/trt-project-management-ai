@@ -21,6 +21,7 @@ import CallChatPanel from '@/app/_components/call-chat-panel'
 import { getTabToken } from '@/lib/use-tab-token'
 import {
   classifyMediaFailure,
+  mediaErrorName,
   mergeMediaFailures,
   queryMediaPermissionState,
   type MediaFailure,
@@ -166,10 +167,11 @@ export default function VideoCallRoom({
         // failure — never the other kind's, preserving independence.
         if (mountedRef.current) setMediaFailures((s) => ({ ...s, [kind]: null }))
       } catch (err) {
-        // DOMException is an Error subclass, so `.name` carries
-        // NotAllowedError / NotFoundError / NotReadableError / AbortError /
-        // SecurityError / OverconstrainedError.
-        const errorName = err instanceof Error ? err.name : undefined
+        // NOT `err.name` directly: call.camera.enable() wraps the underlying
+        // getUserMedia DOMException, so its `.name` is a useless "Error" and
+        // every real cause collapsed into the 'unknown' catch-all. mediaErrorName
+        // unwraps message/cause to recover the true DOMException name.
+        const errorName = mediaErrorName(err)
         const permissionState = await queryMediaPermissionState(kind)
         const failure = classifyMediaFailure({ errorName, permissionState, isSecureContext, hasMediaDevices }, kind)
         if (mountedRef.current) setMediaFailures((s) => ({ ...s, [kind]: failure }))
