@@ -27,9 +27,69 @@ import {
   type MediaFailure,
   type MediaKind,
 } from '@/lib/media-permission'
-import { describeCallingState, deriveCallPresence, formatCallDuration } from '@/lib/call-status'
+import { describeCallEnd, describeCallingState, deriveCallPresence, formatCallDuration } from '@/lib/call-status'
 
 export type CallParticipantInfo = { userId: string; name: string; role: string }
+
+// EXIT PATH AUDIT (quick task 260729-cr1)
+//
+// All seven ways a user can leave this call room, and what happens to
+// (1) local media devices, (2) the Stream call/client, (3) the
+// `video_calls` row, (4) navigation. Reproduced as a markdown table in this
+// quick task's SUMMARY.md.
+//
+// 1. CallControls hangup (leave). SDK's call.leave() stops devices as its
+//    own final step; the subsequent React unmount runs releaseCallResources,
+//    whose disable(true) calls are idempotent no-ops if leave already
+//    succeeded and are the real safety net if it did not. Client
+//    disconnected on unmount. notifyLeftOnce stamps leftAt;
+//    markCallParticipantLeft auto-ends the call if this was the last
+//    present participant. Navigation: callingState -> LEFT fires the effect
+//    that pushes `dashboard`.
+//
+// 2. End for everyone — local actor. endVideoCallAction sets
+//    status='ended' + endedAt then best-effort call.end() on Stream.
+//    router.push(dashboard) unmounts the room, which runs
+//    releaseCallResources + the leave beacon. The beacon's
+//    markCallParticipantLeft re-reads status, sees it's no longer 'active',
+//    and is a safe no-op (never a double end).
+//
+// 3. End for everyone — remote participant. Stream delivers call.ended; the
+//    SDK sets endedAt/endedBy and THEN leaves (verified ordering in
+//    @stream-io/video-client's watchCallEnded — the state handler runs
+//    first, so by the time this component observes callingState === LEFT,
+//    useCallEndedAt()/useCallEndedBy() are already populated; that ordering
+//    is what makes the remote-end notice below reliable rather than racy),
+//    so callingState -> LEFT with camera/mic stopped by leave and
+//    re-released on unmount. Row already ended by the actor; this client's
+//    beacon is the same safe no-op as (2). Navigation: previously pushed
+//    `dashboard` with NO explanation whatsoever — CLOSED below: the user
+//    now sees who ended the call and why before being routed away.
+//
+// 4. Client-side navigation away (sidebar link, back button). Unmount
+//    cleanup: releaseCallResources + beacon + possible auto-end. Navigation
+//    already in flight.
+//
+// 5. Tab / browser close. No React unmount ever occurs; the pagehide
+//    listener runs releaseCallResources and the keepalive:true beacon. Best
+//    effort by nature — a hard kill or offline device drops it, which is
+//    exactly why sweepStaleCalls exists as the authoritative backstop. No
+//    navigation.
+//
+// 6. Join timeout (JOIN_TIMEOUT_MS, i.e. joining an already-ended call).
+//    Devices were never enabled; every releaseCallResources step is a safe
+//    no-op on unmount. ensureCallParticipant already stamped joinedAt when
+//    the page rendered, so the beacon's leftAt correctly clears presence.
+//    Navigation: the terminal panel's "Back to Video Calls" link. OK.
+//
+// 7. RECONNECTING_FAILED. Previously a pure-text terminal panel with no
+//    link and no button — the user was stranded in a dead room, and because
+//    nothing unmounted, releaseCallResources never ran and the camera light
+//    stayed on until they navigated away by some other means. CLOSED below:
+//    the failed panel now has a "Back to Video Calls" link, which is the
+//    actual media-release mechanism for this path (navigating away is what
+//    unmounts the component and runs releaseCallResources), not merely a
+//    convenience.
 
 // Quick task 260728-vpm (VPM-04) — release the camera/mic hardware on EVERY
 // exit path: the CallControls leave button, "End for everyone", client-side
@@ -306,6 +366,23 @@ export default function VideoCallRoom({
   const [ending, startEndTransition] = useTransition()
   const [endError, setEndError] = useState<string | null>(null)
 
+  // Confirmed destructive end (task 3b). The joined count shown in the
+  // confirmation must be the SAME number CallLiveStatus's header chip
+  // shows — lifted here via a callback rather than re-deriving it, so the
+  // two can never drift.
+  const [confirmingEnd, setConfirmingEnd] = useState(false)
+  const [joinedCount, setJoinedCount] = useState(0)
+  const onJoinedCountChange = useCallback((n: number) => setJoinedCount(n), [])
+
+  useEffect(() => {
+    if (!confirmingEnd) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setConfirmingEnd(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [confirmingEnd])
+
   const roomRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   useEffect(() => {
@@ -379,57 +456,103 @@ export default function VideoCallRoom({
           <div className="shrink-0 flex flex-wrap items-center justify-between gap-2">
             <div>
               <h1 className="text-xl font-bold text-gray-900">{title ?? 'Video call'}</h1>
-              <CallLiveStatus invitedCount={participants.length} />
+              <CallLiveStatus invitedCount={participants.length} onJoinedCountChange={onJoinedCountChange} />
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={toggleFullscreen}
-                className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+            {confirmingEnd && !ending ? (
+              // Inline confirmation surface (task 3b) — deliberately NOT a
+              // window.confirm(), which is unstyled, blocking, and
+              // untestable. Names the blast radius using the LIVE joined
+              // count (people who never joined are unaffected), spells out
+              // the leave-vs-end distinction, and defaults focus to Cancel.
+              <div
+                role="alertdialog"
+                aria-label="Confirm end call for everyone"
+                className="w-full rounded-md border border-error/40 bg-error/5 p-3 text-xs"
               >
-                <span className="material-symbols-outlined text-base">
-                  {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
-                </span>
-                {isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-              </button>
-              <button
-                type="button"
-                onClick={copyLink}
-                className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                <span className="material-symbols-outlined text-base">link</span>
-                {copied ? 'Link copied!' : 'Copy call link'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setPanel((p) => (p === 'people' ? null : 'people'))}
-                className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                <span className="material-symbols-outlined text-base">group</span>
-                People
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setChatEverOpened(true)
-                  setPanel((p) => (p === 'chat' ? null : 'chat'))
-                }}
-                className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                <span className="material-symbols-outlined text-base">chat</span>
-                {panel === 'chat' ? 'Hide chat' : 'Chat'}
-              </button>
-              {(isCreator || isAdmin) && (
+                <p className="font-semibold text-gray-900">
+                  End this call for {joinedCount} {joinedCount === 1 ? 'person' : 'people'} currently in it?
+                </p>
+                <p className="mt-1 text-gray-500">
+                  Ending stops the call for everyone and cannot be undone. The red hangup button in the call
+                  controls only removes you — the call keeps running for everyone else.
+                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    autoFocus
+                    onClick={() => setConfirmingEnd(false)}
+                    className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={ending}
+                    onClick={endForEveryone}
+                    className="rounded-md bg-error px-3 py-1.5 text-xs font-semibold text-white hover:bg-error/90 disabled:opacity-60"
+                  >
+                    {ending ? 'Ending…' : 'Yes, end for everyone'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={endForEveryone}
-                  disabled={ending}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-error px-3 py-1.5 text-xs font-semibold text-white hover:bg-error/90 disabled:opacity-60"
+                  onClick={toggleFullscreen}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                 >
-                  {ending ? 'Ending…' : 'End for everyone'}
+                  <span className="material-symbols-outlined text-base">
+                    {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+                  </span>
+                  {isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
                 </button>
-              )}
-            </div>
+                <button
+                  type="button"
+                  onClick={copyLink}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  <span className="material-symbols-outlined text-base">link</span>
+                  {copied ? 'Link copied!' : 'Copy call link'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPanel((p) => (p === 'people' ? null : 'people'))}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  <span className="material-symbols-outlined text-base">group</span>
+                  People
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setChatEverOpened(true)
+                    setPanel((p) => (p === 'chat' ? null : 'chat'))
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  <span className="material-symbols-outlined text-base">chat</span>
+                  {panel === 'chat' ? 'Hide chat' : 'Chat'}
+                </button>
+                {(isCreator || isAdmin) && (
+                  // Outlined error button, NOT solid bg-error — a
+                  // deliberate visual difference from CallControls' solid
+                  // red hangup button a few pixels away in the controls
+                  // bar. Two identically-red buttons, one reversible
+                  // (leave) and one not (end for everyone), is the exact
+                  // shape of a misclick-destroys-the-meeting bug.
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingEnd(true)}
+                    disabled={ending}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-error px-3 py-1.5 text-xs font-semibold text-error hover:bg-error/10 disabled:opacity-60"
+                  >
+                    <span className="material-symbols-outlined text-base">call_end</span>
+                    {ending ? 'Ending…' : 'End for everyone'}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {endError && <p className="shrink-0 text-sm text-error">{endError}</p>}
@@ -481,7 +604,12 @@ export default function VideoCallRoom({
                 read as dark in every professional call tool, in both light
                 and dark app themes. */}
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-900">
-              <CallRoomInner joinTimedOut={joinTimedOut} onLeft={() => router.push(dashboard)} />
+              <CallRoomInner
+                joinTimedOut={joinTimedOut}
+                onLeft={() => router.push(dashboard)}
+                endingLocally={ending}
+                localUserId={userId}
+              />
             </div>
 
             {/* Side panel — ALWAYS rendered once the room mounts (never
@@ -569,7 +697,13 @@ export default function VideoCallRoom({
 // RENDERS <StreamCall>, so a hook call directly in VideoCallRoom's own
 // function body would run outside the context that provider creates for
 // its children. Same reasoning as CallRoomInner below.
-function CallLiveStatus({ invitedCount }: { invitedCount: number }) {
+function CallLiveStatus({
+  invitedCount,
+  onJoinedCountChange,
+}: {
+  invitedCount: number
+  onJoinedCountChange?: (n: number) => void
+}) {
   const { useCallStartedAt, useParticipants, useCallCallingState } = useCallStateHooks()
   const startedAt = useCallStartedAt()
   // useParticipants().length, NOT useParticipantCount(): the latter is a
@@ -589,6 +723,14 @@ function CallLiveStatus({ invitedCount }: { invitedCount: number }) {
     const interval = setInterval(() => setNowMs(Date.now()), 1000)
     return () => clearInterval(interval)
   }, [callingState])
+
+  // Reports the live joined count up to VideoCallRoom so the "End for
+  // everyone" confirmation (task 3b) names the SAME number this component
+  // shows in its own chip — never a separately re-derived count that could
+  // drift from it.
+  useEffect(() => {
+    onJoinedCountChange?.(joinedCount)
+  }, [joinedCount, onJoinedCountChange])
 
   const duration = formatCallDuration(startedAt?.getTime(), nowMs)
   const presence = deriveCallPresence({ invitedCount, joinedCount })
@@ -641,14 +783,80 @@ function CallRoster() {
 // Split out so useCallStateHooks (must run inside <StreamCall>) can watch the
 // connection state and redirect once the local user actually leaves —
 // clicking a CallControls leave button doesn't itself navigate anywhere.
-function CallRoomInner({ joinTimedOut, onLeft }: { joinTimedOut: boolean; onLeft: () => void }) {
-  const { useCallCallingState } = useCallStateHooks()
+function CallRoomInner({
+  joinTimedOut,
+  onLeft,
+  endingLocally,
+  localUserId,
+}: {
+  joinTimedOut: boolean
+  onLeft: () => void
+  endingLocally: boolean
+  localUserId: string
+}) {
+  const { useCallCallingState, useCallEndedAt, useCallEndedBy } = useCallStateHooks()
   const callingState = useCallCallingState()
+  const endedAt = useCallEndedAt()
+  const endedBy = useCallEndedBy()
+
+  // Purely derived from render inputs (callingState/endingLocally/endedAt)
+  // rather than tracked in its own state — SDK ordering guarantee (verified
+  // by reading watchCallEnded in @stream-io/video-client): when someone else
+  // calls call.end(), the state handler sets endedAt/endedBy FIRST, and only
+  // THEN does watchCallEnded invoke call.leave({ reject: false }), which is
+  // what transitions callingState to LEFT. So by the time this component
+  // observes LEFT, endedAt/endedBy are already populated — that ordering is
+  // what makes checking endedAt here safe rather than a race.
+  const endedRemotely = callingState === CallingState.LEFT && !endingLocally && !!endedAt
+
+  // Guards onLeft so a double fire (the LEFT effect below AND CallControls'
+  // own onLeave prop, task 3d) can never double-push the router.
+  const navigatedRef = useRef(false)
+  const navigateOnce = useCallback(() => {
+    if (navigatedRef.current) return
+    navigatedRef.current = true
+    onLeft()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
-    if (callingState === CallingState.LEFT) onLeft()
+    if (callingState !== CallingState.LEFT) return
+    if (endingLocally || !endedAt) {
+      // A plain leave, or the local ender who is already navigating —
+      // exactly as before this task.
+      navigateOnce()
+      return
+    }
+    // Ended by someone else. Tell the user (endedRemotely above renders the
+    // notice) before routing them away instead of silently pushing
+    // `dashboard` with no explanation (EXIT PATH AUDIT gap 3, closed here).
+    const ENDED_NOTICE_MS = 4000
+    const timeout = setTimeout(navigateOnce, ENDED_NOTICE_MS)
+    return () => clearTimeout(timeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [callingState])
+  }, [callingState, endingLocally, endedAt])
+
+  if (endedRemotely) {
+    // Keep the endedBy?.id === localUserId check even though `endingLocally`
+    // already covers the normal local path — an admin who ends the call
+    // from a second tab is a real case and should not be told a stranger
+    // ended it.
+    const { title, detail } = describeCallEnd({
+      endedByName: endedBy?.name ?? null,
+      endedByYou: endedBy?.id === localUserId,
+    })
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-gray-300">
+        <span className="material-symbols-outlined text-3xl text-gray-500">call_end</span>
+        <p className="text-base font-semibold text-white">{title}</p>
+        <p>{detail}</p>
+        <p className="text-xs text-gray-500">You&rsquo;ll be returned automatically.</p>
+        <Link href="/calls" className="font-semibold text-primary hover:underline">
+          Back to Video Calls
+        </Link>
+      </div>
+    )
+  }
 
   // Checked BEFORE the descriptor branches below — a join stuck past the
   // parent's timeout is exactly what the 'joining' descriptor would
@@ -680,6 +888,16 @@ function CallRoomInner({ joinTimedOut, onLeft }: { joinTimedOut: boolean; onLeft
           <span className="material-symbols-outlined text-3xl text-error">error</span>
         )}
         <span className={descriptor.kind === 'failed' ? 'text-error' : ''}>{descriptor.overlay}</span>
+        {descriptor.kind === 'failed' && (
+          // Task 3d — un-strand RECONNECTING_FAILED. This link is the
+          // actual media-release mechanism for this path (navigating away
+          // is what unmounts the component and runs releaseCallResources),
+          // not merely a convenience — without it the camera stays on
+          // until the user finds some other way to leave.
+          <Link href="/calls" className="font-semibold text-primary hover:underline">
+            Back to Video Calls
+          </Link>
+        )}
       </div>
     )
   }
@@ -702,7 +920,12 @@ function CallRoomInner({ joinTimedOut, onLeft }: { joinTimedOut: boolean; onLeft
         <SpeakerLayout />
       </div>
       <div className="shrink-0 border-t border-white/10 bg-gray-900">
-        <CallControls />
+        {/* callingState -> LEFT (the effect above) already handles
+            navigation for every leave path. This onLeave is
+            belt-and-braces for the case where the SDK's own leave() call
+            rejects after stopping devices and callingState never reaches
+            LEFT — navigateOnce's guard makes a double fire harmless. */}
+        <CallControls onLeave={() => navigateOnce()} />
       </div>
     </>
   )
