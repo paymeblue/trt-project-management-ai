@@ -84,7 +84,7 @@ export default function AddCallParticipants({
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-3">
+    <div className="p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-1.5">
           {existing.map((p) => (

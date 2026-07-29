@@ -27,6 +27,7 @@ import {
   type MediaFailure,
   type MediaKind,
 } from '@/lib/media-permission'
+import { describeCallingState, deriveCallPresence, formatCallDuration } from '@/lib/call-status'
 
 export type CallParticipantInfo = { userId: string; name: string; role: string }
 
@@ -293,7 +294,13 @@ export default function VideoCallRoom({
     return () => window.removeEventListener('pagehide', onPageHide)
   }, [call, client, notifyLeftOnce])
 
-  const [chatOpen, setChatOpen] = useState(false)
+  // Side panel: 'people' | 'chat' | null (closed). `chatEverOpened` is a
+  // one-way latch — once the user opens Chat for the first time, the
+  // <CallChatPanel> instance below is mounted for the rest of this room's
+  // lifetime and never unmounted again, only hidden via CSS. See the
+  // "Chat mount lifecycle" comment further down for why.
+  const [panel, setPanel] = useState<'people' | 'chat' | null>(null)
+  const [chatEverOpened, setChatEverOpened] = useState(false)
 
   const [copied, setCopied] = useState(false)
   const [ending, startEndTransition] = useTransition()
@@ -348,13 +355,31 @@ export default function VideoCallRoom({
     <StreamVideo client={client}>
       <StreamCall call={call}>
         <StreamTheme>
-          <div ref={roomRef} className={isFullscreen ? 'bg-white p-4' : ''}>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          {/* Quick task 260729-cr1: bounded flex column with a real,
+              viewport-relative height. `dvh` (not `vh`) is load-bearing on
+              mobile Safari/Chrome, where `vh` ignores the collapsing browser
+              chrome and pushes the call controls below the fold. Root cause
+              this exists to fix: .str-video__speaker-layout__wrapper is
+              `flex-grow: 1; overflow-y: hidden`, which only does anything
+              inside a flex-column parent that ITSELF has a bounded height —
+              a future "simplification" that drops `flex flex-col` or this
+              explicit height silently reintroduces the letterboxed strip
+              (see this file's EXIT PATH AUDIT header and PLAN.md's
+              objective for the full root-cause trace). `min-h-[30rem]` is
+              the floor for short viewports: below that the page scrolls
+              rather than crushing the stage. */}
+          <div
+            ref={roomRef}
+            className={
+              isFullscreen
+                ? 'flex h-screen w-screen flex-col gap-3 bg-surface p-3'
+                : 'flex h-[calc(100dvh-13rem)] min-h-[30rem] flex-col gap-3 sm:h-[calc(100dvh-15rem)]'
+            }
+          >
+          <div className="shrink-0 flex flex-wrap items-center justify-between gap-2">
             <div>
               <h1 className="text-xl font-bold text-gray-900">{title ?? 'Video call'}</h1>
-              <p className="text-xs text-gray-400">
-                {participants.length} {participants.length === 1 ? 'person' : 'people'} invited
-              </p>
+              <CallLiveStatus invitedCount={participants.length} />
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -377,11 +402,22 @@ export default function VideoCallRoom({
               </button>
               <button
                 type="button"
-                onClick={() => setChatOpen((o) => !o)}
+                onClick={() => setPanel((p) => (p === 'people' ? null : 'people'))}
+                className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                <span className="material-symbols-outlined text-base">group</span>
+                People
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setChatEverOpened(true)
+                  setPanel((p) => (p === 'chat' ? null : 'chat'))
+                }}
                 className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
               >
                 <span className="material-symbols-outlined text-base">chat</span>
-                {chatOpen ? 'Hide chat' : 'Chat'}
+                {panel === 'chat' ? 'Hide chat' : 'Chat'}
               </button>
               {(isCreator || isAdmin) && (
                 <button
@@ -396,10 +432,10 @@ export default function VideoCallRoom({
             </div>
           </div>
 
-          {endError && <p className="mb-3 text-sm text-error">{endError}</p>}
+          {endError && <p className="shrink-0 text-sm text-error">{endError}</p>}
 
           {scheduledFor && (
-            <div className="mb-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-primary">
+            <div className="shrink-0 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-primary">
               Scheduled for{' '}
               {new Date(scheduledFor).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} —
               you&rsquo;re early, feel free to join now.
@@ -407,7 +443,7 @@ export default function VideoCallRoom({
           )}
 
           {mediaBanner && (
-            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <div className="shrink-0 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
               {mediaBanner.lines.map((line) => (
                 <p key={line}>{line}</p>
               ))}
@@ -436,28 +472,169 @@ export default function VideoCallRoom({
             </div>
           )}
 
-          <AddCallParticipants
-            callId={callId}
-            existing={participants}
-            allUsers={allUsers}
-            canManage={isCreator || isAdmin}
-            creatorId={creatorId}
-          />
-
-          <div className="mt-4 flex flex-col gap-4 sm:flex-row">
-            <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-gray-200">
+          {/* min-h-0 is load-bearing: without it a flex child's default
+              min-height: auto refuses to shrink below its content and the
+              stage overflows the viewport instead of fitting it. */}
+          <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
+            {/* The dark background is deliberate and is the one place NOT
+                to use the gray-shim theme palette — video letterbox bars
+                read as dark in every professional call tool, in both light
+                and dark app themes. */}
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-900">
               <CallRoomInner joinTimedOut={joinTimedOut} onLeft={() => router.push(dashboard)} />
             </div>
-            {chatOpen && (
-              <div className="h-96 w-full shrink-0 overflow-hidden rounded-xl border border-gray-200 sm:h-auto sm:w-80">
-                <CallChatPanel apiKey={apiKey} userId={userId} userName={userName} token={chatToken} callId={callId} />
+
+            {/* Side panel — ALWAYS rendered once the room mounts (never
+                `{panel && ...}`), visibility toggled purely via the `hidden`
+                class on this outer node. This is what lets <CallChatPanel>
+                below stay mounted across both tab switches AND fully
+                closing/reopening the panel — see the Chat mount lifecycle
+                comment on its wrapper for why that matters. */}
+            <div
+              className={
+                panel
+                  ? 'flex min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white lg:w-80'
+                  : 'hidden'
+              }
+            >
+              <div className="flex shrink-0 border-b border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setPanel((p) => (p === 'people' ? null : 'people'))}
+                  className={`flex-1 px-3 py-2 text-xs font-semibold ${
+                    panel === 'people' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  People
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setChatEverOpened(true)
+                    setPanel((p) => (p === 'chat' ? null : 'chat'))
+                  }}
+                  className={`flex-1 px-3 py-2 text-xs font-semibold ${
+                    panel === 'chat' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Chat
+                </button>
               </div>
-            )}
+
+              <div className={panel === 'people' ? 'min-h-0 flex-1 overflow-y-auto' : 'hidden'}>
+                <CallRoster />
+                <AddCallParticipants
+                  callId={callId}
+                  existing={participants}
+                  allUsers={allUsers}
+                  canManage={isCreator || isAdmin}
+                  creatorId={creatorId}
+                />
+              </div>
+
+              {/* Chat mount lifecycle — do not regress this. CallChatPanel
+                  calls useCreateChatClient, which connects/disconnects a
+                  Stream Chat user on mount/unmount. Naively swapping tabs
+                  by conditional rendering would disconnect/reconnect the
+                  chat client on every tab click (and every panel
+                  open/close). Instead: never mount this until the user
+                  opens the Chat tab at least once (chatEverOpened latches
+                  true and never resets), then once mounted keep it mounted
+                  for the rest of the room's lifetime and toggle only
+                  visibility via classes. A reviewer will otherwise "clean
+                  up" this gate into a plain `panel === 'chat' && (...)` —
+                  don't. */}
+              {chatEverOpened && (
+                <div className={panel === 'chat' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+                  <CallChatPanel
+                    apiKey={apiKey}
+                    userId={userId}
+                    userName={userName}
+                    token={chatToken}
+                    callId={callId}
+                  />
+                </div>
+              )}
+            </div>
           </div>
           </div>
         </StreamTheme>
       </StreamCall>
     </StreamVideo>
+  )
+}
+
+// Split out so useCallStateHooks (must run inside <StreamCall>) can read
+// live call duration/presence — VideoCallRoom itself is the component that
+// RENDERS <StreamCall>, so a hook call directly in VideoCallRoom's own
+// function body would run outside the context that provider creates for
+// its children. Same reasoning as CallRoomInner below.
+function CallLiveStatus({ invitedCount }: { invitedCount: number }) {
+  const { useCallStartedAt, useParticipants, useCallCallingState } = useCallStateHooks()
+  const startedAt = useCallStartedAt()
+  // useParticipants().length, NOT useParticipantCount(): the latter is a
+  // server-computed approximation that includes anonymous users, so it can
+  // disagree with the faces actually on screen — the count next to the
+  // video must match what the user can actually see.
+  const joinedCount = useParticipants().length
+  const callingState = useCallCallingState()
+
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    // Only start ticking once actually joined — no timer burning while
+    // still joining/reconnecting/etc. The initial `useState(() => Date.now())`
+    // already seeds a reasonable first value, so the effect only needs to
+    // subscribe to the 1s tick, not call setState synchronously itself.
+    if (callingState !== CallingState.JOINED) return
+    const interval = setInterval(() => setNowMs(Date.now()), 1000)
+    return () => clearInterval(interval)
+  }, [callingState])
+
+  const duration = formatCallDuration(startedAt?.getTime(), nowMs)
+  const presence = deriveCallPresence({ invitedCount, joinedCount })
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
+      {duration && (
+        <span className="inline-flex items-center gap-1">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
+          {duration}
+        </span>
+      )}
+      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-700">
+        {presence.joinedLabel}
+      </span>
+      <span className="inline-flex items-center rounded-full bg-gray-50 px-2 py-0.5 font-medium text-gray-500">
+        {presence.invitedLabel}
+      </span>
+      {presence.waitingMessage && <span className="text-gray-400">{presence.waitingMessage}</span>}
+    </div>
+  )
+}
+
+// The People tab's live roster of who is actually IN the call right now —
+// distinct from AddCallParticipants' invite list, which is who was invited
+// (a superset that may include people who never joined). Same
+// render-inside-<StreamCall> reasoning as CallLiveStatus/CallRoomInner.
+function CallRoster() {
+  const { useParticipants } = useCallStateHooks()
+  const participants = useParticipants()
+
+  return (
+    <div className="border-b border-gray-100 p-3">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+        In this call ({participants.length})
+      </p>
+      <ul className="space-y-1">
+        {participants.map((p) => (
+          <li key={p.sessionId} className="flex items-center gap-2 text-sm text-gray-700">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" />
+            <span className="truncate">{p.name || p.userId}</span>
+            {p.isLocalParticipant && <span className="shrink-0 text-xs text-gray-400">(You)</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
@@ -473,14 +650,14 @@ function CallRoomInner({ joinTimedOut, onLeft }: { joinTimedOut: boolean; onLeft
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callingState])
 
-  // Checked before the JOINING branch below — a join stuck past the parent's
-  // timeout is exactly what JOINING would otherwise render as "Joining
-  // call…" forever (see the bug this fixes: an already-ended call's join
-  // never resolves or rejects).
+  // Checked BEFORE the descriptor branches below — a join stuck past the
+  // parent's timeout is exactly what the 'joining' descriptor would
+  // otherwise render as "Joining call…" forever (see the bug this fixes:
+  // an already-ended call's join never resolves or rejects).
   if (joinTimedOut && callingState !== CallingState.JOINED) {
     return (
-      <div className="flex h-96 flex-col items-center justify-center gap-2 text-center text-sm text-gray-500">
-        <span className="material-symbols-outlined text-3xl text-gray-300">videocam_off</span>
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-gray-300">
+        <span className="material-symbols-outlined text-3xl text-gray-500">videocam_off</span>
         Could not join — this call may have ended.
         <Link href="/calls" className="font-semibold text-primary hover:underline">
           Back to Video Calls
@@ -489,21 +666,44 @@ function CallRoomInner({ joinTimedOut, onLeft }: { joinTimedOut: boolean; onLeft
     )
   }
 
-  if (callingState === CallingState.JOINING) {
-    return <div className="flex h-96 items-center justify-center text-sm text-gray-400">Joining call…</div>
-  }
-  if (callingState === CallingState.RECONNECTING_FAILED) {
+  // Driven through describeCallingState + descriptor.keepStageMounted
+  // instead of an inline if-chain (quick task 260729-cr1) — the lookup
+  // table in lib/call-status.ts is the single place that decides which
+  // states unmount the stage, so it can never drift from what
+  // CallLiveStatus's header chips imply is happening.
+  const descriptor = describeCallingState(callingState)
+
+  if (!descriptor.keepStageMounted) {
     return (
-      <div className="flex h-96 flex-col items-center justify-center gap-2 text-sm text-error">
-        Could not connect to this call. Check your connection and reopen the link.
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-gray-300">
+        {descriptor.kind === 'failed' && (
+          <span className="material-symbols-outlined text-3xl text-error">error</span>
+        )}
+        <span className={descriptor.kind === 'failed' ? 'text-error' : ''}>{descriptor.overlay}</span>
       </div>
     )
   }
 
+  // keepStageMounted is true here — 'live', or one of the three transient
+  // states (reconnecting/migrating/offline). Do NOT unmount <SpeakerLayout>
+  // for the transient case: unmounting tears down the video elements and
+  // turns a 2-second blip into a full rejoin. Instead render the stage as
+  // normal plus an absolutely-positioned pill on top of it when
+  // descriptor.overlay is non-null.
   return (
     <>
-      <SpeakerLayout />
-      <CallControls />
+      <div className="relative min-h-0 flex-1">
+        {descriptor.overlay && (
+          <div className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-xs font-medium text-white">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+            {descriptor.overlay}
+          </div>
+        )}
+        <SpeakerLayout />
+      </div>
+      <div className="shrink-0 border-t border-white/10 bg-gray-900">
+        <CallControls />
+      </div>
     </>
   )
 }

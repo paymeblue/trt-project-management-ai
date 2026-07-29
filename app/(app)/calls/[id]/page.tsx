@@ -68,11 +68,11 @@ export default async function CallRoomPage({ params }: { params: Promise<{ id: s
     call.scheduledFor && call.scheduledFor.getTime() > new Date().getTime() ? call.scheduledFor.toISOString() : null
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6">
+    <div className="w-full px-4 py-3 sm:px-0">
       <Link href="/calls" className="text-sm text-primary hover:underline">
         ← Video Calls
       </Link>
-      <div className="mt-4">
+      <div className="mt-3">
         <VideoCallRoom
           apiKey={apiKey}
           userId={userId}
