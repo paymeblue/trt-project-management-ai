@@ -21,6 +21,7 @@
     "verify:live-workflow": "tsx scripts/verify-live-workflow.ts",
     "db:migrate-positions": "tsx scripts/migrate-positions-table.ts",
     "verify:position-rename": "tsx scripts/verify-position-rename.ts",
+    "calls:end-stale": "tsx scripts/end-stale-calls.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
