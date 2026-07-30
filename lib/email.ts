@@ -144,6 +144,29 @@ async function sendViaResend(args: SendEmailArgs): Promise<SendEmailResult> {
   }) as unknown as Promise<SendEmailResult>
 }
 
+/**
+ * Logs a RETURNED provider error. Provider failures are returned, not thrown
+ * (see SendEmailResult), so a caller that only wraps sendEmail in try/catch
+ * sees nothing at all when delivery is rejected — which is exactly how an
+ * unverified SendGrid sender would fail silently forever. Every best-effort
+ * caller routes its result through here so there is always a trace.
+ *
+ * The two most common misconfigurations get an actionable hint instead of a
+ * bare status code. Never logs the API key — only the provider's own message.
+ */
+export function logEmailFailure(context: string, result: SendEmailResult): void {
+  if (!result.error) return
+  const { message } = result.error
+  let hint = ''
+  if (/verified Sender Identity|from address does not match/i.test(message)) {
+    hint =
+      ' — EMAIL_FROM is not a verified sender in SendGrid. Verify the address (or authenticate the domain) and set EMAIL_FROM to it.'
+  } else if (/authorization grant is invalid|Permission denied|401|403/i.test(message)) {
+    hint = ' — check SENDGRID_API_KEY is set correctly and has Mail Send permission.'
+  }
+  console.warn(`[email] ${context} failed: ${message}${hint}`)
+}
+
 export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
   const provider = activeEmailProvider()
   if (!provider) {

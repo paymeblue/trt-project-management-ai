@@ -1,14 +1,22 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const { selectMock, sendEmailMock, isActiveMock } = vi.hoisted(() => ({
+const { selectMock, sendEmailMock, isActiveMock, logFailureMock } = vi.hoisted(() => ({
   selectMock: vi.fn(),
   sendEmailMock: vi.fn(),
   isActiveMock: vi.fn(),
+  logFailureMock: vi.fn(),
 }))
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/db', () => ({ db: { select: selectMock } }))
-vi.mock('@/lib/email', () => ({ sendEmail: sendEmailMock, isEmailServiceActive: isActiveMock }))
+vi.mock('@/lib/email', () => ({
+  sendEmail: sendEmailMock,
+  isEmailServiceActive: isActiveMock,
+  // Must mirror the real module's surface: these helpers route every send
+  // result through logEmailFailure, and Vitest resolves the callee BEFORE the
+  // awaited argument — so a missing export makes sendEmail look uncalled.
+  logEmailFailure: logFailureMock,
+}))
 
 const { emailStepTurn, emailSuperAdminsProjectClosedOut } = await import(
   '@/lib/notify-super-admins-email'

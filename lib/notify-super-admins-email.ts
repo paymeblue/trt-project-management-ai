@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { Roles } from '@/lib/workflow'
-import { sendEmail, isEmailServiceActive } from '@/lib/email'
+import { sendEmail, isEmailServiceActive, logEmailFailure } from '@/lib/email'
 import { stepTurnEmail, projectClosedOutEmail } from '@/lib/email-templates'
 
 // Step/project email notifications. Deliberately non-blocking/best-effort —
@@ -32,7 +32,10 @@ export async function emailStepTurn(
   if (to.length === 0) return
   try {
     const { subject, html, text } = stepTurnEmail(input)
-    await sendEmail({ to, subject, html, text })
+    // Provider failures are RETURNED, not thrown — without this the "your
+    // turn" email (the most operationally important one in the app) would
+    // fail completely silently on e.g. an unverified sender.
+    logEmailFailure('step-turn', await sendEmail({ to, subject, html, text }))
   } catch {
     // Best-effort — never let an email failure affect step completion.
   }
@@ -47,7 +50,7 @@ export async function emailSuperAdminsProjectClosedOut(input: {
     const to = await superAdminEmails()
     if (to.length === 0) return
     const { subject, html, text } = projectClosedOutEmail(input)
-    await sendEmail({ to, subject, html, text })
+    logEmailFailure('project-closeout', await sendEmail({ to, subject, html, text }))
   } catch {
     // Best-effort — never let an email failure affect step completion.
   }

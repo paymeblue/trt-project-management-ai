@@ -23,7 +23,8 @@
     "verify:position-rename": "tsx scripts/verify-position-rename.ts",
     "calls:end-stale": "tsx scripts/end-stale-calls.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "email:verify": "tsx scripts/verify-email.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
