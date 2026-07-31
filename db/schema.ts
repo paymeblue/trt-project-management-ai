@@ -56,6 +56,15 @@ export const users = pgTable('users', {
   bio:            text('bio'),                          // optional self-description
   avatarData:     text('avatar_data'),                  // profile image as base64 data URL
   imageKey:       text('image_key'),                   // S3 key for ID card (Phase 2)
+  // v2.0 (quick task 260731-sgo): additive, nullable deliverability verdict —
+  // refreshed by a daily scheduled job (lib/email-deliverability-refresh.ts),
+  // never on page load. All three deliberately have NO default: NULL means
+  // "never checked, or last check was inconclusive (transient DNS failure)",
+  // a genuinely distinct third state from true and false — see
+  // lib/email-deliverability.ts's tri-state DeliverabilityVerdict.
+  emailDeliverable:         boolean('email_deliverable'),
+  emailUndeliverableReason: text('email_undeliverable_reason'),
+  emailCheckedAt:           timestamp('email_checked_at'),
   createdAt:      timestamp('created_at').defaultNow().notNull(),
   updatedAt:      timestamp('updated_at').defaultNow().notNull(),
 })
