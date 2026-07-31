@@ -61,7 +61,7 @@ export async function consumeVerificationToken(rawToken: string) {
 }
 
 /**
- * Issue a password-reset token and deliver the reset link. When Resend is
+ * Issue a password-reset token and deliver the reset link. When SendGrid is
  * unavailable (or rejects the send), return the link for the local UI to show
  * and copy instead. The raw token is never persisted.
  */

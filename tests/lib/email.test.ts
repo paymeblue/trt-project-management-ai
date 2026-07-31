@@ -1,35 +1,39 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Mock server-only so tests can import server modules without the Next.js build guard
 vi.mock('server-only', () => ({}))
 
-const sendMock = vi.fn()
-
-vi.mock('resend', () => ({
-  Resend: vi.fn(function () {
-    return { emails: { send: sendMock } }
-  }),
-}))
-
 beforeEach(() => {
-  vi.clearAllMocks()
   vi.resetModules()
-  process.env.RESEND_API_KEY = 'test-resend-key'
-  process.env.EMAIL_FROM = 'TRT PM <onboarding@resend.dev>'
+  delete process.env.RESEND_API_KEY
+  delete process.env.SENDGRID_API_KEY
+  delete process.env.SENDGRID_APIKEY
+  process.env.EMAIL_FROM = 'TRT PM <notifications@trtarredo.com>'
 })
 
-describe('email utility (Resend)', () => {
-  it('reports whether Resend email delivery is configured', async () => {
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+describe('email utility (SendGrid)', () => {
+  it('reports whether SendGrid email delivery is configured', async () => {
+    process.env.SENDGRID_API_KEY = 'sg-test-key'
     const { isEmailServiceActive } = await import('@/lib/email')
     expect(isEmailServiceActive()).toBe(true)
 
-    delete process.env.RESEND_API_KEY
+    delete process.env.SENDGRID_API_KEY
     expect(isEmailServiceActive()).toBe(false)
   })
 
   describe('sendEmail()', () => {
-    it('EMAIL-01: calls resend.emails.send with correct from/to/subject/html', async () => {
-      sendMock.mockResolvedValue({ data: { id: 'msg-1' }, error: null })
+    it('EMAIL-01: POSTs to the v3 endpoint with the correct from/to/subject/html', async () => {
+      process.env.SENDGRID_API_KEY = 'sg-test-key'
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 202,
+        headers: new Headers({ 'x-message-id': 'msg-1' }),
+      })
+      vi.stubGlobal('fetch', fetchMock)
 
       const { sendEmail } = await import('@/lib/email')
       const result = await sendEmail({
@@ -38,20 +42,25 @@ describe('email utility (Resend)', () => {
         html: '<p>Hello</p>',
       })
 
-      expect(sendMock).toHaveBeenCalledOnce()
-      expect(sendMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          from: process.env.EMAIL_FROM,
-          to: 'user@example.com',
-          subject: 'Hello',
-          html: '<p>Hello</p>',
-        })
-      )
+      expect(fetchMock).toHaveBeenCalledOnce()
+      const [url, init] = fetchMock.mock.calls[0]
+      expect(url).toBe('https://api.sendgrid.com/v3/mail/send')
+      const body = JSON.parse(init.body as string)
+      expect(body.from).toEqual({ email: 'notifications@trtarredo.com', name: 'TRT PM' })
+      expect(body.personalizations).toEqual([{ to: [{ email: 'user@example.com' }] }])
+      expect(body.subject).toBe('Hello')
+      expect(body.content).toEqual([{ type: 'text/html', value: '<p>Hello</p>' }])
       expect(result).toEqual({ data: { id: 'msg-1' }, error: null })
     })
 
-    it('EMAIL-01: accepts an array of recipients', async () => {
-      sendMock.mockResolvedValue({ data: { id: 'msg-2' }, error: null })
+    it('EMAIL-01: an array of recipients produces one personalization EACH (not one shared `to`)', async () => {
+      process.env.SENDGRID_API_KEY = 'sg-test-key'
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 202,
+        headers: new Headers({ 'x-message-id': 'msg-2' }),
+      })
+      vi.stubGlobal('fetch', fetchMock)
 
       const { sendEmail } = await import('@/lib/email')
       await sendEmail({
@@ -60,13 +69,22 @@ describe('email utility (Resend)', () => {
         html: '<p>Multi</p>',
       })
 
-      expect(sendMock).toHaveBeenCalledWith(
-        expect.objectContaining({ to: ['a@example.com', 'b@example.com'] })
-      )
+      const [, init] = fetchMock.mock.calls[0]
+      const body = JSON.parse(init.body as string)
+      expect(body.personalizations).toEqual([
+        { to: [{ email: 'a@example.com' }] },
+        { to: [{ email: 'b@example.com' }] },
+      ])
     })
 
-    it('EMAIL-01: passes optional text field when provided', async () => {
-      sendMock.mockResolvedValue({ data: { id: 'msg-3' }, error: null })
+    it('EMAIL-01: includes the optional text field as text/plain BEFORE text/html', async () => {
+      process.env.SENDGRID_API_KEY = 'sg-test-key'
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 202,
+        headers: new Headers({ 'x-message-id': 'msg-3' }),
+      })
+      vi.stubGlobal('fetch', fetchMock)
 
       const { sendEmail } = await import('@/lib/email')
       await sendEmail({
@@ -76,13 +94,42 @@ describe('email utility (Resend)', () => {
         text: 'Hi',
       })
 
-      expect(sendMock).toHaveBeenCalledWith(
-        expect.objectContaining({ text: 'Hi' })
-      )
+      const [, init] = fetchMock.mock.calls[0]
+      const body = JSON.parse(init.body as string)
+      expect(body.content).toEqual([
+        { type: 'text/plain', value: 'Hi' },
+        { type: 'text/html', value: '<p>Hi</p>' },
+      ])
     })
 
-    it('EMAIL-02: returns the SDK error object without throwing on provider failure', async () => {
-      sendMock.mockResolvedValue({ data: null, error: { name: 'validation_error', message: 'fail' } })
+    it('EMAIL-01: omits the text part entirely when not supplied', async () => {
+      process.env.SENDGRID_API_KEY = 'sg-test-key'
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 202,
+        headers: new Headers({ 'x-message-id': 'msg-4' }),
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const { sendEmail } = await import('@/lib/email')
+      await sendEmail({ to: 'user@example.com', subject: 'No text', html: '<p>Hi</p>' })
+
+      const [, init] = fetchMock.mock.calls[0]
+      const body = JSON.parse(init.body as string)
+      expect(body.content).toEqual([{ type: 'text/html', value: '<p>Hi</p>' }])
+    })
+
+    it('EMAIL-02: RETURNS a provider error rather than throwing on send failure', async () => {
+      process.env.SENDGRID_API_KEY = 'sg-test-key'
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 400,
+          headers: new Headers(),
+          json: async () => ({ errors: [{ message: 'fail' }] }),
+        }),
+      )
 
       const { sendEmail } = await import('@/lib/email')
       const result = await sendEmail({
@@ -91,17 +138,40 @@ describe('email utility (Resend)', () => {
         html: '<p>Fail</p>',
       })
 
-      expect(result).toEqual({ data: null, error: { name: 'validation_error', message: 'fail' } })
+      expect(result.data).toBeNull()
+      expect(result.error?.name).toBe('sendgrid_error')
+      expect(result.error?.message).toContain('fail')
       // must NOT throw — error is returned, not thrown
     })
 
-    it('EMAIL-02: throws a clear error when RESEND_API_KEY is missing', async () => {
-      delete process.env.RESEND_API_KEY
-
+    it('EMAIL-02: throws a clear error naming SENDGRID_API_KEY when no key is configured at all', async () => {
       const { sendEmail } = await import('@/lib/email')
       await expect(
         sendEmail({ to: 'user@example.com', subject: 'X', html: '<p>X</p>' })
-      ).rejects.toThrow('RESEND_API_KEY')
+      ).rejects.toThrow('SENDGRID_API_KEY')
+    })
+
+    it('never leaks the API key into the returned diagnostic', async () => {
+      process.env.SENDGRID_API_KEY = 'sg-super-secret'
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 401,
+          headers: new Headers(),
+          json: async () => ({ errors: [{ message: 'Permission denied' }] }),
+        }),
+      )
+
+      const { sendEmail } = await import('@/lib/email')
+      const result = await sendEmail({ to: 'a@example.com', subject: 'Hi', html: '<p>Hi</p>' })
+      expect(JSON.stringify(result)).not.toContain('sg-super-secret')
+    })
+
+    it('setting only RESEND_API_KEY leaves isEmailServiceActive FALSE (proves the fallback is gone)', async () => {
+      process.env.RESEND_API_KEY = 'r-key'
+      const { isEmailServiceActive } = await import('@/lib/email')
+      expect(isEmailServiceActive()).toBe(false)
     })
   })
 

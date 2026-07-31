@@ -447,7 +447,7 @@ export async function amendEscalatedChecklistAction(
   // amendEscalatedChecklistAction never notified anyone, so a supervisor's
   // fix was invisible to the person who filed it. Resolve the recipient
   // into its own variable (not inlined into the notifyUser call below) so a
-  // planned follow-up — sending the same officer a Resend email at this
+  // planned follow-up — sending the same officer an email at this
   // exact choke point — can reuse it without restructuring this block.
   // Guards, in order: (1) `createdBy` is nullable (`onDelete: 'set null'`,
   // the officer's account may have been deleted since); (2) a supervisor who

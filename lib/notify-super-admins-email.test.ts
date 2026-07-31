@@ -49,7 +49,7 @@ describe('emailStepTurn (position-scoped, 2026-07-19 — replaces the all-super-
 
   it('never throws even if sendEmail rejects (best-effort)', async () => {
     isActiveMock.mockReturnValue(true)
-    sendEmailMock.mockRejectedValue(new Error('resend down'))
+    sendEmailMock.mockRejectedValue(new Error('sendgrid down'))
     await expect(
       emailStepTurn(['officer@x.com'], { projectName: 'P', stepLabel: 'S' }),
     ).resolves.toBeUndefined()

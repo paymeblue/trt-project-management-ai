@@ -71,7 +71,7 @@ their **Profile**, and read **About TRT**.
 - **AI:** `@anthropic-ai/sdk`, env-swappable between local Ollama (dev) and
   Anthropic (prod) via `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_KEY` / `LLM_MODEL_NAME`.
 - **Flow charts:** `@xyflow/react`. **Signatures:** `react-signature-canvas`.
-  **Markdown:** `react-markdown` + `remark-gfm`. **Email:** `resend`.
+  **Markdown:** `react-markdown` + `remark-gfm`. **Email:** sendgrid (v3 API, no SDK).
 
 ---
 
@@ -79,7 +79,7 @@ their **Profile**, and read **About TRT**.
 
 ```bash
 npm install
-# Configure .env.local: DATABASE_URL, AUTH_SECRET, ANTHROPIC_* , RESEND_API_KEY …
+# Configure .env.local: DATABASE_URL, AUTH_SECRET, ANTHROPIC_* , SENDGRID_API_KEY …
 npm run db:push                          # sync schema to Neon
 npx tsx db/seed-checklists.ts            # seed the core checklists
 npx tsx db/seed-production-checklist.ts  # seed the Project Production Checklist

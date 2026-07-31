@@ -30,7 +30,7 @@ A digital platform that replaces the paper checklists TRT Arredo currently uses 
 > - **AI (Dave Aredo) = base `@anthropic-ai/sdk` (`0.105.0`)**, configured via env so it swaps between local **Ollama** (dev) and **Anthropic Claude** (prod): `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`, `LLM_MODEL_NAME`. Do NOT use `@anthropic-ai/claude-agent-sdk`. Fullscreen chat expand uses **GSAP** (`gsap@3.15.0`).
 > - **DB:** `@neondatabase/serverless` `1.1.0` + `drizzle-orm` `0.45.2` (`drizzle-orm/neon-http`), `drizzle-kit` for push.
 > - **Next 16:** `proxy.ts` (NOT `middleware.ts`); `await` `params`/`cookies()`/`headers()`. Auth.js v5 is App-Router-native; use `auth()` in server components / route-group layouts / DAL for authoritative checks, with a thin optimistic `proxy.ts`.
-> - **Email:** `resend@6.14.0`.
+> - **Email:** SendGrid v3 REST API (no SDK, no dependency). Resend was removed 2026-07-31.
 
 ## CRITICAL: Next 16 Breaking Changes vs 14/15
 | What changed | Old (14/15) | New (16) | Source |

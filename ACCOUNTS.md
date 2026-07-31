@@ -38,7 +38,7 @@ script (administrators) or by an administrator inside the app (Factory PM / Site
    ```
 3. Sign in as **Operations** (or Super Admin) → **User Management** → create the
    Factory PM and Site PM accounts. Each new user is emailed their email + a temporary
-   password (`RESEND_API_KEY` / `EMAIL_FROM` must be configured). If email sending fails,
+   password (`SENDGRID_API_KEY` / `EMAIL_FROM` must be configured). If email sending fails,
    the temporary password is shown to the admin once so it can be shared securely. Users
    should change it after first sign-in.
 

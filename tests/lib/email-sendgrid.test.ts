@@ -3,19 +3,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // Mock server-only so tests can import server modules without the Next.js build guard
 vi.mock('server-only', () => ({}))
 
-// lib/email.ts imports the Resend SDK at module scope even on the SendGrid
-// path; stub it so these tests never construct a real client.
-const resendSendMock = vi.fn()
-vi.mock('resend', () => ({
-  Resend: vi.fn(function () {
-    return { emails: { send: resendSendMock } }
-  }),
-}))
-
 beforeEach(() => {
   vi.clearAllMocks()
   vi.resetModules()
-  delete process.env.RESEND_API_KEY
   delete process.env.SENDGRID_API_KEY
   process.env.EMAIL_FROM = 'TRT PM <notifications@trtarredo.com>'
 })
@@ -87,27 +77,6 @@ describe('buildSendGridPayload', () => {
   })
 })
 
-describe('provider selection', () => {
-  it('reports no transport when neither key is set', async () => {
-    const { isEmailServiceActive, activeEmailProvider } = await import('@/lib/email')
-    expect(activeEmailProvider()).toBeNull()
-    expect(isEmailServiceActive()).toBe(false)
-  })
-
-  it('prefers SendGrid when both keys are present, so the cutover is one variable', async () => {
-    process.env.RESEND_API_KEY = 'r'
-    process.env.SENDGRID_API_KEY = 's'
-    const { activeEmailProvider } = await import('@/lib/email')
-    expect(activeEmailProvider()).toBe('sendgrid')
-  })
-
-  it('falls back to Resend when only its key is present (rollback path)', async () => {
-    process.env.RESEND_API_KEY = 'r'
-    const { activeEmailProvider } = await import('@/lib/email')
-    expect(activeEmailProvider()).toBe('resend')
-  })
-})
-
 describe('sendEmail via SendGrid', () => {
   it('POSTs to the v3 endpoint with a bearer token and returns the message id', async () => {
     process.env.SENDGRID_API_KEY = 'sg-test-key'
@@ -169,7 +138,7 @@ describe('sendEmail via SendGrid', () => {
   it('throws only when NO transport is configured at all', async () => {
     const { sendEmail } = await import('@/lib/email')
     await expect(sendEmail({ to: 'a@example.com', subject: 'x', html: 'y' })).rejects.toThrow(
-      /No email transport is configured/,
+      /SendGrid is not configured/,
     )
   })
 })

@@ -44,14 +44,11 @@ async function main() {
   console.log('TRT PM — email configuration check')
   console.log('')
 
-  const provider = email.activeEmailProvider()
-  if (!provider) {
-    fail('No transport configured. Set SENDGRID_API_KEY (preferred) or RESEND_API_KEY.')
+  const active = email.isEmailServiceActive()
+  if (!active) {
+    fail('SendGrid is not configured. Set SENDGRID_API_KEY (or SENDGRID_APIKEY).')
   } else {
-    ok(`Active provider: ${provider}`)
-    if (provider === 'resend' && process.env.SENDGRID_API_KEY === '') {
-      warn('SENDGRID_API_KEY is present but EMPTY — it is being ignored; Resend is in use.')
-    }
+    ok('Active provider: sendgrid')
   }
 
   const from = email.EMAIL_FROM
@@ -61,9 +58,12 @@ async function main() {
   } else {
     ok(`EMAIL_FROM parses to ${JSON.stringify(parsed)}`)
   }
-  if (provider === 'sendgrid' && /resend\.dev$/i.test(parsed.email)) {
+  // LEGACY-VALUE detector: a deployment's env may still hold the old Resend
+  // sandbox address from before this repo dropped Resend — SendGrid will
+  // reject it outright since it can never be a verified sender identity.
+  if (/resend\.dev$/i.test(parsed.email)) {
     fail(
-      `EMAIL_FROM is still the Resend sandbox address (${parsed.email}). SendGrid rejects any sender it has not verified — ` +
+      `EMAIL_FROM is still the old Resend sandbox address (${parsed.email}). SendGrid rejects any sender it has not verified — ` +
         'verify an address (or authenticate your domain) and set EMAIL_FROM to it.',
     )
   }
@@ -95,7 +95,7 @@ async function main() {
       console.log(`  FAIL  ${result.error.name}: ${result.error.message}`)
       email.logEmailFailure('verify-email', result)
     } else {
-      console.log(`  ok    accepted by ${email.activeEmailProvider()} (id: ${result.data?.id ?? 'n/a'})`)
+      console.log(`  ok    accepted by SendGrid (id: ${result.data?.id ?? 'n/a'})`)
       console.log('        Check the inbox — if it never arrives, look at the provider dashboard for a bounce/block.')
     }
   }

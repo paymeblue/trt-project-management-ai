@@ -6,14 +6,13 @@ import { sendEmail, isEmailServiceActive } from '@/lib/email'
 import { escalationAmendedEmail } from '@/lib/email-templates'
 import { absoluteUrl } from '@/lib/email-layout'
 
-// Quick task 260728-eml — Operator note — making mail reach real recipients:
-//   1. The Resend account currently has ZERO verified domains, so every send
-//      to an address other than the account owner's returns HTTP 403 and is
-//      silently dropped by design.
-//   2. Verify a domain at https://resend.com/domains.
-//   3. Set EMAIL_FROM to an address on that verified domain (e.g.
-//      "TRT PM <no-reply@trtarredo.com>") — the current default
-//      onboarding@resend.dev only works for owner-addressed test sends.
+// Quick task 260731-sgo — Operator note — making mail reach real recipients:
+//   1. SendGrid rejects any send whose EMAIL_FROM is not a verified sender
+//      identity (or on an authenticated domain) with a 403.
+//   2. Verify a sender identity (or authenticate a domain) in SendGrid's
+//      dashboard under Settings -> Sender Authentication.
+//   3. Set EMAIL_FROM to an address covered by that verification (e.g.
+//      "TRT PM <notifications@trtarredo.com>").
 //   4. Set APP_URL to the public origin (e.g. https://trt-pm.netlify.app).
 //      Until then EVERY CTA button in EVERY email points at
 //      http://localhost:3000 and is dead for the recipient.
@@ -52,10 +51,10 @@ export async function emailEscalationAmended(input: {
     })
     await sendEmail({ to: recipient.email, subject, html, text })
   } catch (err) {
-    // With zero verified Resend domains, every non-owner recipient 403s in
-    // this environment — a silent swallow would make that look like a code
-    // bug. Log Resend's own message only; never the error object, the full
-    // environment, or any credential.
+    // If EMAIL_FROM is not (yet) a verified SendGrid sender identity, every
+    // recipient 403s in this environment — a silent swallow would make that
+    // look like a code bug. Log SendGrid's own message only; never the error
+    // object, the full environment, or any credential.
     console.warn(
       '[260728-eml] escalation-amended email not delivered:',
       err instanceof Error ? err.message : 'unknown',

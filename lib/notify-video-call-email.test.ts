@@ -60,7 +60,7 @@ describe('emailVideoCallScheduled', () => {
   it('never throws even if sendEmail rejects (best-effort)', async () => {
     isActiveMock.mockReturnValue(true)
     selectMock.mockReturnValue(usersQuery([{ id: 'u1', name: 'Bob Officer', email: 'bob@x.com' }]))
-    sendEmailMock.mockRejectedValue(new Error('resend down'))
+    sendEmailMock.mockRejectedValue(new Error('sendgrid down'))
     await expect(
       emailVideoCallScheduled({ ...base, inviteeIds: ['u1'] }),
     ).resolves.toBeUndefined()

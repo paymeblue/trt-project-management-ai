@@ -37,7 +37,7 @@ export async function emailVideoCallScheduled(input: {
       participantNames,
       joinUrl: absoluteUrl(`/calls/${input.callId}`),
     })
-    // Single Resend call for every invitee — one 403 at worst, not N. All
+    // Single SendGrid call for every invitee — one 403 at worst, not N. All
     // recipients are internal colleagues on the same call who already see
     // each other in the participant list, so a shared `to:` leaks nothing
     // they don't already have (T-eml-04, accepted).

@@ -1,8 +1,7 @@
 import 'server-only'
-import { Resend } from 'resend'
 
 export const EMAIL_FROM =
-  process.env.EMAIL_FROM ?? 'TRT PM <onboarding@resend.dev>'
+  process.env.EMAIL_FROM ?? 'TRT PM <notifications@trtarredo.com>'
 
 export type SendEmailArgs = {
   to: string | string[]
@@ -11,50 +10,35 @@ export type SendEmailArgs = {
   text?: string
 }
 
-// Normalised result shape shared by BOTH transports. Deliberately mirrors the
-// Resend SDK's `{ data, error }` contract rather than inventing a new one:
-// every existing caller (lib/notify-*-email.ts) and tests/lib/email.test.ts
-// already treat a provider failure as a RETURNED error, never a throw, and
-// switching providers must not silently turn best-effort sends into throws.
+// This repo's own returned-error contract, not a mirror of any SDK's shape.
+// Every existing caller (lib/notify-*-email.ts) and tests/lib/email.test.ts
+// treat a provider failure as a RETURNED error, never a throw — a throw here
+// would fail the workflow step or call that the email reports on, and every
+// send in this app is best-effort by design.
 export type SendEmailResult = {
   data: { id: string | null } | null
   error: { name: string; message: string } | null
 }
 
-export type EmailProvider = 'sendgrid' | 'resend'
-
-/**
- * Which transport this deployment will actually use. SendGrid wins when both
- * keys are present so that setting SENDGRID_API_KEY is a complete cutover with
- * no second step — the Resend key can stay in place as a rollback (drop
- * SENDGRID_API_KEY and delivery falls straight back) without a code change.
- */
 /**
  * BOTH spellings are accepted deliberately. This repo's existing convention is
  * the un-underscored form (`GETSTREAM_APIKEY`), and `SENDGRID_APIKEY` is what
  * was actually provisioned — while `SENDGRID_API_KEY` is SendGrid's own
  * documented name and what most deployment guides tell you to set. Reading only
- * one silently ignores a correctly-set key and falls back to the other
- * provider with no error anywhere, which is exactly what happened here.
+ * one silently ignores a correctly-set key with no error anywhere, which is
+ * exactly what happened here.
  */
 export function sendGridApiKey(): string | undefined {
   return process.env.SENDGRID_API_KEY || process.env.SENDGRID_APIKEY || undefined
 }
 
-export function activeEmailProvider(): EmailProvider | null {
-  if (sendGridApiKey()) return 'sendgrid'
-  if (process.env.RESEND_API_KEY) return 'resend'
-  return null
-}
-
-/** True when this deployment has credentials for SOME email transport. */
+/** True when this deployment has a SendGrid key configured. */
 export function isEmailServiceActive(): boolean {
-  return activeEmailProvider() !== null
+  return !!sendGridApiKey()
 }
 
 /**
- * PURE. Splits an RFC 5322-style `Name <addr@host>` (the shape EMAIL_FROM has
- * always carried, and what Resend accepts verbatim) into the discrete
+ * PURE. Splits an RFC 5322-style `Name <addr@host>` into the discrete
  * `{ email, name }` object SendGrid's v3 API requires — it rejects a combined
  * display-name string outright. A bare address with no display name is
  * returned as-is with no name.
@@ -77,9 +61,9 @@ type SendGridPayload = {
 /**
  * PURE. Builds the SendGrid v3 `/mail/send` body.
  *
- * ONE PERSONALIZATION PER RECIPIENT, deliberately: the Resend path passed the
- * whole recipient array as a single `to`, which put every officer's address in
- * every other officer's To: header — a real (if minor) disclosure, since
+ * ONE PERSONALIZATION PER RECIPIENT, deliberately: putting the whole recipient
+ * array in a single shared `to` would put every officer's address in every
+ * other officer's To: header — a real (if minor) disclosure, since
  * emailStepTurn fans out to every eligible officer for a step. Separate
  * personalizations make SendGrid deliver one private copy each.
  *
@@ -145,17 +129,6 @@ async function sendViaSendGrid(args: SendEmailArgs): Promise<SendEmailResult> {
   return { data: null, error: { name: 'sendgrid_error', message } }
 }
 
-async function sendViaResend(args: SendEmailArgs): Promise<SendEmailResult> {
-  const resend = new Resend(process.env.RESEND_API_KEY)
-  return resend.emails.send({
-    from: EMAIL_FROM,
-    to: args.to,
-    subject: args.subject,
-    html: args.html,
-    ...(args.text !== undefined ? { text: args.text } : {}),
-  }) as unknown as Promise<SendEmailResult>
-}
-
 /**
  * Logs a RETURNED provider error. Provider failures are returned, not thrown
  * (see SendEmailResult), so a caller that only wraps sendEmail in try/catch
@@ -180,11 +153,10 @@ export function logEmailFailure(context: string, result: SendEmailResult): void 
 }
 
 export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
-  const provider = activeEmailProvider()
-  if (!provider) {
+  if (!sendGridApiKey()) {
     throw new Error(
-      'No email transport is configured. Set SENDGRID_API_KEY (or SENDGRID_APIKEY), or RESEND_API_KEY, before calling sendEmail().'
+      'SendGrid is not configured. Set SENDGRID_API_KEY (or SENDGRID_APIKEY) before calling sendEmail().'
     )
   }
-  return provider === 'sendgrid' ? sendViaSendGrid(args) : sendViaResend(args)
+  return sendViaSendGrid(args)
 }
