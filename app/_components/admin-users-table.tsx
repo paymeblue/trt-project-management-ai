@@ -11,7 +11,15 @@ import {
 import { ALL_USER_ROLES } from '@/lib/workflow'
 import { getTabToken } from '@/lib/use-tab-token'
 
-type Row = { id: string; name: string; email: string; role: string; position: string | null }
+type Row = {
+  id: string
+  name: string
+  email: string
+  role: string
+  position: string | null
+  emailDeliverable: boolean | null
+  emailUndeliverableReason: string | null
+}
 type PositionOption = { slug: string; label: string }
 
 const ADMIN_ROLES = ['super_admin', 'operations']
@@ -121,7 +129,17 @@ export default function AdminUsersTable({
                     {u.name}
                     {u.id === meId && <span className="ml-2 text-xs text-gray-400">(you)</span>}
                   </td>
-                  <td className="truncate px-4 py-3 text-gray-600" title={u.email}>{u.email}</td>
+                  <td className="truncate px-4 py-3 text-gray-600" title={u.email}>
+                    {u.email}
+                    {u.emailDeliverable === false && (
+                      <span
+                        title={u.emailUndeliverableReason ?? 'Email undeliverable'}
+                        className="ml-2 inline-block rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700"
+                      >
+                        Undeliverable
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <select
                       value={roles[u.id]}

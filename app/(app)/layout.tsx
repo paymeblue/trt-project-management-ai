@@ -14,6 +14,7 @@ import PendingStepGate from '@/app/_components/pending-step-gate';
 import PendingCallGate from '@/app/_components/pending-call-gate';
 import HeaderProjectSwitcher from '@/app/_components/header-project-switcher';
 import NotificationsBell from '@/app/_components/notifications-bell';
+import EmailDeliverabilityBanner from '@/app/_components/email-deliverability-banner';
 import { getDisputeUnreadCount, getVideoCallUnreadCount } from '@/lib/notifications';
 import MyWorkProvider from '@/app/_components/my-work-provider';
 import WorkflowStepsProvider from '@/app/_components/workflow-steps-provider';
@@ -31,7 +32,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const { userId, role } = await verifySession();
 
   const [me] = await db
-    .select({ name: users.name, avatarData: users.avatarData, position: users.position })
+    .select({
+      name: users.name,
+      avatarData: users.avatarData,
+      position: users.position,
+      email: users.email,
+      emailDeliverable: users.emailDeliverable,
+      emailUndeliverableReason: users.emailUndeliverableReason,
+    })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
@@ -140,7 +148,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         </header>
 
         <main className="w-full flex-1 px-margin-mobile py-6 md:px-margin-desktop">
-          <div className="mx-auto w-full max-w-6xl">{children}</div>
+          <div className="mx-auto w-full max-w-6xl">
+            <EmailDeliverabilityBanner
+              email={me?.email ?? ''}
+              deliverable={me?.emailDeliverable ?? null}
+              reason={me?.emailUndeliverableReason ?? null}
+            />
+            {children}
+          </div>
         </main>
       </div>
 

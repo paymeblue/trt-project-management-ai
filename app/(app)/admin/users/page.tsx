@@ -13,7 +13,15 @@ export const dynamic = 'force-dynamic'
 export default async function AdminUsersPage() {
   const { userId, role } = await requireAdmin()
   const rows = await db
-    .select({ id: users.id, name: users.name, email: users.email, role: users.role, position: users.position })
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      role: users.role,
+      position: users.position,
+      emailDeliverable: users.emailDeliverable,
+      emailUndeliverableReason: users.emailUndeliverableReason,
+    })
     .from(users)
     .orderBy(desc(users.createdAt))
   const positions = await getPositionsWithCounts()
