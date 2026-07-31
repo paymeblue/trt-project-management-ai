@@ -29,8 +29,20 @@ export type EmailProvider = 'sendgrid' | 'resend'
  * no second step — the Resend key can stay in place as a rollback (drop
  * SENDGRID_API_KEY and delivery falls straight back) without a code change.
  */
+/**
+ * BOTH spellings are accepted deliberately. This repo's existing convention is
+ * the un-underscored form (`GETSTREAM_APIKEY`), and `SENDGRID_APIKEY` is what
+ * was actually provisioned — while `SENDGRID_API_KEY` is SendGrid's own
+ * documented name and what most deployment guides tell you to set. Reading only
+ * one silently ignores a correctly-set key and falls back to the other
+ * provider with no error anywhere, which is exactly what happened here.
+ */
+export function sendGridApiKey(): string | undefined {
+  return process.env.SENDGRID_API_KEY || process.env.SENDGRID_APIKEY || undefined
+}
+
 export function activeEmailProvider(): EmailProvider | null {
-  if (process.env.SENDGRID_API_KEY) return 'sendgrid'
+  if (sendGridApiKey()) return 'sendgrid'
   if (process.env.RESEND_API_KEY) return 'resend'
   return null
 }
@@ -108,7 +120,7 @@ async function sendViaSendGrid(args: SendEmailArgs): Promise<SendEmailResult> {
   const res = await fetch(SENDGRID_ENDPOINT, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`,
+      Authorization: `Bearer ${sendGridApiKey()}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
@@ -162,7 +174,7 @@ export function logEmailFailure(context: string, result: SendEmailResult): void 
     hint =
       ' — EMAIL_FROM is not a verified sender in SendGrid. Verify the address (or authenticate the domain) and set EMAIL_FROM to it.'
   } else if (/authorization grant is invalid|Permission denied|401|403/i.test(message)) {
-    hint = ' — check SENDGRID_API_KEY is set correctly and has Mail Send permission.'
+    hint = ' — check SENDGRID_API_KEY/SENDGRID_APIKEY is set correctly and has Mail Send permission.'
   }
   console.warn(`[email] ${context} failed: ${message}${hint}`)
 }
@@ -171,7 +183,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
   const provider = activeEmailProvider()
   if (!provider) {
     throw new Error(
-      'No email transport is configured. Set SENDGRID_API_KEY (preferred) or RESEND_API_KEY before calling sendEmail().'
+      'No email transport is configured. Set SENDGRID_API_KEY (or SENDGRID_APIKEY), or RESEND_API_KEY, before calling sendEmail().'
     )
   }
   return provider === 'sendgrid' ? sendViaSendGrid(args) : sendViaResend(args)
