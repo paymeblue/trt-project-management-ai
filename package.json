@@ -24,7 +24,8 @@
     "calls:end-stale": "tsx scripts/end-stale-calls.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "email:verify": "tsx scripts/verify-email.ts"
+    "email:verify": "tsx scripts/verify-email.ts",
+    "email:deliverability": "tsx scripts/check-email-deliverability.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
