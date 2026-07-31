@@ -435,6 +435,12 @@ export const REQUIRED_PHOTOS: Record<string, number> = {
   // v2.0 Phase 22: "has optimisation been done? ... upload document" — the
   // one required attachment for the Production Process checklist.
   production_process: 1,
+  // Quick note (2026-07-31): step 15 was repointed to the fuller 10-section
+  // production_quality_control form. Per-ITEM isPhotoRequired flags are stored
+  // but never enforced at submit time (actions/checklists.ts only reads them
+  // when editing a template), so without this per-SLUG entry the repoint would
+  // have silently made photo evidence optional on the production step.
+  production_quality_control: 1,
   // factory_manager_readiness deliberately absent: quick task 260717-cl0
   // replaced the incorrect flat "3 photos on the last step" rule with the
   // answer-gated, per-item rule below (missingConditionalPhotos).
