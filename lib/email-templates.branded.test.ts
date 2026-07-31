@@ -80,16 +80,16 @@ describe('CTA hrefs match the passed URLs for the 3 auth templates', () => {
 })
 
 describe('stepTurnEmail and projectClosedOutEmail emit an APP_URL-derived CTA', () => {
-  it('stepTurnEmail CTA points at absoluteUrl("/")', () => {
+  it('stepTurnEmail CTA points at the role-aware /dashboard', () => {
     vi.stubEnv('APP_URL', 'https://trt.example.com')
     const { html } = stepTurnEmail({ projectName: 'Acme Villa', stepLabel: 'Send for Production' })
-    expect(html).toMatch(/<a[^>]+href="https:\/\/trt\.example\.com\/"/)
+    expect(html).toMatch(/<a[^>]+href="https:\/\/trt\.example\.com\/dashboard"/)
   })
 
-  it('projectClosedOutEmail CTA points at absoluteUrl("/")', () => {
+  it('projectClosedOutEmail CTA points at the role-aware /dashboard', () => {
     vi.stubEnv('APP_URL', 'https://trt.example.com')
     const { html } = projectClosedOutEmail({ projectName: 'Acme Villa', metDeadline: true })
-    expect(html).toMatch(/<a[^>]+href="https:\/\/trt\.example\.com\/"/)
+    expect(html).toMatch(/<a[^>]+href="https:\/\/trt\.example\.com\/dashboard"/)
   })
 })
 

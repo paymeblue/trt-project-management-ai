@@ -94,7 +94,7 @@ export function stepTurnEmail({
     paragraphs: [
       `It is your turn to act: <strong>${escapeHtml(stepLabel)}</strong> is now pending on <strong>${escapeHtml(projectName)}</strong>.`,
     ],
-    cta: { label: 'Open TRT PM', url: absoluteUrl('/') },
+    cta: { label: 'Open TRT PM', url: absoluteUrl('/dashboard') },
   })
 
   return { subject, html, text }
@@ -124,7 +124,7 @@ export function projectClosedOutEmail({
       `<strong>${escapeHtml(projectName)}</strong> has been closed out — every step is complete.`,
       deadlineLine,
     ],
-    cta: { label: 'Open TRT PM', url: absoluteUrl('/') },
+    cta: { label: 'Open TRT PM', url: absoluteUrl('/dashboard') },
   })
 
   return { subject, html, text }
