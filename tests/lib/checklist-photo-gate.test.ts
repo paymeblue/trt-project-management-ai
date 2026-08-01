@@ -95,6 +95,54 @@ describe('missingRequiredAnswers', () => {
     expect(result).toContain('material')
     expect(result).toContain('accessories')
   })
+
+  // The 2026-07-31 paper rewrite added the first 'text' items to this slug
+  // (Project / Unit). The wizard's text input writes only `textValue`, so a
+  // value-only rule left the whole form permanently gated shut.
+  it('Test 12: a text item is answered by textValue, not value', () => {
+    const textItems = [
+      { id: 'project', label: 'Project', itemType: 'text' },
+      { id: 'unit', label: 'Unit', itemType: 'text' },
+    ]
+    expect(
+      missingRequiredAnswers(FM_READINESS_SLUG, textItems, {
+        project: { textValue: 'Villa 12' },
+        unit: { textValue: 'Kitchen island' },
+      }),
+    ).toEqual([])
+  })
+
+  it('Test 13: a text item with blank/whitespace/absent textValue is unanswered', () => {
+    const textItems = [
+      { id: 'project', label: 'Project', itemType: 'text' },
+      { id: 'unit', label: 'Unit', itemType: 'text' },
+      { id: 'other', label: 'Other', itemType: 'text' },
+    ]
+    const result = missingRequiredAnswers(FM_READINESS_SLUG, textItems, {
+      project: { textValue: '' },
+      unit: { textValue: '   ' },
+    })
+    expect(result).toEqual(['project', 'unit', 'other'])
+  })
+
+  it('Test 14: a text item is NOT satisfied by a radio value, and vice versa', () => {
+    expect(
+      missingRequiredAnswers(FM_READINESS_SLUG, [{ id: 'project', label: 'Project', itemType: 'text' }], {
+        project: { value: 'yes' },
+      }),
+    ).toEqual(['project'])
+    expect(
+      missingRequiredAnswers(FM_READINESS_SLUG, [{ id: 'material', label: 'Material', itemType: 'radio' }], {
+        material: { textValue: 'typed into the wrong field' },
+      }),
+    ).toEqual(['material'])
+  })
+
+  it('Test 15: items with no itemType keep the original radio behavior', () => {
+    expect(missingRequiredAnswers(FM_READINESS_SLUG, items, { material: { value: 'yes' } })).toEqual(
+      ['accessories'],
+    )
+  })
 })
 
 describe('isOptionalFmReadinessItem', () => {

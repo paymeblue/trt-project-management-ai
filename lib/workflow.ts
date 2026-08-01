@@ -478,15 +478,26 @@ export function missingConditionalPhotos(
 // factory_manager_readiness except the optional item) that are currently
 // unanswered — including an answer object present with a blank/null value.
 // Scoped to FM_READINESS_SLUG — every other checklist slug is untouched.
+//
+// A 'text' item is answered by its `textValue`, never by `value` (the wizard's
+// text input only ever writes textValue). Before the 2026-07-31 rewrite this
+// checklist was all radios, so the value-only rule held; the paper form's
+// Project/Unit lines made it the first slug here with text items, and reading
+// only `value` left the form permanently ungated-past — Next/Submit stayed
+// disabled with "Answer this item before continuing" no matter what was typed.
 export function missingRequiredAnswers(
   slug: string,
-  items: { id: string; label: string }[],
-  answers: Record<string, { value?: string | null } | undefined>,
+  items: { id: string; label: string; itemType?: string | null }[],
+  answers: Record<string, { value?: string | null; textValue?: string | null } | undefined>,
 ): string[] {
   if (slug !== FM_READINESS_SLUG) return []
   return items
     .filter((item) => !isOptionalFmReadinessItem(item))
-    .filter((item) => !answers[item.id]?.value)
+    .filter((item) =>
+      item.itemType === 'text'
+        ? !answers[item.id]?.textValue?.trim()
+        : !answers[item.id]?.value,
+    )
     .map((item) => item.id)
 }
 
