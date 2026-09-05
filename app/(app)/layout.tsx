@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { headers } from 'next/headers';
 import { eq } from 'drizzle-orm';
 import { verifySession } from '@/lib/dal';
 import { db } from '@/db';
@@ -22,6 +23,7 @@ import { TrtLogo, TrtWatermark } from '@/app/_components/trt-logo';
 import { getMyWork } from '@/lib/my-work';
 import { getLiveWorkflowSteps } from '@/lib/workflow-graph';
 import { isAdminRole, userRoleLabel, type UserRole } from '@/lib/workflow';
+import { isHandheldUserAgent } from '@/lib/device';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   // Header-first, cookie-fallback (Phase 20.1): a tab running a per-tab
@@ -30,6 +32,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // is the DAL choke point that also honors a per-tab Authorization header,
   // and every Server Component in this tree must go through it (PATTERNS.md).
   const { userId, role } = await verifySession();
+
+  // Phone/tablet detection is done from the User-Agent, not a CSS breakpoint:
+  // real Android tablets report both a >=1024px CSS viewport and a non-coarse
+  // pointer, so width- and pointer-based rules both put an 8-11" touch screen
+  // into desktop mode (sidebar shown, hamburger hidden = no way to navigate).
+  const isHandheld = isHandheldUserAgent((await headers()).get('user-agent'));
 
   const [me] = await db
     .select({
@@ -81,7 +89,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       </div>
 
       {/* NavigationDrawer (fixed, out of flow) */}
-      <aside className="fixed left-0 top-0 bottom-0 z-40 hidden w-72 flex-col overflow-y-auto border-r border-outline-variant bg-surface-container-low lg:pointer-fine:flex">
+      <aside
+        className={`fixed left-0 top-0 bottom-0 z-40 hidden w-72 flex-col overflow-y-auto border-r border-outline-variant bg-surface-container-low ${
+          isHandheld ? '' : 'lg:flex'
+        }`}
+      >
         {/* Brand — same height as the top header bar so the divider runs straight */}
         <div className="flex h-16 shrink-0 items-center border-b border-outline-variant px-6 md:h-20">
           <TrtLogo />
@@ -121,7 +133,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main canvas — block with left padding for the fixed sidebar (can't collapse) */}
-      <div className="relative z-10 flex min-h-screen w-full flex-col lg:pointer-fine:pl-72">
+      <div
+        className={`relative z-10 flex min-h-screen w-full flex-col ${
+          isHandheld ? '' : 'lg:pl-72'
+        }`}
+      >
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-outline-variant bg-surface/95 px-margin-mobile backdrop-blur-sm md:h-20 md:px-margin-desktop">
           <div className="flex items-center gap-2">
             <MobileSidebar
@@ -130,6 +146,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               roleLabel={roleLabel}
               initials={initials}
               avatarData={avatarData}
+              alwaysVisible={isHandheld}
             />
             <HeaderProjectSwitcher
               viewerRole={role as UserRole}

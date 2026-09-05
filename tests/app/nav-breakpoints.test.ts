@@ -1,92 +1,96 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { isHandheldUserAgent } from '@/lib/device'
 
-// Dead-zone regression guard. Two bugs are locked down here.
+// Nav availability guard. There must never be a device/width combination that
+// renders NEITHER the persistent sidebar NOR the hamburger, because that
+// strands the user with no way to navigate.
 //
-// Bug 1 (original): the sidebar/gutter/hamburger triad all sat on `md` (768px)
-// — a tablet reporting a 768-1023px CSS viewport got a 288px fixed sidebar +
-// matching content gutter AND no hamburger at all, since the drawer's
-// `md:hidden` fired at the same width the sidebar appeared.
+// This bug was reported three times on a real Samsung Galaxy Tab A11
+// (SM-X135G), and each CSS-only fix failed for a new reason:
 //
-// Bug 2 (field report, Galaxy Tab A11 SM-X135G): moving to `lg` was still not
-// enough. Chrome on Android tablets can request the *desktop* site, which
-// forces a >=1024px layout viewport regardless of physical screen size. The
-// `lg:` rules then fired on an 8-11" touch screen: the persistent sidebar ate
-// the width and the hamburger vanished — the original symptom, at a new
-// trigger. The fix gates the sidebar on `pointer: fine` as well, so a touch
-// device (coarse pointer) ALWAYS gets the drawer no matter what width the
-// browser reports.
+//   1. `md:` (768px)          — tablet reported 768-1023px: sidebar rendered on
+//                               an 8-11" screen AND `md:hidden` hid the hamburger.
+//   2. `lg:` (1024px)         — tablet still reported >=1024px CSS width.
+//   3. `lg:pointer-fine:`     — tablet did not report a coarse pointer either.
 //
-// The invariant that matters: the condition under which the sidebar appears
-// must be character-for-character the condition under which the hamburger
-// hides. If they ever drift, there is a width/pointer combination with either
-// no navigation at all or two competing navs.
+// Conclusion: on real Android tablets BOTH the viewport width and the `pointer`
+// media feature are unreliable. The layout now decides from the User-Agent
+// server-side, so a handheld always gets the hamburger regardless of width.
 
-const CONDITION = '((?:sm|md|lg|xl|2xl):(?:pointer-fine:)?)'
+describe('handheld User-Agent detection', () => {
+  it('detects the reported Galaxy Tab A11 (SM-X135G)', () => {
+    const ua =
+      'Mozilla/5.0 (Linux; Android 14; SM-X135G) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    expect(isHandheldUserAgent(ua)).toBe(true)
+  })
 
-describe('nav visibility condition stays in lockstep', () => {
-  const appLayout = readFileSync(
-    path.join(process.cwd(), 'app/(app)/layout.tsx'),
-    'utf-8'
-  )
+  it('detects an Android tablet even when Chrome omits the "Mobile" token', () => {
+    // Tablets drop the `Mobile` token that phones carry — matching on `Mobile`
+    // alone would miss every Android tablet, which is the whole bug.
+    const tabletUa =
+      'Mozilla/5.0 (Linux; Android 14; SM-X210) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+    expect(tabletUa).not.toContain('Mobile')
+    expect(isHandheldUserAgent(tabletUa)).toBe(true)
+  })
+
+  it('detects iPhone and iPad', () => {
+    expect(
+      isHandheldUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile/15E148')
+    ).toBe(true)
+    expect(isHandheldUserAgent('Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) Mobile/15E148')).toBe(
+      true
+    )
+  })
+
+  it('does NOT flag desktop browsers — they keep the persistent sidebar', () => {
+    expect(
+      isHandheldUserAgent(
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+      )
+    ).toBe(false)
+    expect(
+      isHandheldUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+      )
+    ).toBe(false)
+  })
+
+  it('treats a missing User-Agent as desktop rather than throwing', () => {
+    expect(isHandheldUserAgent(null)).toBe(false)
+    expect(isHandheldUserAgent(undefined)).toBe(false)
+    expect(isHandheldUserAgent('')).toBe(false)
+  })
+})
+
+describe('nav shell wiring', () => {
+  const appLayout = readFileSync(path.join(process.cwd(), 'app/(app)/layout.tsx'), 'utf-8')
   const mobileSidebar = readFileSync(
     path.join(process.cwd(), 'app/_components/mobile-sidebar.tsx'),
     'utf-8'
   )
 
-  // <aside> visibility utility: the line with the fixed sidebar's `hidden` +
-  // `w-72` + a <condition>flex utility.
-  const asideLine = appLayout
-    .split('\n')
-    .find((line) => line.includes('w-72') && line.includes('hidden'))
-  const asideMatch = asideLine?.match(new RegExp(`${CONDITION}flex`))
-
-  // Main-canvas padding utility (the content gutter that must open exactly
-  // when the sidebar appears).
-  const mainCanvasMatch = appLayout.match(new RegExp(`${CONDITION}pl-72`))
-
-  // Mobile-sidebar wrapper's hide-when-sidebar-is-showing utility.
-  const mobileSidebarMatch = mobileSidebar.match(new RegExp(`${CONDITION}hidden`))
-
-  it('finds a visibility condition on the <aside> utility', () => {
-    expect(asideMatch, 'no <breakpoint>[:pointer-fine]:flex found on the sidebar <aside> line').not.toBeNull()
+  it('layout derives isHandheld from the request User-Agent', () => {
+    expect(appLayout).toMatch(/isHandheldUserAgent\(\s*\(await headers\(\)\)\.get\('user-agent'\)/)
   })
 
-  it('finds a visibility condition on the main-canvas padding utility', () => {
-    expect(mainCanvasMatch, 'no <breakpoint>[:pointer-fine]:pl-72 found in app/(app)/layout.tsx').not.toBeNull()
+  it('the sidebar and its content gutter are both suppressed on handhelds', () => {
+    // Both must be gated on the SAME flag. Suppressing only the sidebar would
+    // leave a 288px empty gutter; suppressing only the gutter would leave the
+    // sidebar overlaying content.
+    const asideLine = appLayout.split('\n').find((l) => l.includes("isHandheld ? '' : 'lg:flex'"))
+    const gutterLine = appLayout.split('\n').find((l) => l.includes("isHandheld ? '' : 'lg:pl-72'"))
+    expect(asideLine, 'sidebar <aside> is not gated on isHandheld').toBeDefined()
+    expect(gutterLine, 'main content gutter is not gated on isHandheld').toBeDefined()
   })
 
-  it('finds a visibility condition on the mobile-sidebar wrapper', () => {
-    expect(
-      mobileSidebarMatch,
-      'no <breakpoint>[:pointer-fine]:hidden found in mobile-sidebar.tsx'
-    ).not.toBeNull()
+  it('the hamburger is forced visible on handhelds', () => {
+    expect(appLayout).toMatch(/alwaysVisible=\{isHandheld\}/)
+    expect(mobileSidebar).toMatch(/alwaysVisible \? '' : 'lg:hidden'/)
   })
 
-  it('all three conditions are identical — the dead-zone invariant', () => {
-    const asideCondition = asideMatch![1]
-    const mainCanvasCondition = mainCanvasMatch![1]
-    const mobileSidebarCondition = mobileSidebarMatch![1]
-    expect(asideCondition).toBe(mainCanvasCondition)
-    expect(mainCanvasCondition).toBe(mobileSidebarCondition)
-  })
-
-  it('the shared condition is lg:pointer-fine: — width alone is not enough, because Chrome\'s "Desktop site" mode on an Android tablet reports a >=1024px viewport on a touch screen', () => {
-    expect(asideMatch![1]).toBe('lg:pointer-fine:')
-  })
-
-  it('gates on pointer-fine so any coarse-pointer (touch) device always gets the drawer', () => {
-    // If this drops back to a bare `lg:`, a desktop-site-mode tablet loses its
-    // hamburger again — the exact field-reported regression.
-    expect(asideMatch![1]).toContain('pointer-fine:')
-  })
-
-  it('the aside still carries a bare `hidden` for the default (drawer) state', () => {
-    expect(asideLine).toContain('hidden')
-  })
-
-  it('the hamburger button is 44px (h-11 w-11)', () => {
+  it('the hamburger button is 44px (h-11 w-11) for gloved factory-floor use', () => {
     expect(mobileSidebar).toMatch(/h-11 w-11/)
   })
 })

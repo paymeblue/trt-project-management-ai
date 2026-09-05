@@ -11,17 +11,24 @@ export default function MobileSidebar({
   roleLabel,
   initials,
   avatarData,
+  alwaysVisible = false,
 }: {
   name: string
   role: string
   roleLabel: string
   initials: string
   avatarData?: string | null
+  /**
+   * Set for phone/tablet User-Agents. The hamburger then renders at EVERY
+   * width, because real Android tablets report a >=1024px CSS viewport — a
+   * width-based `lg:hidden` there hides the only way to navigate.
+   */
+  alwaysVisible?: boolean
 }) {
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="lg:pointer-fine:hidden">
+    <div className={alwaysVisible ? '' : 'lg:hidden'}>
       <button
         type="button"
         onClick={() => setOpen(true)}
