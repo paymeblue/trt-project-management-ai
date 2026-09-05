@@ -93,4 +93,25 @@ describe('nav shell wiring', () => {
   it('the hamburger button is 44px (h-11 w-11) for gloved factory-floor use', () => {
     expect(mobileSidebar).toMatch(/h-11 w-11/)
   })
+
+  it('the hamburger cannot be squashed by header flex layout', () => {
+    // Without shrink-0 a wide sibling (the project switcher) can compress the
+    // 44px button toward zero width on a narrow header.
+    expect(mobileSidebar).toMatch(/h-11 w-11 shrink-0/)
+  })
+
+  it('the hamburger icon is an inline SVG, not a webfont ligature', () => {
+    // A `material-symbols-outlined` ligature renders as the literal text
+    // "menu" whenever the Google-hosted font is slow/blocked. The only
+    // navigation control on a handheld must not depend on that request.
+    const start = mobileSidebar.indexOf('aria-label="Open navigation menu"')
+    const buttonBlock = mobileSidebar.slice(
+      start,
+      mobileSidebar.indexOf('</button>', start)
+    )
+    expect(buttonBlock).toContain('<svg')
+    // The ligature element itself must be gone (a code comment mentioning the
+    // class name is fine — match the rendered element, not the bare string).
+    expect(buttonBlock).not.toMatch(/<span[^>]*material-symbols-outlined[^>]*>\s*menu\s*<\/span>/)
+  })
 })
