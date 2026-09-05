@@ -81,7 +81,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       </div>
 
       {/* NavigationDrawer (fixed, out of flow) */}
-      <aside className="fixed left-0 top-0 bottom-0 z-40 hidden w-72 flex-col overflow-y-auto border-r border-outline-variant bg-surface-container-low lg:flex">
+      <aside className="fixed left-0 top-0 bottom-0 z-40 hidden w-72 flex-col overflow-y-auto border-r border-outline-variant bg-surface-container-low lg:pointer-fine:flex">
         {/* Brand — same height as the top header bar so the divider runs straight */}
         <div className="flex h-16 shrink-0 items-center border-b border-outline-variant px-6 md:h-20">
           <TrtLogo />
@@ -121,7 +121,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main canvas — block with left padding for the fixed sidebar (can't collapse) */}
-      <div className="relative z-10 flex min-h-screen w-full flex-col lg:pl-72">
+      <div className="relative z-10 flex min-h-screen w-full flex-col lg:pointer-fine:pl-72">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-outline-variant bg-surface/95 px-margin-mobile backdrop-blur-sm md:h-20 md:px-margin-desktop">
           <div className="flex items-center gap-2">
             <MobileSidebar
