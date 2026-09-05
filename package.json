@@ -25,7 +25,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "email:verify": "tsx scripts/verify-email.ts",
-    "email:deliverability": "tsx scripts/check-email-deliverability.ts"
+    "email:deliverability": "tsx scripts/check-email-deliverability.ts",
+    "pwa:icons": "tsx scripts/generate-pwa-icons.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
