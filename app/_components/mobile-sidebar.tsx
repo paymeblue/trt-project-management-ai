@@ -21,12 +21,12 @@ export default function MobileSidebar({
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="md:hidden">
+    <div className="lg:hidden">
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Open navigation menu"
-        className="flex h-10 w-10 items-center justify-center rounded-md border border-outline-variant text-on-surface-variant hover:bg-surface-container-high"
+        className="flex h-11 w-11 items-center justify-center rounded-md border border-outline-variant text-on-surface-variant hover:bg-surface-container-high"
       >
         <span className="material-symbols-outlined">menu</span>
       </button>

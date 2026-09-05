@@ -27,6 +27,18 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // Quick task 260905-kyw: Netlify would otherwise serve public/ assets
+      // with a long-lived cache, letting a bad/stale service worker survive
+      // a deploy. must-revalidate forces a conditional GET on every load.
+      {
+        source: "/sw.js",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, must-revalidate",
+          },
+        ],
+      },
     ];
   },
 };
