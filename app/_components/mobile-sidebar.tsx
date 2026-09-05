@@ -33,9 +33,31 @@ export default function MobileSidebar({
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Open navigation menu"
-        className="flex h-11 w-11 items-center justify-center rounded-md border border-outline-variant text-on-surface-variant hover:bg-surface-container-high"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-outline-variant text-on-surface-variant hover:bg-surface-container-high"
       >
-        <span className="material-symbols-outlined">menu</span>
+        {/*
+          Inline SVG, deliberately NOT the `material-symbols-outlined` ligature
+          used elsewhere in the header. That icon font is fetched from
+          fonts.googleapis.com; when it is slow, blocked, or still loading, a
+          ligature renders as its literal text ("menu") — so the one control
+          that opens navigation would look like stray text instead of a
+          hamburger. This is the only way to navigate on a handheld, so it must
+          not depend on a third-party font request.
+        */}
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
       </button>
 
       {open && (
