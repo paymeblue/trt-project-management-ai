@@ -21,7 +21,7 @@ export default function MobileSidebar({
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="lg:hidden">
+    <div className="lg:pointer-fine:hidden">
       <button
         type="button"
         onClick={() => setOpen(true)}
