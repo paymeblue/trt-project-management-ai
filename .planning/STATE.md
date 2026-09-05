@@ -4,7 +4,8 @@ milestone: v2.0
 milestone_name: milestone
 status: Awaiting next milestone
 stopped_at: context exhaustion at 75% (2026-07-22)
-last_updated: "2026-07-31T09:27:00.000Z"
+last_updated: "2026-09-05T15:52:00.000Z"
+last_activity: 2026-09-05 - Completed quick task 260905-kyw: made the app an installable PWA (app/manifest.ts, generated icon set via sharp/no new deps, hand-written public/sw.js with a strict no-user-data cache allowlist since tablets are shared across PM shifts, app/offline/page.tsx, proxy.ts matcher widened to expose PWA assets while signed out) and closed the tablet nav dead zone (the sidebar/gutter/hamburger breakpoint triad moved md:768px -> lg:1024px in app/(app)/layout.tsx and mobile-sidebar.tsx, hamburger enlarged to 44px) — the hamburger was previously invisible on Samsung-tablet-range viewports with no sidebar fallback, leaving no way to navigate. 3 new vitest suites (manifest/service-worker/nav-breakpoints); 587 passed + 1 todo (+26 over the 561 baseline); tsc/lint clean. Live-verified via agent-browser against a real production build: breakpoint matrix correct at all 8 tested widths for Factory PM and Super Admin, drawer nav works, SW active with cache containing zero HTML/API/RSC entries, real offline fallback confirmed (server killed, /offline rendered), signed-out access to /sw.js and /manifest.webmanifest confirmed. Not verified: physical Samsung tablet fingertip test and Chrome's install-button click-through (underlying installability facts all confirmed independently).
 last_activity: 2026-07-31 - Completed quick task 260731-sgo: removed Resend entirely (SendGrid sole transport), added a pure MX+suppression deliverability classifier, 3 additive users columns, daily Netlify-scheduled refresh job, on-demand CLI, and a dismissable banner + admin badge flagging the 6 @trtarredo.demo users
 progress:
   total_phases: 1
