@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import TabSessionProvider from "@/app/_components/tab-session-provider";
@@ -17,6 +17,24 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "TRT Arredo — Project Management",
   description: "Industrial precision in architectural logistics.",
+  appleWebApp: {
+    capable: true,
+    title: "TRT PM",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Do NOT set maximumScale/userScalable: false — pinch-zoom is an
+  // accessibility affordance and this is a production tool used by people
+  // reading small checklist text on a factory floor.
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f8f9ff" },
+    { media: "(prefers-color-scheme: dark)", color: "#14181f" },
+  ],
 };
 
 export default function RootLayout({
