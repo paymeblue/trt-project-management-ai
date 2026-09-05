@@ -9,6 +9,6 @@ export const config = {
   // out — otherwise the SW registers against an HTML 302 response (MIME
   // error) and the install prompt never appears (quick-260905-kyw).
   matcher: [
-    "/((?!api/auth|_next/static|_next/image|favicon.ico|icon.svg|apple-icon|trt-logo.webp|manifest.webmanifest|sw.js|offline|icons/).*)",
+    "/((?!api/auth|_next/static|_next/image|favicon.ico|icon.svg|apple-icon|trt-logo.webp|manifest.webmanifest|sw.js|offline|diag|icons/).*)",
   ],
 }
