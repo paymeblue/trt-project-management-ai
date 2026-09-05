@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import TabSessionProvider from "@/app/_components/tab-session-provider";
+import ServiceWorkerRegister from "@/app/_components/service-worker-register";
 import "./globals.css";
 
 const inter = Inter({
@@ -86,6 +87,7 @@ export default function RootLayout({
           {`(function(){var d=document.documentElement;function r(){d.classList.add('fonts-ready')}try{if(document.fonts&&document.fonts.load){var t=setTimeout(r,3000);document.fonts.load('1em "Material Symbols Outlined"').then(function(){clearTimeout(t);r()}).catch(function(){clearTimeout(t);r()})}else{r()}}catch(e){r()}})()`}
         </Script>
         <TabSessionProvider>{children}</TabSessionProvider>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );
