@@ -94,6 +94,28 @@ describe('nav shell wiring', () => {
     expect(mobileSidebar).toMatch(/h-11 w-11/)
   })
 
+  it('the drawer is full screen (full width + dynamic viewport height)', () => {
+    // h-dvh rather than h-screen: on mobile browsers 100vh is the LARGEST
+    // viewport, so the sign-out row would sit behind the address bar.
+    expect(mobileSidebar).toMatch(/h-dvh/)
+    expect(mobileSidebar).not.toMatch(/max-w-\[80%\]/)
+    expect(mobileSidebar).toMatch(/flex h-full w-full flex-col/)
+  })
+
+  it('a full-screen drawer still has an explicit close control', () => {
+    // Going full screen removes the tap-outside scrim, so without this the
+    // user is trapped in the drawer.
+    const closeButtons = mobileSidebar.match(/aria-label="Close navigation menu"/g) ?? []
+    expect(closeButtons.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('the drawer closes on navigation, not just on link taps', () => {
+    // Keyed off pathname so back/forward, programmatic navigation, and
+    // re-tapping the active route all close it too.
+    expect(mobileSidebar).toMatch(/usePathname/)
+    expect(mobileSidebar).toMatch(/if \(lastPathname !== pathname\) \{\s*setLastPathname\(pathname\)\s*setOpen\(false\)\s*\}/)
+  })
+
   it('the hamburger cannot be squashed by header flex layout', () => {
     // Without shrink-0 a wide sibling (the project switcher) can compress the
     // 44px button toward zero width on a narrow header.
